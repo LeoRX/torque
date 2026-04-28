@@ -16,9 +16,10 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
-# ── Claude Code IDE config + context ─────────────────────────────────────────
+# ── Claude Code IDE config + private deployment notes ────────────────────────
+# CLAUDE.md is committed (sanitised public version — no private info)
+# .claude/ contains private deployment details — gitignored, local only
 .claude/
-CLAUDE.md
 
 # ── IDE / editor ─────────────────────────────────────────────────────────────
 .vscode/
