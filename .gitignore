@@ -15,8 +15,9 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
-# ── Claude Code IDE config ────────────────────────────────────────────────────
+# ── Claude Code IDE config + context ─────────────────────────────────────────
 .claude/
+CLAUDE.md
 
 # ── IDE / editor ─────────────────────────────────────────────────────────────
 .vscode/
