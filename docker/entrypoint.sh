@@ -23,7 +23,6 @@ cat > /var/www/html/creds.php << PHP
 \$db_table          = 'raw_logs';
 \$db_keys_table     = 'torque_keys';
 \$db_sessions_table = 'sessions';
-\$gmapsApiKey       = '${GMAPS_API_KEY:-}';
 \$torque_id         = '${TORQUE_ID:-}';
 \$torque_id_hash    = '${TORQUE_ID_HASH:-}';
 

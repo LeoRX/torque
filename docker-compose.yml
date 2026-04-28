@@ -20,7 +20,6 @@ services:
       - APP_PASS=${APP_PASS:-}
 
       # ── Optional integrations ─────────────────────────────────────────────────
-      - GMAPS_API_KEY=${GMAPS_API_KEY:-}
       - TORQUE_ID=${TORQUE_ID:-}
       - TORQUE_ID_HASH=${TORQUE_ID_HASH:-}
 

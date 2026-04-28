@@ -16,11 +16,6 @@ $db_table          = 'raw_logs';
 $db_keys_table     = 'torque_keys';
 $db_sessions_table = 'sessions';
 
-// ── Optional: Google Maps API key ─────────────────────────────────────────────
-// Create a key at https://developers.google.com/maps/documentation/javascript/
-// Leave empty string to disable map features.
-$gmapsApiKey = '';
-
 // ── Optional: Torque Pro device authentication ────────────────────────────────
 // Enter your Torque app device ID or its MD5 hash to restrict uploads.
 // Leave both empty to allow any Torque Pro device to upload data.

@@ -4,8 +4,11 @@
 
 **Open Torque Viewer** — A PHP web application that displays OBD2 driving data recorded by the Torque Pro Android app. Provides session browsing, interactive charting, GPS map visualisation, data export, and an AI assistant (TorqueAI powered by Claude).
 
-**Live URL**: Served by Caddy from `\\10.1.1.2\10.1.1.253_user\appdata\caddy\site\torque`
-**GitHub**: https://github.com/LeoRX/torque (forked from https://github.com/econpy/torque)
+**Live URL**: `https://torque.eeyorejojo.com` (Docker container on NAS, behind Traefik)
+**Torque Pro upload**: `http://10.1.1.253:7002/upload_data.php` (direct port — bypasses HTTPS redirect)
+**GitHub**: https://github.com/LeoRX/torque (fork of https://github.com/econpy/torque)
+**Docker Hub**: `leorx/open-torque-viewer` (`:arm64` tag deployed on NAS; `:latest` = multi-arch amd64+arm64)
+**Local working copy**: `\\10.1.1.2\10.1.1.253_user\appdata\caddy\site\torque`
 
 ---
 
@@ -13,7 +16,8 @@
 
 | Layer | Technology |
 |---|---|
-| Web server | Caddy (Docker on NAS) |
+| Container | `php:8.2-apache` — Apache + mod_php, single process, no FPM/supervisord |
+| Reverse proxy | Traefik v2 (on `sNet` Docker network) — TLS via wildcard `*.eeyorejojo.com` |
 | Backend | PHP 8.2 |
 | Database | MariaDB 11.4 (external, NAS) |
 | Frontend | Bootstrap 5.3.3, jQuery 3.7.1, Chart.js 4.4, Mapbox GL JS, Tom Select 2.3 |
@@ -192,13 +196,39 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 
 ---
 
+## Deployment
+
+### Container
+- **Image**: `leorx/open-torque-viewer:arm64` (single-platform ARM64, bypasses OCI variant matching)
+- **Container name**: `p_torque` (Portainer stack `torque`, stack ID 193)
+- **Network**: `sNet` (external), static IP `10.1.8.64`
+- **Ports**: `7002:80` — exposed directly on NAS for Torque Pro HTTP uploads
+- **Traefik**: routes `torque.eeyorejojo.com` → HTTPS → container port 80
+
+### Credentials
+- All secrets in `.env` on NAS (gitignored). Template: `.env.example`
+- `entrypoint.sh` generates `creds.php` at startup from env vars; file is `chmod 600` inside container
+- DB connects to `mariadb` hostname on `sNet` (MariaDB container at 10.1.8.61)
+
+### CI/CD (GitHub Actions)
+- **Trigger**: push to `main`
+- **Steps**: PHP lint → secret scan → multi-arch build (amd64+arm64) → push `:latest` + `:YYYY-MM-DD` + `:arm64`
+- **Registry cache**: `leorx/open-torque-viewer:buildcache` (avoids GHA cache multi-arch breakage)
+- **Deploy**: update Portainer stack via REST API (endpoint 8, stack 193)
+
+### Portainer API
+- URL: `http://10.1.1.2:9000`
+- Update stack: `PUT /api/stacks/193?endpointId=8` with `{ StackFileContent, Env, Prune }`
+
+### Re-deploy after image update
+```bash
+# Via Portainer API (Claude has access token)
+# Or manually: Portainer UI → Stacks → torque → Pull and redeploy
+```
+
 ## Parked Plans (in `.claude/plans/`)
 
-The following features are designed and ready to implement:
-
-1. **Docker containerisation** — `php:8.2-apache` image, env-var credentials via `entrypoint.sh`, `docker-compose.yml` with optional MariaDB sidecar
-2. **GitHub + CI/CD** — Git init, `.gitignore`, GitHub Actions (PHP lint + secret scan), webhook-based CD (`deploy.php`)
-3. **MCP Server** — `torque_mcp.py` (FastMCP + mysql-connector-python), exposes 7 tools: `list_sessions`, `get_session_summary`, `get_obd_timeseries`, `get_gps_track`, `list_pids`, `get_fuel_trim_trend`, `get_database_stats`. SSE transport for claude.ai Connectors; stdio for Claude Desktop.
+1. **MCP Server** — `torque_mcp.py` (FastMCP + mysql-connector-python), exposes 7 tools: `list_sessions`, `get_session_summary`, `get_obd_timeseries`, `get_gps_track`, `list_pids`, `get_fuel_trim_trend`, `get_database_stats`. SSE transport for claude.ai Connectors; stdio for Claude Desktop.
 
 ---
 
