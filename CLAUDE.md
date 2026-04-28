@@ -219,6 +219,4 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 
 ## Vehicle Context
 
-- **Profile**: FJ Cruiser
-- **Bank 2 fuel trims monitored** for richness (approaching P0172)
-- **ATF temperature** tracked via k-code `k2182` (single key for both converter and pan sensors — hardware limitation of OBD PID 2182)
+- **Toyota ATF temperature** tracked via k-code `k2182` (single key for both converter and pan sensors — hardware limitation of OBD PID 2182)
