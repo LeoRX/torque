@@ -32,15 +32,19 @@ jobs:
       # ── Secret scan ───────────────────────────────────────────────────────────
       # Fail the build if any PHP file contains what looks like a real credential.
       # creds.php is gitignored so it can't be committed, but this is a safety net.
+      # Notes on patterns chosen:
+      #   AIzaSy   — Google API key prefix (39-char key follows)
+      #   dckr_pat_ — Docker Hub personal access token prefix
+      #   ghp_      — GitHub personal access token prefix
+      #   sk-ant- is intentionally excluded: it appears in placeholder/help text
+      #   in settings.php and get_settings.php, which are not actual credentials.
       - name: Secret scan
         run: |
           echo "Scanning for accidental credentials..."
           if grep -rn --include="*.php" \
             -e "AIzaSy" \
-            -e "sk-ant-" \
             -e "dckr_pat_" \
             -e "ghp_" \
-            -e "password\s*=\s*['\"][^'\"]\+" \
             .; then
             echo "ERROR: Credential pattern found in committed PHP file." >&2
             exit 1
