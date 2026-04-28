@@ -1,0 +1,28 @@
+# ── Secrets — NEVER commit these ─────────────────────────────────────────────
+creds.php
+.env
+
+# ── Runtime-generated files ───────────────────────────────────────────────────
+data/
+
+# ── Python import scripts (local desktop tools, not part of the web app) ──────
+# Kept in working directory but not tracked in the public repo
+*.pyc
+__pycache__/
+
+# ── OS cruft ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Claude Code IDE config ────────────────────────────────────────────────────
+.claude/
+
+# ── IDE / editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log

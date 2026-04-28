@@ -1,0 +1,614 @@
+// Open Torque Viewer - Helpers (Bootstrap 5 + Tom Select + Peity)
+
+// ── Calendar date-range picker ──
+document.addEventListener('DOMContentLoaded', function() {
+  'use strict';
+  var calPanel = document.getElementById('cal-panel');
+  var calBtn   = document.getElementById('btn-cal');
+  if (!calPanel || !calBtn) return;
+
+  var MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+  var SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Current view: left calendar shows viewYear/viewMonth, right shows +1 month
+  var now = new Date();
+  var viewYear  = now.getFullYear();
+  var viewMonth = now.getMonth() - 1; // 0-based
+  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+
+  var selStart      = null; // Date (midnight local)
+  var selEnd        = null; // Date (midnight local)
+  var selectedSids  = [];   // currently checked session IDs
+
+  var CAL_KEY = 'torque-cal-state';
+
+  function saveCalState() {
+    try {
+      sessionStorage.setItem(CAL_KEY, JSON.stringify({
+        ss: selStart ? selStart.getTime() : null,
+        se: selEnd   ? selEnd.getTime()   : null,
+        vy: viewYear,
+        vm: viewMonth
+      }));
+    } catch(e) {}
+  }
+
+  function loadCalState() {
+    try {
+      var raw = sessionStorage.getItem(CAL_KEY);
+      if (!raw) return false;
+      var s = JSON.parse(raw);
+      if (s.ss) selStart = dateOnly(new Date(s.ss));
+      if (s.se) selEnd   = dateOnly(new Date(s.se));
+      if (s.vy !== undefined) viewYear  = s.vy;
+      if (s.vm !== undefined) viewMonth = s.vm;
+      return !!(selStart && selEnd); // true = has a complete range to restore
+    } catch(e) { return false; }
+  }
+
+  // Restore state from previous navigation immediately
+  var _hasRestoredRange = loadCalState();
+
+  function dateOnly(d) { var r = new Date(d); r.setHours(0,0,0,0); return r; }
+  function sameDay(a, b) { return a && b && a.getTime() === b.getTime(); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function dateKey(d) { return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+  function fromKey(k) { var p = k.split('-'); return dateOnly(new Date(+p[0], +p[1]-1, +p[2])); }
+  function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function getRangeOrdered() {
+    if (!selStart || !selEnd) return { s: selStart, e: selEnd };
+    return selStart <= selEnd ? { s: selStart, e: selEnd } : { s: selEnd, e: selStart };
+  }
+
+  function buildMonthSelect(selectedMonth) {
+    var html = '<select class="torque-cal-sel" data-calsel="month">';
+    MONTHS.forEach(function(m, i) {
+      html += '<option value="' + i + '"' + (i === selectedMonth ? ' selected' : '') + '>' + SHORT_MONTHS[i] + '</option>';
+    });
+    return html + '</select>';
+  }
+
+  function buildYearSelect(selectedYear) {
+    var curYear = new Date().getFullYear();
+    var html = '<select class="torque-cal-sel" data-calsel="year">';
+    for (var y = curYear; y >= 2015; y--) {
+      html += '<option value="' + y + '"' + (y === selectedYear ? ' selected' : '') + '>' + y + '</option>';
+    }
+    return html + '</select>';
+  }
+
+  function renderCal(el, year, month, isLeft) {
+    var today    = dateOnly(new Date());
+    var firstDow = new Date(year, month, 1).getDay();
+    var lastDay  = new Date(year, month+1, 0).getDate();
+    var range    = getRangeOrdered();
+
+    var html = '<div class="torque-cal">';
+    html += '<div class="torque-cal-header">';
+
+    if (isLeft) {
+      // Left: prev-arrow | month select | year select
+      html += '<button class="torque-cal-nav" data-dir="-1">&#8249;</button>';
+      html += '<div class="d-flex gap-1 align-items-center">' + buildMonthSelect(month) + buildYearSelect(year) + '</div>';
+      html += '<div style="width:30px"></div>';
+    } else {
+      // Right: spacer | month name + year text | next-arrow
+      html += '<div style="width:30px"></div>';
+      html += '<strong style="font-size:.9rem">' + MONTHS[month] + ' ' + year + '</strong>';
+      html += '<button class="torque-cal-nav" data-dir="1">&#8250;</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="torque-cal-grid">';
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(function(d) {
+      html += '<div class="cal-day-name">' + d + '</div>';
+    });
+    for (var e = 0; e < firstDow; e++) html += '<div class="cal-day cal-empty"></div>';
+    for (var d = 1; d <= lastDay; d++) {
+      var td = dateOnly(new Date(year, month, d));
+      var cls = 'cal-day';
+      if (td > today)                               cls += ' cal-disabled';
+      if (sameDay(td, today))                       cls += ' cal-today';
+      if (range.s && sameDay(td, range.s))          cls += ' cal-start';
+      else if (range.e && sameDay(td, range.e))     cls += ' cal-end';
+      else if (range.s && range.e && td > range.s && td < range.e) cls += ' cal-in-range';
+      var key = dateKey(td);
+      // Pass event so we can stopPropagation before the calendar re-renders (prevents auto-close)
+      var click = (td > today) ? '' : ' onclick="window._torqueCal.clickDay(event,\'' + key + '\')"';
+      html += '<div class="' + cls + '"' + click + '>' + d + '</div>';
+    }
+    html += '</div></div>';
+    el.innerHTML = html;
+  }
+
+  function renderBoth() {
+    var lEl = document.getElementById('cal-left');
+    var rEl = document.getElementById('cal-right');
+    var ry = viewYear, rm = viewMonth + 1;
+    if (rm > 11) { rm = 0; ry++; }
+    if (lEl) renderCal(lEl, viewYear, viewMonth, true);
+    if (rEl) renderCal(rEl, ry, rm, false);
+
+    var hint = document.getElementById('cal-hint');
+    if (hint) {
+      if (!selStart)    hint.textContent = 'Click a start date.';
+      else if (!selEnd) hint.textContent = 'Now click an end date (or the same day for a single-day search).';
+      else              hint.textContent = '';
+    }
+  }
+
+  function fetchSessions() {
+    var range   = getRangeOrdered();
+    var sessDiv = document.getElementById('cal-sessions');
+    if (!sessDiv || !range.s || !range.e) return;
+
+    selectedSids = [];
+    var startTs = Math.floor(range.s.getTime() / 1000);
+    var endTs   = Math.floor(range.e.getTime() / 1000);
+    sessDiv.innerHTML = '<p class="text-center text-muted small py-2 mb-0"><i class="bi bi-hourglass-split me-1"></i>Loading sessions\u2026</p>';
+
+    fetch('get_sessions_ajax.php?start=' + startTs + '&end=' + endTs)
+      .then(function(r) { return r.json(); })
+      .then(function(list) {
+        if (!list.length) {
+          sessDiv.innerHTML = '<p class="text-center text-muted small py-1 mb-0">No sessions found in this date range.</p>';
+          return;
+        }
+        // Sort latest first regardless of server order
+        list.sort(function(a, b) { return parseInt(b.id, 10) - parseInt(a.id, 10); });
+        var n = list.length;
+        var html = '<div class="cal-select-all-bar">';
+        html += '<label class="cal-select-all-label">';
+        html += '<input type="checkbox" id="cal-select-all" class="cal-select-all-cb">';
+        html += '<span id="cal-select-all-text">Select all (' + n + ')</span>';
+        html += '</label>';
+        html += '</div>';
+        html += '<div class="cal-sessions-list">';
+        list.forEach(function(sess) {
+          html += '<label class="cal-session-item" data-sid="' + escH(sess.id) + '">';
+          html += '<input type="checkbox" class="cal-sess-cb flex-shrink-0" value="' + escH(sess.id) + '">';
+          html += '<div class="flex-grow-1">';
+          html += '<div style="font-size:.85rem;font-weight:600">' + escH(sess.label) + '</div>';
+          html += '<div class="text-muted" style="font-size:.75rem">' + escH(sess.duration) + ' &bull; ' + escH(sess.profile) + '</div>';
+          html += '</div>';
+          // Color dot — shows track color on map when selected (hidden until checked)
+          html += '<span class="cal-sess-color" style="display:none;width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-left:6px;"></span>';
+          html += '</label>';
+        });
+        html += '</div>';
+        // Action bar — appears once sessions are checked
+        html += '<div class="cal-action-bar" id="cal-action-bar" style="display:none">';
+        html += '<span id="cal-sel-count" class="small text-muted"></span>';
+        html += '<button id="cal-open-btn" class="btn btn-primary btn-sm" onclick="window._torqueCal.openSelected()">';
+        html += '<i class="bi bi-arrow-right-circle me-1"></i>Open Session</button>';
+        html += '</div>';
+        sessDiv.innerHTML = html;
+      })
+      .catch(function() {
+        sessDiv.innerHTML = '<p class="text-center text-danger small py-1 mb-0">Error loading sessions.</p>';
+      });
+  }
+
+  window._torqueCal = {
+    clickDay: function(e, key) {
+      e.stopPropagation();
+      var d = fromKey(key);
+      if (!selStart || selEnd) {
+        selStart = d; selEnd = null; selectedSids = [];
+        var sd = document.getElementById('cal-sessions');
+        if (sd) sd.innerHTML = '<p class="text-center text-muted small py-1 mb-0">Now click an end date (or the same day for a single-day search).</p>';
+      } else {
+        selEnd = d;
+        fetchSessions();
+      }
+      saveCalState();
+      renderBoth();
+    },
+    updateSelection: function() {
+      var allCbs    = document.querySelectorAll('.cal-sess-cb');
+      var checkedCbs = document.querySelectorAll('.cal-sess-cb:checked');
+      selectedSids = Array.prototype.map.call(checkedCbs, function(cb) { return cb.value; });
+
+      var bar     = document.getElementById('cal-action-bar');
+      var count   = document.getElementById('cal-sel-count');
+      var openBtn = document.getElementById('cal-open-btn');
+      if (bar)   bar.style.display = selectedSids.length ? '' : 'none';
+      if (count) count.textContent = selectedSids.length + ' session' + (selectedSids.length !== 1 ? 's' : '') + ' selected';
+      if (openBtn) {
+        var n = selectedSids.length;
+        openBtn.innerHTML = '<i class="bi bi-arrow-right-circle me-1"></i>' +
+          (n > 1 ? 'Open ' + n + ' Sessions' : 'Open Session');
+      }
+
+      // Sync "Select All" checkbox — checked=all, indeterminate=some, unchecked=none
+      var selectAllCb = document.getElementById('cal-select-all');
+      var selectAllTxt = document.getElementById('cal-select-all-text');
+      if (selectAllCb) {
+        var total = allCbs.length;
+        var numChecked = selectedSids.length;
+        if (numChecked === 0) {
+          selectAllCb.checked = false;
+          selectAllCb.indeterminate = false;
+        } else if (numChecked === total) {
+          selectAllCb.checked = true;
+          selectAllCb.indeterminate = false;
+        } else {
+          selectAllCb.checked = false;
+          selectAllCb.indeterminate = true;
+        }
+        if (selectAllTxt) {
+          selectAllTxt.textContent = numChecked === total
+            ? 'Deselect all (' + total + ')'
+            : 'Select all (' + total + ')';
+        }
+      }
+
+      // Track colours: index 0 = primary (blue speed-gradient shown as blue dot)
+      //                index 1+ = MULTI_COLORS matching session.php _torqueDrawMulti
+      var TRACK_COLORS = ['#0d6efd', '#e63946', '#2a9d8f', '#f4a261', '#9b5de5', '#00b4d8', '#fb8500', '#8ecae6'];
+      // Highlight checked rows and update color dots
+      document.querySelectorAll('.cal-session-item').forEach(function(item) {
+        var cb  = item.querySelector('.cal-sess-cb');
+        var dot = item.querySelector('.cal-sess-color');
+        var checked = !!(cb && cb.checked);
+        item.classList.toggle('selected', checked);
+        if (dot) {
+          var idx = selectedSids.indexOf(cb ? cb.value : '');
+          dot.style.display    = idx >= 0 ? 'inline-block' : 'none';
+          dot.style.background = idx >= 0 ? TRACK_COLORS[idx % TRACK_COLORS.length] : '';
+          dot.title            = idx === 0 ? 'Primary track (speed gradient)' : 'Additional track';
+        }
+      });
+    },
+    openSelected: function() {
+      if (!selectedSids.length) return;
+      var url = 'session.php?id=' + encodeURIComponent(selectedSids[0]);
+      if (selectedSids.length > 1) {
+        url += '&multi=' + selectedSids.slice(1).map(encodeURIComponent).join(',');
+      }
+      window.location.href = url;
+    },
+    jumpMonth: function(m) { viewMonth = parseInt(m, 10); saveCalState(); renderBoth(); },
+    jumpYear:  function(y) { viewYear  = parseInt(y, 10); saveCalState(); renderBoth(); },
+    prevMonth: function() {
+      viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+      saveCalState(); renderBoth();
+    },
+    nextMonth: function() {
+      viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      saveCalState(); renderBoth();
+    },
+    open: function() {
+      calPanel.style.display = '';
+      renderBoth();
+      // If we have a saved range (e.g. returning from a session), refetch the session list
+      if (selStart && selEnd) { fetchSessions(); }
+    },
+    close:  function() { calPanel.style.display = 'none'; },
+    toggle: function() { if (calPanel.style.display === 'none') this.open(); else this.close(); }
+  };
+
+  // Delegated: nav buttons + month/year selects + session checkboxes
+  calPanel.addEventListener('click', function(e) {
+    var nb = e.target.closest('.torque-cal-nav');
+    if (!nb) return;
+    parseInt(nb.getAttribute('data-dir'), 10) < 0 ? _torqueCal.prevMonth() : _torqueCal.nextMonth();
+  });
+
+  calPanel.addEventListener('change', function(e) {
+    // Individual session checkbox
+    if (e.target.classList.contains('cal-sess-cb')) {
+      _torqueCal.updateSelection();
+      return;
+    }
+    // "Select All" master checkbox
+    if (e.target.id === 'cal-select-all') {
+      var checked = e.target.checked;
+      document.querySelectorAll('.cal-sess-cb').forEach(function(cb) { cb.checked = checked; });
+      _torqueCal.updateSelection();
+      return;
+    }
+    // Month / year selectors
+    var sel = e.target.closest('[data-calsel]');
+    if (!sel) return;
+    sel.getAttribute('data-calsel') === 'month'
+      ? _torqueCal.jumpMonth(sel.value)
+      : _torqueCal.jumpYear(sel.value);
+  });
+
+  calBtn.addEventListener('click', function(e) { e.stopPropagation(); _torqueCal.toggle(); });
+
+  // Click outside to close — use composedPath so clicks that trigger re-renders don't false-fire
+  document.addEventListener('click', function(e) {
+    if (calPanel.style.display === 'none') return;
+    var path = e.composedPath ? e.composedPath() : (e.path || [e.target]);
+    var inside = path.some(function(n) { return n === calPanel || n === calBtn; });
+    if (!inside) _torqueCal.close();
+  });
+}); // end DOMContentLoaded
+
+// ── AI Chat ──────────────────────────────────────────────────────────────────
+(function() {
+  var _aiHistory  = [];  // [{role, content}]
+  var _aiThinking = false;
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Very simple markdown: **bold**, *italic*, `code`, newlines
+  function renderMd(s) {
+    return escHtml(s)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+      .replace(/`(.+?)`/g,       '<code style="background:rgba(0,0,0,0.08);padding:1px 4px;border-radius:3px;font-family:monospace;">$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function scrollBottom() {
+    var el = document.getElementById('ai-messages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  function appendMsg(role, text, isThinking) {
+    var el = document.getElementById('ai-messages');
+    if (!el) return null;
+    var div = document.createElement('div');
+    div.className = isThinking ? 'ai-msg ai-msg-thinking'
+                  : (role === 'user' ? 'ai-msg ai-msg-user' : 'ai-msg ai-msg-ai');
+    div.innerHTML = isThinking ? '<i class="bi bi-hourglass-split me-1"></i>Thinking…'
+                  : (role === 'user' ? escHtml(text) : renderMd(text));
+    el.appendChild(div);
+    scrollBottom();
+    // Hide suggestions after first user message
+    if (role === 'user') {
+      var sugg = document.getElementById('ai-suggestions');
+      if (sugg) sugg.style.display = 'none';
+    }
+    return div;
+  }
+
+  // Show welcome message the first time the panel opens
+  var _aiGreeted = false;
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('btn-ai');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      if (_aiGreeted) return;
+      _aiGreeted = true;
+      var sid = (typeof _aiSessionId !== 'undefined' && _aiSessionId) ? ' I can see your current session data.' : '';
+      setTimeout(function() {
+        appendMsg('ai', 'Hi! I\'m TorqueAI \u2014 I have access to your Torque Pro database.' + sid + '\n\nAsk me anything about your driving data, OBD readings, or car health. Try one of the suggestions below, or type your own question.');
+        scrollBottom();
+      }, 200);
+    });
+  });
+
+  window.aiSend = function(preset) {
+    if (_aiThinking) return;
+    var input = document.getElementById('ai-input');
+    var text  = preset || (input ? input.value.trim() : '');
+    if (!text) return;
+    if (input) input.value = '';
+
+    appendMsg('user', text);
+    _aiHistory.push({role: 'user', content: text});
+
+    var thinkDiv = appendMsg('ai', '', true);
+    _aiThinking = true;
+    var sendBtn = document.getElementById('ai-send');
+    if (sendBtn) sendBtn.disabled = true;
+
+    var sid = typeof _aiSessionId !== 'undefined' ? _aiSessionId : '';
+
+    fetch('claude_chat.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text, history: _aiHistory.slice(0, -1), session_id: sid})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (thinkDiv) thinkDiv.remove();
+      if (d.error) {
+        appendMsg('ai', 'Error: ' + d.error);
+      } else {
+        var reply = d.response || '';
+        appendMsg('ai', reply);
+        _aiHistory.push({role: 'assistant', content: reply});
+        // Keep history under 40 turns
+        if (_aiHistory.length > 40) _aiHistory = _aiHistory.slice(-40);
+      }
+    })
+    .catch(function(e) {
+      if (thinkDiv) thinkDiv.remove();
+      appendMsg('ai', 'Network error — check your connection.');
+    })
+    .finally(function() {
+      _aiThinking = false;
+      if (sendBtn) sendBtn.disabled = false;
+      var inp = document.getElementById('ai-input');
+      if (inp) inp.focus();
+    });
+  };
+})();
+
+// Validate plot form has at least 1 variable selected
+function onSubmitIt() {
+  var el = document.getElementById('plot_data');
+  if (el && el.tomselect) {
+    if (el.tomselect.items.length < 1) { return false; }
+  }
+  document.getElementById('formplotdata').submit();
+}
+
+$(document).ready(function(){
+
+  // "Show only variables with data" filter checkbox
+  var filterCheck = document.getElementById('filterHasData');
+  var plotSelect  = document.getElementById('plot_data');
+
+  function applyHasDataFilter() {
+    if (!plotSelect || !filterCheck) return;
+    var filterOn = filterCheck.checked;
+    Array.from(plotSelect.options).forEach(function(opt) {
+      if (!opt.value) return; // skip blank placeholder
+      var hasData = parseInt(opt.getAttribute('data-has-data') || '-1', 10);
+      // Hide options with no data (has_data=0) when filter is on; always show unknowns (-1)
+      opt.hidden = filterOn && hasData === 0;
+    });
+  }
+
+  if (filterCheck) {
+    filterCheck.addEventListener('change', applyHasDataFilter);
+    applyHasDataFilter(); // apply on page load
+  }
+
+  // Initialize Tom Select on yearmonth multi-select in navbar
+  if (document.getElementById('selyearmonth')) {
+    new TomSelect('#selyearmonth', {
+      plugins: ['remove_button', 'clear_button'],
+      maxItems: null,           // unlimited selections
+      maxOptions: null,         // show ALL months — default cap of 50 hides older years
+      placeholder: 'All Months',
+      hidePlaceholder: false,
+      selectOnTab: false,
+      closeAfterSelect: false,  // keep dropdown open for multi-select
+      sortField: '$order',      // preserve DESC order from PHP/SQL; never re-sort alphabetically
+      create: false
+    });
+  }
+
+  // Initialize Tom Select on variable multi-select
+  if (document.getElementById('plot_data')) {
+    new TomSelect('#plot_data', {
+      plugins: ['remove_button'],
+      dropdownParent: 'body',   // render dropdown outside the panel so overflow:hidden doesn't clip it
+      placeholder: 'Choose OBD2 data...',
+      render: {
+        option: function(data, escape) {
+          // Grey out options with no data even in Tom Select dropdown
+          var hasData = parseInt(data.hasData || '-1', 10);
+          var style = hasData === 0 ? ' style="opacity:0.4;"' : '';
+          return '<div' + style + '>' + escape(data.text) + '</div>';
+        }
+      },
+      onInitialize: function() {
+        // Copy has-data attribute into Tom Select's internal option objects
+        var self = this;
+        Array.from(plotSelect.options).forEach(function(opt) {
+          if (opt.value && self.options[opt.value]) {
+            self.options[opt.value].hasData = opt.getAttribute('data-has-data') || '-1';
+          }
+        });
+      }
+    });
+  }
+
+  // Initialize Peity sparklines
+  $(".line").peity("line");
+
+  // Delete confirmation — intercept navbar delete button
+  var deleteBtn = document.getElementById('deletebtn');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function(e) {
+      var deleteForm = document.getElementById('formdelete');
+      var sessionText = deleteForm ? deleteForm.getAttribute('data-session-name') : 'this session';
+      if (!confirm("Click OK to delete session (" + sessionText + ").")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+  }
+
+  // Set dark mode button icon correctly on load
+  var saved = localStorage.getItem('torque-theme') || 'light';
+  var dmBtn = document.getElementById('darkModeBtn');
+  if (dmBtn) {
+    dmBtn.innerHTML = saved === 'dark'
+      ? '<i class="bi bi-sun"></i>'
+      : '<i class="bi bi-moon-stars"></i>';
+  }
+
+  // ── Floating panel drag-to-move ──
+  document.querySelectorAll('.torque-panel-header').forEach(function(header) {
+    var panel = header.closest('.torque-panel');
+    // Chart panel spans full width — not draggable; calendar and AI are fixed-position
+    if (!panel || panel.id === 'chart-section' || panel.id === 'cal-panel' || panel.id === 'ai-section') return;
+
+    header.addEventListener('mousedown', function(e) {
+      // Don't start drag when clicking a button inside the header
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+
+      var rect = panel.getBoundingClientRect();
+      var startX   = e.clientX;
+      var startY   = e.clientY;
+      var startLeft = rect.left;
+      var startTop  = rect.top;
+
+      // Switch from CSS-defined right/bottom to explicit left/top so drag works
+      panel.style.left   = startLeft + 'px';
+      panel.style.top    = startTop  + 'px';
+      panel.style.right  = 'auto';
+      panel.style.bottom = 'auto';
+
+      function onMouseMove(e) {
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
+        var newLeft = Math.max(0, startLeft + dx);
+        var newTop  = Math.max(58, startTop  + dy); // 58px = navbar height
+        // Clamp to right/bottom edges of viewport
+        newLeft = Math.min(window.innerWidth  - 40, newLeft);
+        newTop  = Math.min(window.innerHeight - 40, newTop);
+        panel.style.left = newLeft + 'px';
+        panel.style.top  = newTop  + 'px';
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup',   onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup',   onMouseUp);
+    });
+
+    // Touch drag support (mobile)
+    header.addEventListener('touchstart', function(e) {
+      if (e.target.closest('button')) return;
+      var touch = e.touches[0];
+      var rect  = panel.getBoundingClientRect();
+      var startX    = touch.clientX;
+      var startY    = touch.clientY;
+      var startLeft = rect.left;
+      var startTop  = rect.top;
+
+      panel.style.left   = startLeft + 'px';
+      panel.style.top    = startTop  + 'px';
+      panel.style.right  = 'auto';
+      panel.style.bottom = 'auto';
+
+      function onTouchMove(e) {
+        e.preventDefault();
+        var t = e.touches[0];
+        var newLeft = Math.max(0, startLeft + t.clientX - startX);
+        var newTop  = Math.max(58, startTop  + t.clientY - startY);
+        newLeft = Math.min(window.innerWidth  - 40, newLeft);
+        newTop  = Math.min(window.innerHeight - 40, newTop);
+        panel.style.left = newLeft + 'px';
+        panel.style.top  = newTop  + 'px';
+      }
+
+      function onTouchEnd() {
+        header.removeEventListener('touchmove', onTouchMove);
+        header.removeEventListener('touchend',  onTouchEnd);
+      }
+
+      header.addEventListener('touchmove', onTouchMove, { passive: false });
+      header.addEventListener('touchend',  onTouchEnd);
+    });
+  });
+
+});

@@ -1,0 +1,578 @@
+/* Open Torque Viewer - Modern Theme */
+
+:root {
+  --navbar-height: 58px;
+}
+
+* { font-family: 'Lato', sans-serif; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* map fills viewport; panels scroll internally */
+}
+
+/* ── Navbar filter selects ── */
+.navbar-filter {
+  background-color: rgba(255,255,255,0.1);
+  color: #fff;
+  border-color: rgba(255,255,255,0.25);
+}
+.navbar-filter:focus {
+  background-color: rgba(255,255,255,0.15);
+  color: #fff;
+  border-color: rgba(255,255,255,0.5);
+  box-shadow: none;
+}
+.navbar-filter option {
+  background-color: #212529;
+  color: #fff;
+}
+.navbar .btn.active { background-color: rgba(255,255,255,0.2); }
+
+/* ── Dark mode ── */
+[data-bs-theme="dark"] body                     { background-color: #121212; }
+[data-bs-theme="dark"] .card                    { background-color: #1e1e2e; border-color: rgba(255,255,255,0.1); }
+[data-bs-theme="dark"] .card-header             { background-color: #252535; border-color: rgba(255,255,255,0.08); }
+[data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * { background-color: rgba(255,255,255,0.04); }
+[data-bs-theme="dark"] .table-hover > tbody > tr:hover > *              { background-color: rgba(255,255,255,0.08); }
+
+/* ── Full-screen map ── */
+#map-canvas {
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  transition: bottom 0.3s ease;
+}
+body.chart-open #map-canvas { bottom: 300px; }
+
+/* ── Floating panels ── */
+.torque-panel {
+  position: fixed;
+  z-index: 500;
+  background: var(--bs-body-bg, #fff);
+  border-radius: 10px !important;
+  box-shadow: 0 6px 28px rgba(0,0,0,.32) !important;
+  border: 1px solid rgba(0,0,0,.13) !important;
+  overflow: hidden;
+}
+[data-bs-theme="dark"] .torque-panel {
+  background: #1e1e2e !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+
+.torque-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .45rem .8rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  cursor: move;
+  user-select: none;
+  border-radius: 10px 10px 0 0;
+  flex-shrink: 0;
+}
+[data-bs-theme="dark"] .torque-panel-header {
+  background: #252535;
+  border-color: rgba(255,255,255,.08);
+}
+.torque-panel-header h6 { margin: 0; font-weight: 600; font-size: .875rem; }
+
+.torque-panel-close {
+  background: none; border: none;
+  padding: 0 3px; cursor: pointer;
+  color: inherit; opacity: .45;
+  line-height: 1; font-size: 1.1rem;
+}
+.torque-panel-close:hover { opacity: 1; }
+
+.torque-panel-body {
+  overflow-y: auto;
+  max-height: calc(100vh - 100px);
+}
+
+/* Individual default positions */
+#vars-section    { top: 68px; right: 10px; width: 300px; }
+#summary-section { top: 68px; left: 10px;  width: 430px; }
+#export-section  { bottom: 14px; right: 10px; width: 190px; }
+
+/* Chart — full-width bottom panel */
+#chart-section {
+  bottom: 0; left: 0; right: 0;
+  height: 300px;
+  border-radius: 10px 10px 0 0 !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  display: flex;
+  flex-direction: column;
+}
+#chart-section .torque-panel-body {
+  flex: 1;
+  max-height: none;
+  overflow: hidden;
+  padding: 6px 10px 4px;
+}
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Navbar user */
+.navbar-user img { opacity: .8; transition: opacity .2s; }
+.navbar-user img:hover { opacity: 1; }
+
+/* Settings page — allow scroll (overrides the map-page overflow:hidden on html,body) */
+body.settings-page { overflow: auto; }
+.settings-wrapper { padding-bottom: 40px; }
+
+/* PID editor */
+/* pid_edit.php — legacy wrapper kept for back-compat; new layout uses inline styles */
+.pid-editor-wrapper { padding-top: calc(var(--navbar-height) + 15px); }
+
+/* pid_edit.php — horizontal scroll border in dark mode */
+[data-bs-theme="dark"] .pid-table-wrap {
+  border-color: rgba(255,255,255,0.08);
+}
+/* Scrollbar styling for the pid table in dark mode */
+[data-bs-theme="dark"] .pid-table-wrap::-webkit-scrollbar { height: 6px; }
+[data-bs-theme="dark"] .pid-table-wrap::-webkit-scrollbar-track { background: #1e1e2e; }
+[data-bs-theme="dark"] .pid-table-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+/* Floating status alert */
+#status { position: fixed; bottom: 20px; right: 20px; z-index: 1050; max-width: 300px; }
+
+/* Tom Select overrides */
+.ts-wrapper.single .ts-control { min-height: 32px; }
+
+/* ── Tom Select in dark navbar (selyearmonth multi-select) ── */
+.navbar .ts-wrapper { min-width: 130px; max-width: 175px; }
+.navbar .ts-wrapper .ts-control {
+  background: rgba(255,255,255,0.1) !important;
+  border-color: rgba(255,255,255,0.25) !important;
+  color: #fff !important;
+  min-height: 31px !important;
+  padding: 2px 28px 2px 6px !important;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  gap: 3px;
+}
+.navbar .ts-wrapper.focus .ts-control {
+  background: rgba(255,255,255,0.15) !important;
+  border-color: rgba(255,255,255,0.5) !important;
+  box-shadow: none !important;
+}
+.navbar .ts-wrapper .ts-control .item {
+  background: rgba(255,255,255,0.22) !important;
+  color: #fff !important;
+  border-radius: 3px !important;
+  font-size: 11px !important;
+  padding: 1px 4px !important;
+  border: none !important;
+}
+.navbar .ts-wrapper .ts-control input {
+  color: #fff !important;
+  background: transparent !important;
+  min-width: 20px !important;
+}
+.navbar .ts-wrapper .ts-control input::placeholder { color: rgba(255,255,255,0.55); }
+.navbar .ts-wrapper .ts-dropdown {
+  background: #212529 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  color: #ccc;
+}
+.navbar .ts-wrapper .ts-dropdown .option {
+  color: #ccc; padding: 5px 10px; font-size: 13px;
+}
+.navbar .ts-wrapper .ts-dropdown .option:hover,
+.navbar .ts-wrapper .ts-dropdown .option.active {
+  background: rgba(255,255,255,0.1) !important; color: #fff;
+}
+.navbar .ts-wrapper .ts-dropdown .option.selected { color: #fff !important; font-weight: 600; }
+.navbar .ts-wrapper .ts-control .clear-button { color: rgba(255,255,255,0.6) !important; }
+.navbar .ts-wrapper .ts-control .remove-button { color: rgba(255,255,255,0.7) !important; }
+
+/* ── Speed legend on map ── */
+.torque-speed-legend {
+  position: absolute;
+  bottom: 36px; right: 10px;
+  z-index: 5;
+  background: rgba(255,255,255,0.92);
+  color: #212529;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.7;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  pointer-events: none;
+}
+[data-bs-theme="dark"] .torque-speed-legend {
+  background: rgba(18,18,32,0.93);
+  color: #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* ── Chart canvas — transparent so dark panel bg shows through ── */
+#chartCanvas { background: transparent; }
+
+/* ── Data summary table inside panels ── */
+[data-bs-theme="dark"] .torque-panel .table {
+  color: #d0d0d8;
+  border-color: rgba(255,255,255,0.08);
+}
+[data-bs-theme="dark"] .torque-panel .table td,
+[data-bs-theme="dark"] .torque-panel .table th { border-color: rgba(255,255,255,0.08); }
+[data-bs-theme="dark"] .torque-panel thead.table-light,
+[data-bs-theme="dark"] .torque-panel thead.table-light th {
+  background-color: rgba(255,255,255,0.06) !important;
+  color: #b0b0c0 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+[data-bs-theme="dark"] .torque-panel .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(255,255,255,0.04) !important;
+  color: #d0d0d8;
+}
+[data-bs-theme="dark"] .torque-panel .table-hover > tbody > tr:hover > * {
+  background-color: rgba(255,255,255,0.09) !important;
+}
+
+/* ── Settings page — form controls & cards in dark mode ── */
+[data-bs-theme="dark"] .card { background-color: #1e1e2e; border-color: rgba(255,255,255,0.1); }
+[data-bs-theme="dark"] .card-header { background-color: #252538; border-color: rgba(255,255,255,0.08); color: #e0e0e0; }
+[data-bs-theme="dark"] .list-group-item {
+  background-color: #1e1e2e;
+  border-color: rgba(255,255,255,0.08);
+  color: #d0d0d8;
+}
+[data-bs-theme="dark"] .btn-outline-secondary { border-color: rgba(255,255,255,0.3); color: #ccc; }
+[data-bs-theme="dark"] .btn-outline-secondary:hover { background-color: rgba(255,255,255,0.1); color: #fff; }
+[data-bs-theme="dark"] .btn-outline-danger { border-color: #f87171; color: #f87171; }
+[data-bs-theme="dark"] .btn-outline-danger:hover { background-color: rgba(239,68,68,0.2); }
+
+/* Responsive — on small screens panels go edge-to-edge */
+@media (max-width: 767px) {
+  .torque-panel:not(#chart-section):not(#cal-panel) {
+    left: 4px !important;
+    right: 4px !important;
+    width: auto !important;
+    top: 68px !important;
+  }
+  #chart-section { height: 220px; }
+  body.chart-open #map-canvas { bottom: 220px; }
+}
+
+/* ── Tom Select inside floating panels (dark mode) ── */
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-control {
+  background: #2a2a3e !important;
+  border-color: rgba(255,255,255,0.15) !important;
+  color: #e0e0e0 !important;
+}
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-control .item {
+  background: rgba(99,130,255,0.25) !important;
+  color: #c8c8e0 !important;
+  border: none !important;
+}
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-control input {
+  color: #e0e0e0 !important;
+  background: transparent !important;
+}
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-dropdown {
+  background: #1e1e2e !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #d0d0d8;
+}
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-dropdown .option { color: #d0d0d8; }
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-dropdown .option:hover,
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-dropdown .option.active {
+  background: rgba(99,130,255,0.18) !important;
+  color: #fff;
+}
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-dropdown .option.selected { color: #fff !important; font-weight: 600; }
+[data-bs-theme="dark"] .torque-panel .ts-wrapper .ts-control .remove-button { color: rgba(200,200,224,0.7) !important; }
+
+/* ── Chart ↔ Map crosshair popup ──
+   Container styles (background, border, colour) are applied via JS in session.php
+   because Mapbox injects its own stylesheet dynamically and wins any CSS fight.
+   Only structural/non-themed properties live here.                               */
+.torque-crosshair-popup .mapboxgl-popup-tip { display: none !important; }
+
+/* Inner elements — themed via CSS */
+.tcp-time {
+  font-weight: 700;
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  color: #222;
+}
+[data-bs-theme="dark"] .tcp-time {
+  border-color: rgba(255,255,255,0.12);
+  color: #e0e0e0;
+}
+.tcp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+.tcp-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.tcp-label {
+  flex: 1;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+  color: #555;
+}
+[data-bs-theme="dark"] .tcp-label { color: #b0b0c0; }
+.tcp-value {
+  font-weight: 700;
+  color: #222;
+  margin-left: 4px;
+}
+[data-bs-theme="dark"] .tcp-value { color: #e0e0e0; }
+.tcp-hint {
+  font-size: 11px;
+  margin-top: 2px;
+  color: #777;
+}
+[data-bs-theme="dark"] .tcp-hint { color: #9090a0; }
+
+/* ── Calendar picker panel ── */
+#cal-panel {
+  top: var(--navbar-height);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(680px, calc(100vw - 16px));
+  max-height: calc(100vh - var(--navbar-height) - 10px);
+  overflow-y: auto;
+  border-radius: 0 0 12px 12px !important;
+  border-top: none !important;
+}
+
+.torque-cal { min-width: 252px; user-select: none; }
+.torque-cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.3rem 0 0.5rem; font-size: 0.95rem;
+}
+.torque-cal-nav {
+  background: none; border: none; cursor: pointer;
+  padding: 2px 8px; font-size: 1.2rem; line-height: 1;
+  color: inherit; opacity: 0.55; border-radius: 4px;
+  flex-shrink: 0;
+}
+.torque-cal-nav:hover { opacity: 1; background: rgba(0,0,0,0.06); }
+[data-bs-theme="dark"] .torque-cal-nav:hover { background: rgba(255,255,255,0.1); }
+
+.torque-cal-sel {
+  font-size: 0.78rem; padding: 2px 4px;
+  border: 1px solid rgba(0,0,0,0.18); border-radius: 4px;
+  background: rgba(0,0,0,0.04); color: inherit; cursor: pointer;
+}
+.torque-cal-sel:focus { outline: none; border-color: #0d6efd; }
+[data-bs-theme="dark"] .torque-cal-sel {
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.07);
+  color: #e0e0e0;
+}
+
+.torque-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-day-name {
+  text-align: center; font-size: 0.7rem; font-weight: 700;
+  color: #6c757d; padding: 3px 0;
+}
+[data-bs-theme="dark"] .cal-day-name { color: #9aa0b0; }
+.cal-day {
+  text-align: center; padding: 5px 2px; font-size: 0.82rem;
+  border-radius: 5px; cursor: pointer; transition: background 0.1s;
+  line-height: 1.4;
+}
+.cal-day:hover { background: rgba(13,110,253,0.13); }
+[data-bs-theme="dark"] .cal-day:hover { background: rgba(99,130,255,0.18); }
+.cal-empty { cursor: default !important; background: none !important; }
+.cal-disabled { opacity: 0.25; cursor: default !important; pointer-events: none; }
+.cal-today { box-shadow: inset 0 0 0 1px #0d6efd; font-weight: 600; }
+[data-bs-theme="dark"] .cal-today { box-shadow: inset 0 0 0 1px #6382ff; }
+.cal-start, .cal-end { background: #0d6efd !important; color: #fff !important; font-weight: 700; border-radius: 5px; }
+[data-bs-theme="dark"] .cal-start, [data-bs-theme="dark"] .cal-end { background: #4a6fdb !important; }
+.cal-in-range { background: rgba(13,110,253,0.15); border-radius: 0; }
+[data-bs-theme="dark"] .cal-in-range { background: rgba(99,130,255,0.18); }
+
+/* Select-all bar above session list */
+.cal-select-all-bar {
+  display: flex; align-items: center;
+  padding: 0.35rem 0.75rem 0.35rem;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px 8px 0 0;
+  background: rgba(13,110,253,0.05);
+  margin-bottom: -1px; /* merge border with list below */
+}
+.cal-select-all-label {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: .8rem; font-weight: 600; cursor: pointer;
+  color: #0d6efd; user-select: none; margin: 0;
+}
+.cal-select-all-cb { width: 15px; height: 15px; cursor: pointer; accent-color: #0d6efd; }
+[data-bs-theme="dark"] .cal-select-all-bar {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(99,130,255,0.08);
+}
+[data-bs-theme="dark"] .cal-select-all-label { color: #7ba7ff; }
+
+/* Sessions list inside calendar panel */
+.cal-sessions-list {
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 0 0 8px 8px; /* flat top — select-all bar sits above */
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+[data-bs-theme="dark"] .cal-sessions-list { border-color: rgba(255,255,255,0.1); }
+.cal-session-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.45rem 0.75rem; cursor: pointer;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  transition: background 0.12s;
+}
+.cal-session-item:last-child { border-bottom: none; }
+.cal-session-item:hover { background: rgba(13,110,253,0.09); }
+.cal-session-item.selected { background: rgba(13,110,253,0.14); }
+[data-bs-theme="dark"] .cal-session-item { color: #d0d0d8; border-color: rgba(255,255,255,0.06); }
+[data-bs-theme="dark"] .cal-session-item:hover { background: rgba(99,130,255,0.14); }
+[data-bs-theme="dark"] .cal-session-item.selected { background: rgba(99,130,255,0.22); }
+
+.cal-sess-cb { width: 15px; height: 15px; cursor: pointer; accent-color: #0d6efd; }
+
+.cal-action-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem; margin-top: 0.5rem;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  border-radius: 0 0 8px 8px;
+}
+[data-bs-theme="dark"] .cal-action-bar { border-color: rgba(255,255,255,0.1); }
+
+/* ── AI Chat panel ── */
+#ai-section {
+  width: 380px;
+  right: 12px;
+  top: calc(var(--navbar-height) + 8px);
+  bottom: auto;
+  left: auto;
+  max-height: calc(100vh - var(--navbar-height) - 20px);
+  display: flex;
+  flex-direction: column;
+}
+.ai-messages {
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+.ai-msg {
+  max-width: 88%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.ai-msg-user {
+  align-self: flex-end;
+  background: #0d6efd;
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.ai-msg-ai {
+  align-self: flex-start;
+  background: #f0f2f5;
+  color: #1a1a2e;
+  border-bottom-left-radius: 3px;
+}
+[data-bs-theme="dark"] .ai-msg-ai { background: #2a2a3e; color: #d8d8e8; }
+.ai-msg-thinking {
+  align-self: flex-start;
+  background: #f0f2f5;
+  color: #6c757d;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+[data-bs-theme="dark"] .ai-msg-thinking { background: #2a2a3e; color: #8a8aaa; }
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+[data-bs-theme="dark"] .ai-suggestions { border-color: rgba(255,255,255,0.08); }
+.ai-suggestion-btn {
+  background: none;
+  border: 1px solid rgba(13,110,253,0.35);
+  color: #0d6efd;
+  border-radius: 14px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.ai-suggestion-btn:hover { background: rgba(13,110,253,0.1); }
+[data-bs-theme="dark"] .ai-suggestion-btn { border-color: rgba(99,130,255,0.4); color: #8aabff; }
+[data-bs-theme="dark"] .ai-suggestion-btn:hover { background: rgba(99,130,255,0.12); }
+.ai-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+[data-bs-theme="dark"] .ai-input-bar { border-color: rgba(255,255,255,0.1); }
+.ai-input {
+  flex: 1;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 20px;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  outline: none;
+  background: #fff;
+  color: #212529;
+  transition: border-color 0.15s;
+}
+.ai-input:focus { border-color: #0d6efd; }
+[data-bs-theme="dark"] .ai-input { background: #2a2a3e; border-color: rgba(255,255,255,0.15); color: #e0e0e0; }
+[data-bs-theme="dark"] .ai-input:focus { border-color: rgba(99,130,255,0.6); }
+.ai-send-btn {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.ai-send-btn:hover { background: #0a58ca; }
+.ai-send-btn:disabled { background: #6c757d; cursor: not-allowed; }
+
+/* ── Multi-session map legend ── */
+[data-bs-theme="dark"] #torque-session-legend {
+  background: rgba(30,30,46,0.92) !important;
+}
+[data-bs-theme="dark"] #torque-session-legend div { color: #d0d0d8 !important; }
+[data-bs-theme="dark"] #torque-session-legend span[style*="color"] { color: #d0d0d8 !important; }

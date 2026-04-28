@@ -1,0 +1,19 @@
+# Git history and IDE config
+.git
+.gitignore
+.claude
+
+# Secrets — never bake into the image (generated at runtime by entrypoint.sh)
+creds.php
+.env
+
+# Documentation
+*.md
+CLAUDE.md
+
+# Data import scripts (run locally on Windows desktop, not part of web app)
+*.py
+data/
+
+# Dev/build artifacts
+*.log

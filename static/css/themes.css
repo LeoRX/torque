@@ -1,0 +1,255 @@
+/* Open Torque Viewer — Theme System */
+/* Applied via data-torque-theme attribute on <html> */
+
+/* ═══════════════════════════════════════════
+   THEME: default
+   Clean Bootstrap 5, dark navbar, blue accents
+═══════════════════════════════════════════ */
+/* No overrides needed — this is the base style */
+
+
+/* ═══════════════════════════════════════════
+   THEME: sports  (Sports Car)
+   Carbon black, racing red, speed aesthetic
+═══════════════════════════════════════════ */
+[data-torque-theme="sports"] .navbar {
+  background: linear-gradient(90deg, #0d0d0d 0%, #1a0000 60%, #2d0000 100%) !important;
+  border-bottom: 2px solid rgba(220,0,0,0.45);
+}
+[data-torque-theme="sports"] .navbar-brand { letter-spacing: 1px; }
+[data-torque-theme="sports"] .btn-primary  { background-color: #cc0000; border-color: #aa0000; }
+[data-torque-theme="sports"] .btn-primary:hover { background-color: #e50000; border-color: #cc0000; }
+[data-torque-theme="sports"] .card-header h6 { color: #cc0000; }
+[data-torque-theme="sports"] .btn-outline-primary { color: #cc0000; border-color: #cc0000; }
+[data-torque-theme="sports"] .btn-outline-primary:hover { background-color: #cc0000; }
+
+[data-torque-theme="sports"][data-bs-theme="dark"] body { background-color: #0a0a0a; }
+[data-torque-theme="sports"][data-bs-theme="dark"] .card {
+  background-color: #141414;
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.018) 0, rgba(255,255,255,0.018) 1px, transparent 0, transparent 50%);
+  background-size: 8px 8px;
+  border-color: rgba(200,0,0,0.2);
+}
+[data-torque-theme="sports"][data-bs-theme="dark"] .card-header {
+  background-color: #1f0000;
+  border-color: rgba(200,0,0,0.2);
+}
+[data-torque-theme="sports"][data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(200,0,0,0.05);
+}
+
+/* Sports login */
+[data-torque-theme="sports"] body.login-body {
+  background-color: #0a0a0a;
+  background-image:
+    radial-gradient(ellipse at 30% 50%, rgba(200,0,0,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 50%, rgba(80,0,0,0.15) 0%, transparent 55%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.012) 0, rgba(255,255,255,0.012) 1px, transparent 0, transparent 50%);
+  background-size: 100% 100%, 100% 100%, 8px 8px;
+}
+[data-torque-theme="sports"] body.login-body .login-card {
+  background: rgba(18,4,4,0.93) !important;
+  border-color: rgba(200,0,0,0.3) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(200,0,0,0.12) !important;
+}
+[data-torque-theme="sports"] body.login-body .login-logo .icon-wrap {
+  background: linear-gradient(135deg, #3d0000 0%, #1a0000 100%);
+  border-color: rgba(220,0,0,0.55);
+  box-shadow: 0 0 30px rgba(200,0,0,0.35);
+}
+[data-torque-theme="sports"] body.login-body .login-logo .bi { color: #e50000; }
+[data-torque-theme="sports"] body.login-body .btn-login {
+  background: linear-gradient(135deg, #cc0000 0%, #800000 100%);
+  box-shadow: 0 4px 15px rgba(200,0,0,0.4);
+}
+[data-torque-theme="sports"] body.login-body .btn-login:hover {
+  background: linear-gradient(135deg, #e50000 0%, #990000 100%);
+  box-shadow: 0 6px 20px rgba(200,0,0,0.55);
+}
+[data-torque-theme="sports"] body.login-body .form-control:focus {
+  border-color: rgba(200,0,0,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(200,0,0,0.15) !important;
+}
+
+
+/* ═══════════════════════════════════════════
+   THEME: 4wd  (Off-Road / 4WD)
+   Olive green, burnt orange, rugged terrain
+═══════════════════════════════════════════ */
+[data-torque-theme="4wd"] .navbar {
+  background: linear-gradient(90deg, #1a2010 0%, #2d3a1a 100%) !important;
+  border-bottom: 2px solid rgba(180,130,30,0.45);
+}
+[data-torque-theme="4wd"] .btn-primary  { background-color: #c85a08; border-color: #a04806; }
+[data-torque-theme="4wd"] .btn-primary:hover { background-color: #e06a0a; }
+[data-torque-theme="4wd"] .btn-outline-primary { color: #c85a08; border-color: #c85a08; }
+[data-torque-theme="4wd"] .btn-outline-primary:hover { background-color: #c85a08; }
+[data-torque-theme="4wd"] .card { border-color: rgba(180,130,30,0.3); }
+[data-torque-theme="4wd"] .card-header {
+  background-color: #e8dfc8;
+  border-color: rgba(180,130,30,0.3);
+}
+[data-torque-theme="4wd"] .card-header h6 { color: #7a4a10; }
+
+[data-torque-theme="4wd"][data-bs-theme="dark"] body { background-color: #0f1509; }
+[data-torque-theme="4wd"][data-bs-theme="dark"] .card {
+  background-color: #1a2410;
+  border-color: rgba(180,130,30,0.25);
+}
+[data-torque-theme="4wd"][data-bs-theme="dark"] .card-header {
+  background-color: #243018;
+  border-color: rgba(180,130,30,0.2);
+}
+[data-torque-theme="4wd"][data-bs-theme="dark"] .card-header h6 { color: #d4a040; }
+[data-torque-theme="4wd"][data-bs-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(180,130,30,0.06);
+}
+
+/* 4WD login */
+[data-torque-theme="4wd"] body.login-body {
+  background-color: #0d1508;
+  background-image:
+    radial-gradient(ellipse at 20% 60%, rgba(180,100,20,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 40%, rgba(40,70,20,0.28) 0%, transparent 55%),
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+}
+[data-torque-theme="4wd"] body.login-body .login-card {
+  background: rgba(15,22,8,0.93) !important;
+  border-color: rgba(180,130,30,0.3) !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(180,130,30,0.1) !important;
+}
+[data-torque-theme="4wd"] body.login-body .login-logo .icon-wrap {
+  background: linear-gradient(135deg, #2d4010 0%, #1a2808 100%);
+  border-color: rgba(180,130,30,0.55);
+  box-shadow: 0 0 25px rgba(180,100,20,0.3);
+}
+[data-torque-theme="4wd"] body.login-body .login-logo .bi { color: #d4820a; }
+[data-torque-theme="4wd"] body.login-body .btn-login {
+  background: linear-gradient(135deg, #c85a08 0%, #8a3d05 100%);
+  box-shadow: 0 4px 15px rgba(200,90,8,0.35);
+}
+[data-torque-theme="4wd"] body.login-body .btn-login:hover {
+  background: linear-gradient(135deg, #e06a0a 0%, #a04806 100%);
+  box-shadow: 0 6px 20px rgba(200,90,8,0.5);
+}
+[data-torque-theme="4wd"] body.login-body .form-control:focus {
+  border-color: rgba(200,90,8,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(200,90,8,0.15) !important;
+}
+
+
+/* ═══════════════════════════════════════════
+   THEME: cartoon  (Funky Cartoon)
+   Rainbow, bold outlines, playful energy
+═══════════════════════════════════════════ */
+[data-torque-theme="cartoon"] * {
+  font-family: 'Comic Neue', 'Comic Sans MS', 'Chalkboard SE', cursive !important;
+}
+[data-torque-theme="cartoon"] .navbar {
+  background: linear-gradient(90deg, #6c3fc8 0%, #9b27c7 45%, #e91e8c 100%) !important;
+  border-bottom: 3px solid #FFD700;
+  box-shadow: 0 3px 0 #333;
+}
+[data-torque-theme="cartoon"] .navbar-brand {
+  color: #FFD700 !important;
+  font-weight: 900 !important;
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+  letter-spacing: 1px;
+}
+[data-torque-theme="cartoon"] .btn-primary {
+  background-color: #ff6b35;
+  border: 2px solid #333;
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 #333;
+  font-weight: 700;
+}
+[data-torque-theme="cartoon"] .btn-primary:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #333;
+  background-color: #ff8555;
+}
+[data-torque-theme="cartoon"] .btn-outline-primary {
+  color: #6c3fc8; border-color: #333; border-width: 2px;
+  box-shadow: 2px 2px 0 #333;
+}
+[data-torque-theme="cartoon"] .card {
+  border: 3px solid #333 !important;
+  border-radius: 12px !important;
+  box-shadow: 5px 5px 0 #333 !important;
+}
+[data-torque-theme="cartoon"] .card-header {
+  background: linear-gradient(90deg, #ffe066 0%, #ffb347 100%) !important;
+  border-bottom: 3px solid #333 !important;
+  border-radius: 9px 9px 0 0 !important;
+}
+[data-torque-theme="cartoon"] .card-header h6 {
+  color: #333 !important;
+  font-weight: 900 !important;
+}
+[data-torque-theme="cartoon"] .table thead th { background-color: #b3e5fc; color: #333; border-color: #333; }
+[data-torque-theme="cartoon"] .badge { border: 2px solid #333; }
+
+[data-torque-theme="cartoon"][data-bs-theme="dark"] body { background-color: #1a0a2e; }
+[data-torque-theme="cartoon"][data-bs-theme="dark"] .card {
+  background-color: #2a1a45;
+  border-color: #FFD700 !important;
+  box-shadow: 5px 5px 0 #FFD700 !important;
+}
+[data-torque-theme="cartoon"][data-bs-theme="dark"] .card-header {
+  background: linear-gradient(90deg, #4a2080 0%, #6a1060 100%) !important;
+  border-bottom: 3px solid #FFD700 !important;
+}
+[data-torque-theme="cartoon"][data-bs-theme="dark"] .card-header h6 { color: #FFD700 !important; }
+[data-torque-theme="cartoon"][data-bs-theme="dark"] .navbar {
+  box-shadow: 0 3px 0 #FFD700;
+}
+
+/* Cartoon login */
+[data-torque-theme="cartoon"] body.login-body {
+  background-color: #f0e8ff;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(255,107,53,0.35) 0%, transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(108,63,200,0.35) 0%, transparent 35%),
+    radial-gradient(circle at 85% 20%, rgba(255,215,0,0.3) 0%, transparent 28%),
+    radial-gradient(circle at 15% 80%, rgba(233,30,140,0.28) 0%, transparent 28%);
+}
+[data-torque-theme="cartoon"] body.login-body .login-card {
+  background: rgba(255,255,255,0.97) !important;
+  border: 3px solid #333 !important;
+  box-shadow: 8px 8px 0 #333, 0 0 0 6px #FFD700, 12px 12px 0 rgba(0,0,0,0.1) !important;
+  border-radius: 16px !important;
+}
+[data-torque-theme="cartoon"] body.login-body .login-logo h1 { color: #333 !important; font-weight: 900 !important; }
+[data-torque-theme="cartoon"] body.login-body .login-logo p { color: #6c3fc8 !important; font-weight: 700 !important; }
+[data-torque-theme="cartoon"] body.login-body .login-logo .icon-wrap {
+  background: linear-gradient(135deg, #ff6b35 0%, #e91e8c 100%) !important;
+  border: 3px solid #333 !important;
+  box-shadow: 4px 4px 0 #333 !important;
+  border-radius: 50% !important;
+}
+[data-torque-theme="cartoon"] body.login-body .login-logo .bi { color: #fff !important; }
+[data-torque-theme="cartoon"] body.login-body .form-label { color: #333 !important; font-weight: 700 !important; }
+[data-torque-theme="cartoon"] body.login-body .form-control {
+  background-color: #fffef0 !important;
+  border: 2px solid #333 !important;
+  color: #333 !important;
+  border-radius: 8px !important;
+}
+[data-torque-theme="cartoon"] body.login-body .form-control:focus {
+  border-color: #6c3fc8 !important;
+  box-shadow: 0 0 0 3px rgba(108,63,200,0.2) !important;
+}
+[data-torque-theme="cartoon"] body.login-body .btn-login {
+  background: linear-gradient(90deg, #ff6b35, #e91e8c) !important;
+  border: 2px solid #333 !important;
+  box-shadow: 4px 4px 0 #333 !important;
+  font-weight: 900 !important;
+  border-radius: 8px !important;
+}
+[data-torque-theme="cartoon"] body.login-body .btn-login:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #333 !important;
+}
+[data-torque-theme="cartoon"] body.login-body .gauge-strip span { color: #6c3fc8 !important; font-weight: 700 !important; }

@@ -1,0 +1,53 @@
+services:
+  torque:
+    image: leorx/open-torque-viewer:latest
+    build: .
+    container_name: torque
+    restart: unless-stopped
+
+    environment:
+      # ── Database ──────────────────────────────────────────────────────────────
+      # host.docker.internal resolves to the NAS host (MariaDB lives there).
+      # Override with a real IP if running the container on a different machine.
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME:-torque}
+
+      # ── Web login (legacy array — prefer torque_users DB table for new accounts)
+      - APP_USER=${APP_USER:-}
+      - APP_PASS=${APP_PASS:-}
+
+      # ── Optional integrations ─────────────────────────────────────────────────
+      - GMAPS_API_KEY=${GMAPS_API_KEY:-}
+      - TORQUE_ID=${TORQUE_ID:-}
+      - TORQUE_ID_HASH=${TORQUE_ID_HASH:-}
+
+    # Lets the container reach services running on the NAS host (MariaDB)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    labels:
+      - "traefik.enable=true"
+
+      # ── Web UI — routed via HTTPS by Traefik (auto Let's Encrypt) ─────────────
+      - "traefik.http.routers.torque-ui.rule=Host(`torque.eeyorejojo.com`)"
+      - "traefik.http.routers.torque-ui.entrypoints=websecure"
+      - "traefik.http.routers.torque-ui.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.torque-ui.service=torque-ui"
+      - "traefik.http.services.torque-ui.loadbalancer.server.port=80"
+
+      # ── Upload endpoint — HTTP only, no TLS redirect (Torque Pro Android) ─────
+      # Torque Pro has issues with HTTPS; this router deliberately stays on HTTP.
+      - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.eeyorejojo.com`)"
+      - "traefik.http.routers.torque-upload.entrypoints=web"
+      - "traefik.http.routers.torque-upload.service=torque-upload"
+      - "traefik.http.services.torque-upload.loadbalancer.server.port=80"
+
+# Join the existing Traefik network.
+# Verify the exact network name in Portainer → Networks, then update below.
+networks:
+  default:
+    external: true
+    name: traefik_proxy
