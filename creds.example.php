@@ -5,7 +5,7 @@
 // environment variables — you do NOT need to create creds.php manually.
 
 // ── Database connection ────────────────────────────────────────────────────────
-$db_host = '10.1.1.253';            // MariaDB host (IP or hostname)
+$db_host = 'your-db-host';          // MariaDB host (IP or hostname)
 $db_user = 'torque';                 // MySQL username
 $db_pass = 'your_db_password_here'; // MySQL password
 $db_port = 3306;                     // MySQL port (default 3306)

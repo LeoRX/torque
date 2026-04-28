@@ -31,7 +31,7 @@ services:
       - "traefik.enable=true"
 
       # ── Web UI — routed via HTTPS by Traefik (auto Let's Encrypt) ─────────────
-      - "traefik.http.routers.torque-ui.rule=Host(`torque.eeyorejojo.com`)"
+      - "traefik.http.routers.torque-ui.rule=Host(`torque.your-domain.com`)"
       - "traefik.http.routers.torque-ui.entrypoints=websecure"
       - "traefik.http.routers.torque-ui.tls.certresolver=letsencrypt"
       - "traefik.http.routers.torque-ui.service=torque-ui"
@@ -39,7 +39,7 @@ services:
 
       # ── Upload endpoint — HTTP only, no TLS redirect (Torque Pro Android) ─────
       # Torque Pro has issues with HTTPS; this router deliberately stays on HTTP.
-      - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.eeyorejojo.com`)"
+      - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.your-domain.com`)"
       - "traefik.http.routers.torque-upload.entrypoints=web"
       - "traefik.http.routers.torque-upload.service=torque-upload"
       - "traefik.http.services.torque-upload.loadbalancer.server.port=80"

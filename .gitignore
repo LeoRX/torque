@@ -6,7 +6,8 @@ creds.php
 data/
 
 # ── Python import scripts (local desktop tools, not part of the web app) ──────
-# Kept in working directory but not tracked in the public repo
+# Run locally on Windows desktop — never part of the web app or public repo
+*.py
 *.pyc
 __pycache__/
 
