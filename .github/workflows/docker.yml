@@ -72,11 +72,8 @@ jobs:
         with:
           platforms: arm64
 
-      # ── Build & push (multi-arch: amd64 + arm64/v8) ──────────────────────────
-      # Note: GHA cache breaks multi-platform builds (only one platform gets
-      # cached). Using registry cache (inline) instead — slower first build but
-      # all platforms land correctly on Docker Hub.
-      - name: Build and push Docker image
+      # ── Build & push multi-arch :latest + date tag (amd64 + arm64) ──────────
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -86,3 +83,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=leorx/open-torque-viewer:buildcache
           cache-to: type=registry,ref=leorx/open-torque-viewer:buildcache,mode=max
+
+      # ── Build & push single-platform :arm64 tag ───────────────────────────────
+      # Some Docker daemons (e.g. on ARM NAS) strictly require variant="v8" in the
+      # manifest list but buildx QEMU cross-builds leave the variant field empty.
+      # A single-platform image has no manifest list, so variant matching is
+      # bypassed entirely. The NAS Portainer stack uses this tag.
+      - name: Build and push arm64-only image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64/v8
+          push: true
+          tags: leorx/open-torque-viewer:arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=leorx/open-torque-viewer:buildcache
