@@ -1,5 +1,11 @@
 FROM php:8.2-apache
 
+# ── System dependencies for PHP extensions ────────────────────────────────────
+# libonig-dev is required by mbstring
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libonig-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # ── PHP extensions ─────────────────────────────────────────────────────────────
 RUN docker-php-ext-install mysqli mbstring
 
