@@ -317,3 +317,44 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
 
 #filterHasData { accent-color: var(--hud-cyan); }
 #vars-section .form-check-label { color: #8ab; font-size: 11px; }
+
+/* ── Data Summary panel ── */
+#summary-section .torque-panel-body { background: var(--hud-bg); padding: 0; }
+
+#summary-section .table {
+  color: #8ab !important;
+  font-size: 11px;
+  margin-bottom: 0;
+}
+#summary-section .table td,
+#summary-section .table th {
+  border-color: rgba(0, 212, 255, 0.07) !important;
+  padding: 6px 10px;
+}
+#summary-section thead.table-light,
+#summary-section thead.table-light th {
+  background: #040810 !important;
+  color: rgba(0,212,255,0.5) !important;
+  font-size: 9px;
+  letter-spacing: 1px;
+  border-color: rgba(0,212,255,0.1) !important;
+}
+
+#summary-section .table tbody tr:nth-child(odd) td { background: rgba(255,255,255,0.015) !important; }
+#summary-section .table tbody tr:hover td { background: rgba(0,212,255,0.04) !important; }
+
+/* Coloured glow dot before variable name */
+#summary-section .table tbody tr:nth-child(1) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#00d4ff; box-shadow:0 0 6px #00d4ff; margin-right:7px; vertical-align:middle; }
+#summary-section .table tbody tr:nth-child(2) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#ff6b6b; box-shadow:0 0 6px #ff6b6b; margin-right:7px; vertical-align:middle; }
+#summary-section .table tbody tr:nth-child(3) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#00ff88; box-shadow:0 0 6px #00ff88; margin-right:7px; vertical-align:middle; }
+#summary-section .table tbody tr:nth-child(4) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#f4a261; box-shadow:0 0 6px #f4a261; margin-right:7px; vertical-align:middle; }
+#summary-section .table tbody tr:nth-child(5) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#9b5de5; box-shadow:0 0 6px #9b5de5; margin-right:7px; vertical-align:middle; }
+#summary-section .table tbody tr:nth-child(6) td:first-child::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#00b4d8; box-shadow:0 0 6px #00b4d8; margin-right:7px; vertical-align:middle; }
+
+/* Mean column — neon colour per row, monospace */
+#summary-section .table tbody tr:nth-child(1) td:nth-child(5) { color:#00d4ff !important; font-family:'Courier New',monospace; font-weight:700; }
+#summary-section .table tbody tr:nth-child(2) td:nth-child(5) { color:#ff6b6b !important; font-family:'Courier New',monospace; font-weight:700; }
+#summary-section .table tbody tr:nth-child(3) td:nth-child(5) { color:#00ff88 !important; font-family:'Courier New',monospace; font-weight:700; }
+#summary-section .table tbody tr:nth-child(4) td:nth-child(5) { color:#f4a261 !important; font-family:'Courier New',monospace; font-weight:700; }
+#summary-section .table tbody tr:nth-child(5) td:nth-child(5) { color:#9b5de5 !important; font-family:'Courier New',monospace; font-weight:700; }
+#summary-section .table tbody tr:nth-child(6) td:nth-child(5) { color:#00b4d8 !important; font-family:'Courier New',monospace; font-weight:700; }
