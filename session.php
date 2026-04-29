@@ -927,7 +927,7 @@ if (isset($sids[0])) {
     <!-- ── AI Chat panel ── -->
     <div class="torque-panel" id="ai-section" style="display:none">
       <div class="torque-panel-header">
-        <h6><i class="bi bi-robot me-2"></i>TorqueAI</h6>
+        <h6><i class="bi bi-robot me-2"></i>TORQUE<span style="color:var(--hud-red)">AI</span>&nbsp;<span style="background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.35);color:#00ff88;font-size:7px;padding:1px 5px;border-radius:10px;letter-spacing:1px;vertical-align:middle;">ONLINE</span></h6>
         <button class="torque-panel-close" onclick="torqueToggle('ai-section', document.getElementById('btn-ai'))">×</button>
       </div>
       <div class="torque-panel-body d-flex flex-column" style="padding:0;height:420px;">
