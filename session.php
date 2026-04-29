@@ -745,7 +745,6 @@ if (isset($sids[0])) {
           var tip     = el.querySelector('.mapboxgl-popup-tip');
           if (tip) tip.style.display = 'none';
           if (!content) return;
-          var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
           content.style.padding      = '8px 12px';
           content.style.borderRadius = '8px';
           content.style.fontFamily   = 'inherit';
@@ -818,7 +817,7 @@ if (isset($sids[0])) {
         btn.innerHTML = nowDark
           ? '<i class="bi bi-sun"></i>'
           : '<i class="bi bi-moon-stars"></i>';
-        btn.title = nowDark ? 'Full neon mode' : 'Dimmed mode';
+        btn.title = nowDark ? 'Dimmed mode' : 'Full neon mode';
         localStorage.setItem('torque-theme', nowDark ? 'dark' : 'light');
 
         // Update Chart.js colours

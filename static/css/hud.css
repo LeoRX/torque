@@ -493,6 +493,7 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
 .hud-map-dot {
   background: #0a0e1a !important;
   border: 2px solid var(--hud-cyan) !important;
+  border-radius: 50% !important;
   animation: hudDotPulse 1.5s ease-out infinite !important;
 }
 
