@@ -502,3 +502,17 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
   color: #8ab !important;
 }
 #torque-session-legend div { color: #8ab !important; }
+
+/* ── Custom scrollbars ── */
+.torque-panel ::-webkit-scrollbar        { width: 5px; }
+.torque-panel ::-webkit-scrollbar-track  { background: var(--hud-bg); }
+.torque-panel ::-webkit-scrollbar-thumb  { background: rgba(0,212,255,0.25); border-radius: 3px; }
+.torque-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.55); }
+
+/* ── Monospace numbers in summary table ── */
+#summary-section .table td:nth-child(2),
+#summary-section .table td:nth-child(3),
+#summary-section .table td:nth-child(4),
+#summary-section .table td:nth-child(5) {
+  font-family: 'Courier New', monospace;
+}

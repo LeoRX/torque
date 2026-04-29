@@ -818,6 +818,7 @@ if (isset($sids[0])) {
         btn.innerHTML = nowDark
           ? '<i class="bi bi-sun"></i>'
           : '<i class="bi bi-moon-stars"></i>';
+        btn.title = nowDark ? 'Full neon mode' : 'Dimmed mode';
         localStorage.setItem('torque-theme', nowDark ? 'dark' : 'light');
 
         // Update Chart.js colours
