@@ -316,4 +316,4 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
 #vars-section .btn-primary:hover { background: #00eeff !important; box-shadow: var(--hud-glow-cyan) !important; }
 
 #filterHasData { accent-color: var(--hud-cyan); }
-#vars-section .form-check-label { color: #445; font-size: 11px; }
+#vars-section .form-check-label { color: #8ab; font-size: 11px; }
