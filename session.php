@@ -134,6 +134,7 @@ if (isset($sids[0])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.bootstrap5.min.css">
     <link rel="stylesheet" href="static/css/torque.css">
     <link rel="stylesheet" href="static/css/themes.css">
+    <link rel="stylesheet" href="static/css/hud.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
@@ -231,9 +232,10 @@ if (isset($sids[0])) {
           var noGpsDiv = document.createElement('div');
           noGpsDiv.style.cssText =
             'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;' +
-            'background:rgba(255,255,255,0.9);padding:12px 18px;border-radius:8px;' +
-            'font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);pointer-events:none;';
-          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#6c757d;display:block;margin-bottom:4px;"></i>No GPS data for this session';
+            'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
+            'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
+            'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
+          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No GPS data for this session';
           mapEl.appendChild(noGpsDiv);
           return;
         }
@@ -257,9 +259,10 @@ if (isset($sids[0])) {
           var noGpsDiv2 = document.createElement('div');
           noGpsDiv2.style.cssText =
             'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;' +
-            'background:rgba(255,255,255,0.9);padding:12px 18px;border-radius:8px;' +
-            'font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);pointer-events:none;';
-          noGpsDiv2.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#6c757d;display:block;margin-bottom:4px;"></i>No valid GPS data for this session';
+            'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
+            'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
+            'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
+          noGpsDiv2.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No valid GPS data for this session';
           mapEl.appendChild(noGpsDiv2);
           return;
         }
@@ -351,6 +354,8 @@ if (isset($sids[0])) {
                 'line-gradient': gradExpr
               }
             });
+            // Glow effect on the route line
+            map.setPaintProperty('route', 'line-blur', 2);
 
             map.fitBounds(bounds, { padding: 50, maxZoom: 17, duration: 0 });
 
@@ -484,6 +489,9 @@ if (isset($sids[0])) {
       var s<?php echo $i; ?> = [<?php foreach(${"d".$i} as $b) {echo "[".$b[0].", ".$b[1]."],";} ?>];
 <?php     $i = $i + 1; ?>
 <?php   } ?>
+      var _hudColors     = ['#00d4ff','#ff6b6b','#00ff88','#f4a261','#9b5de5','#00b4d8','#fb8500'];
+      var _hudColorsFill = ['rgba(0,212,255,0.08)','rgba(255,107,107,0.08)','rgba(0,255,136,0.06)',
+                            'rgba(244,162,97,0.07)','rgba(155,93,229,0.07)','rgba(0,180,216,0.07)','rgba(251,133,0,0.07)'];
       var torqueDatasets = [
 <?php   $i=1; ?>
 <?php   while ( isset(${'var' . $i }) && !empty(${'var' . $i }) ) { ?>
@@ -494,7 +502,9 @@ if (isset($sids[0])) {
           pointRadius: 0,
           pointHitRadius: 8,
           tension: 0.1,
-          fill: false
+          borderColor: _hudColors[(<?php echo $i-1; ?>) % _hudColors.length],
+          backgroundColor: _hudColorsFill[(<?php echo $i-1; ?>) % _hudColorsFill.length],
+          fill: true
         }<?php if ( isset(${'var'.($i+1)}) ) echo ","; ?>
 
 <?php     $i = $i + 1; ?>
@@ -503,8 +513,9 @@ if (isset($sids[0])) {
       // Apply Chart.js colours to match current light/dark theme
       function _applyChartTheme(isDark) {
         if (typeof Chart === 'undefined') return;
-        var text = isDark ? '#c8c8d8' : '#555';
-        var grid = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+        // HUD is always dark — ignore isDark, use consistent dark colours
+        var text = '#8ab';
+        var grid = 'rgba(0, 212, 255, 0.07)';
         Chart.defaults.color       = text;
         Chart.defaults.borderColor = grid;
         if (window.torqueChart) {
@@ -585,6 +596,8 @@ if (isset($sids[0])) {
             }
           }
         });
+        // ── Initialise HUD gauges after chart is ready ──
+        setTimeout(_initGauges, 100);
       });
     </script>
 <?php } ?>
@@ -662,10 +675,9 @@ if (isset($sids[0])) {
     // ── Map dot marker (shown when hovering the chart) ──
     var _mapDotEl = (function() {
       var el = document.createElement('div');
+      el.className = 'hud-map-dot';
       el.style.cssText =
-        'width:14px;height:14px;border-radius:50%;' +
-        'background:#fff;border:3px solid #0d6efd;' +
-        'box-shadow:0 0 0 3px rgba(13,110,253,0.25),0 2px 6px rgba(0,0,0,0.4);' +
+        'width:12px;height:12px;border-radius:50%;' +
         'pointer-events:none;display:none;';
       return el;
     })();
@@ -694,12 +706,17 @@ if (isset($sids[0])) {
           if (!window.torqueChart) return;
           var pts = window.torqueChart.getElementsAtEventForMode(e, 'index', { intersect: false }, true);
           if (pts.length) {
-            _showMapDot(window.torqueChart.data.datasets[0].data[pts[0].index].x);
+            var tsMs = window.torqueChart.data.datasets[0].data[pts[0].index].x;
+            _showMapDot(tsMs);
+            _updateGauges(tsMs);
           } else {
             _hideMapDot();
           }
         });
-        canvas.addEventListener('mouseleave', _hideMapDot);
+        canvas.addEventListener('mouseleave', function() {
+          _hideMapDot();
+          _initGauges();
+        });
       }
 
       // ── Map route hover → popup + chart crosshair ──
@@ -730,17 +747,16 @@ if (isset($sids[0])) {
           var tip     = el.querySelector('.mapboxgl-popup-tip');
           if (tip) tip.style.display = 'none';
           if (!content) return;
-          var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
           content.style.padding      = '8px 12px';
           content.style.borderRadius = '8px';
           content.style.fontFamily   = 'inherit';
           content.style.fontSize     = '12px';
           content.style.boxShadow    = '0 4px 18px rgba(0,0,0,0.22)';
           content.style.pointerEvents = 'none';
-          content.style.background   = dark ? '#1e1e2e' : '#ffffff';
-          content.style.color        = dark ? '#e0e0e0' : '#222222';
-          content.style.border       = dark ? '1px solid rgba(255,255,255,0.15)'
-                                            : '1px solid rgba(0,0,0,0.1)';
+          // HUD is always dark
+          content.style.background   = 'rgba(6, 9, 18, 0.92)';
+          content.style.color        = '#8ab';
+          content.style.border       = '1px solid rgba(0, 212, 255, 0.22)';
         }
 
         // Re-theme the popup whenever data-bs-theme changes on <html>
@@ -772,17 +788,23 @@ if (isset($sids[0])) {
       function torqueToggle(id, btn) {
         var el = document.getElementById(id);
         if (!el) return;
-        var hidden = el.style.display === 'none';
-        el.style.display = hidden ? '' : 'none';
+        var hidden = el.classList.contains('torque-panel--hidden') || el.style.display === 'none';
+        if (hidden) {
+          el.style.display = '';
+          requestAnimationFrame(function() {
+            el.classList.remove('torque-panel--hidden');
+          });
+        } else {
+          el.classList.add('torque-panel--hidden');
+          setTimeout(function() { el.style.display = 'none'; }, 150);
+        }
         if (btn) btn.classList.toggle('active', hidden);
-        // Chart panel drives the map-shrink body class
         if (id === 'chart-section') {
           document.body.classList.toggle('chart-open', hidden);
           if (hidden && window.torqueChart) {
             setTimeout(function(){ window.torqueChart.resize(); }, 350);
           }
         }
-        // Mapbox always needs resize() after any panel state change
         if (window._torqueMap) {
           setTimeout(function(){ window._torqueMap.resize(); }, 350);
         }
@@ -797,6 +819,7 @@ if (isset($sids[0])) {
         btn.innerHTML = nowDark
           ? '<i class="bi bi-sun"></i>'
           : '<i class="bi bi-moon-stars"></i>';
+        btn.title = nowDark ? 'Dimmed mode' : 'Full neon mode';
         localStorage.setItem('torque-theme', nowDark ? 'dark' : 'light');
 
         // Update Chart.js colours
@@ -824,11 +847,11 @@ if (isset($sids[0])) {
     </script>
   </head>
   <body>
-    <nav class="navbar navbar-dark bg-dark fixed-top" style="min-height:58px;">
+    <nav class="navbar navbar-dark bg-dark fixed-top hud-navbar">
       <div class="container-fluid flex-nowrap gap-2">
 
         <!-- Brand -->
-        <a class="navbar-brand flex-shrink-0" href="session.php">Open Torque Viewer</a>
+        <a class="navbar-brand flex-shrink-0 hud-brand" href="session.php">⬡&nbsp;TORQUE</a>
 
         <!-- Filter + Session selection — horizontal row -->
         <form id="navfilterform" class="d-flex align-items-center gap-2 flex-nowrap flex-grow-1" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
@@ -907,7 +930,7 @@ if (isset($sids[0])) {
     <!-- ── AI Chat panel ── -->
     <div class="torque-panel" id="ai-section" style="display:none">
       <div class="torque-panel-header">
-        <h6><i class="bi bi-robot me-2"></i>TorqueAI</h6>
+        <h6><i class="bi bi-robot me-2"></i>TORQUE<span style="color:var(--hud-red)">AI</span>&nbsp;<span style="background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.35);color:#00ff88;font-size:7px;padding:1px 5px;border-radius:10px;letter-spacing:1px;vertical-align:middle;">ONLINE</span></h6>
         <button class="torque-panel-close" onclick="torqueToggle('ai-section', document.getElementById('btn-ai'))">×</button>
       </div>
       <div class="torque-panel-body d-flex flex-column" style="padding:0;height:420px;">
@@ -934,6 +957,68 @@ if (isset($sids[0])) {
 
     <!-- Full-screen map canvas (sized by CSS) -->
     <div id="map-canvas"></div>
+
+<?php if ($setZoomManually === 0): ?>
+    <!-- ── HUD Widget — live arc gauges pinned to map ── -->
+    <div id="hud-widget">
+      <div class="hud-gauges">
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--cyan"
+                  id="hud-gauge-rpm"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-rpm-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">RPM</div>
+        </div>
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--red"
+                  id="hud-gauge-coolant"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-coolant-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">COOLANT</div>
+        </div>
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--green"
+                  id="hud-gauge-speed"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-speed-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">km/h</div>
+        </div>
+
+      </div>
+      <div class="hud-stats">
+        <div class="hud-stat">
+          <div class="hud-stat-val hud-stat-val--cyan" id="hud-stat-dur">&#x2014;</div>
+          <div class="hud-stat-label">DURATION</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-val" id="hud-stat-dist">&#x2014;</div>
+          <div class="hud-stat-label">DISTANCE</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-val hud-stat-val--green" id="hud-stat-fuel">&#x2014;</div>
+          <div class="hud-stat-label">L/100km</div>
+        </div>
+      </div>
+    </div>
+<?php endif; ?>
 
 <?php if ($setZoomManually === 0) { ?>
 
