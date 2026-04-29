@@ -60,7 +60,7 @@ body { background: var(--hud-bg-map) !important; }
 /* Icon buttons */
 .hud-navbar .btn-outline-light {
   border-color: rgba(0, 212, 255, 0.22) !important;
-  color: #445 !important;
+  color: rgba(0, 212, 255, 0.35) !important;
   width: 28px; height: 28px;
   padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -82,6 +82,7 @@ body { background: var(--hud-bg-map) !important; }
   width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .hud-navbar .btn-outline-primary:hover {
   background: rgba(0, 212, 255, 0.12) !important;
@@ -94,13 +95,14 @@ body { background: var(--hud-bg-map) !important; }
   width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 12px;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .hud-navbar .btn-outline-danger:hover {
   background: rgba(255, 107, 107, 0.12) !important;
 }
 
 /* Navbar user text */
-.hud-navbar .navbar-user { color: #445 !important; font-size: 10px; }
+.hud-navbar .navbar-user { color: rgba(0, 212, 255, 0.35) !important; font-size: 10px; }
 
 /* Adjust panel default top positions for new navbar height */
 #vars-section    { top: calc(var(--navbar-height) + 10px); }
