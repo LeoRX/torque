@@ -612,3 +612,146 @@ $(document).ready(function(){
   });
 
 });
+
+// ══════════════════════════════════════════════════════════════════
+// HUD Gauge System
+// ══════════════════════════════════════════════════════════════════
+
+// Haversine distance in km between two lat/lon points
+function _haversineKm(lat1, lon1, lat2, lon2) {
+  var R = 6371;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Find first Chart.js dataset whose label contains any of the given keywords (case-insensitive)
+function _findDatasetByKeyword() {
+  var keywords = Array.prototype.slice.call(arguments);
+  if (!window.torqueChart) return null;
+  var ds = window.torqueChart.data.datasets;
+  for (var i = 0; i < ds.length; i++) {
+    var lbl = (ds[i].label || '').toLowerCase();
+    for (var k = 0; k < keywords.length; k++) {
+      if (lbl.indexOf(keywords[k]) !== -1) return ds[i];
+    }
+  }
+  return null;
+}
+
+// Mean of a Chart.js dataset's y values
+function _datasetMean(ds) {
+  if (!ds || !ds.data || !ds.data.length) return null;
+  var sum = 0;
+  for (var i = 0; i < ds.data.length; i++) sum += ds.data[i].y;
+  return sum / ds.data.length;
+}
+
+// Set a gauge arc's fill fraction (0–1) and update label text
+function _setGauge(arcId, valId, fraction, text) {
+  var arc = document.getElementById(arcId);
+  var val = document.getElementById(valId);
+  if (!arc) return;
+  var offset = (94 * (1 - Math.max(0, Math.min(1, fraction)))).toFixed(1);
+  arc.setAttribute('stroke-dashoffset', offset);
+  if (val) val.textContent = text !== undefined ? String(text) : '';
+}
+
+// Initialise gauges on page load — populate stats and animate to session averages
+function _initGauges() {
+  // ── Distance from GPS ──
+  var distEl = document.getElementById('hud-stat-dist');
+  if (distEl && window._routeData && _routeData.length > 1) {
+    var dist = 0;
+    for (var i = 1; i < _routeData.length; i++) {
+      // _routeData[i] = [lon, lat, speed, ts]
+      dist += _haversineKm(_routeData[i - 1][1], _routeData[i - 1][0],
+                           _routeData[i][1],     _routeData[i][0]);
+    }
+    distEl.textContent = dist.toFixed(1) + ' km';
+  }
+
+  // ── Duration from GPS timestamps ──
+  var durEl = document.getElementById('hud-stat-dur');
+  if (durEl && window._routeData && _routeData.length > 1 && _routeData[0].length >= 4) {
+    var dur = (_routeData[_routeData.length - 1][3] - _routeData[0][3]) / 60000;
+    durEl.textContent = Math.round(dur) + ' min';
+  }
+
+  // ── Fuel average from chart data ──
+  var fuelEl = document.getElementById('hud-stat-fuel');
+  if (fuelEl) {
+    var fuelDs = _findDatasetByKeyword('fuel', 'l/100', 'consumption');
+    var fuelAvg = _datasetMean(fuelDs);
+    fuelEl.textContent = fuelAvg !== null ? fuelAvg.toFixed(1) : '—';
+  }
+
+  // ── Animate gauges to session averages ──
+  var rpmDs     = _findDatasetByKeyword('rpm');
+  var coolantDs = _findDatasetByKeyword('coolant', 'temp');
+  var speedDs   = _findDatasetByKeyword('speed', 'km/h');
+
+  var rpmAvg     = _datasetMean(rpmDs);
+  var coolantAvg = _datasetMean(coolantDs);
+  var speedAvg   = _datasetMean(speedDs);
+
+  if (rpmAvg !== null)
+    _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val', rpmAvg / 8000, Math.round(rpmAvg));
+  if (coolantAvg !== null)
+    _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', (coolantAvg - 40) / 80, Math.round(coolantAvg) + '°');
+  if (speedAvg !== null)
+    _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', speedAvg / (window._maxSpeed || 120), Math.round(speedAvg));
+}
+
+// Update gauges from a chart timestamp — called on chart mousemove
+function _updateGauges(tsMs) {
+  var rpmDs     = _findDatasetByKeyword('rpm');
+  var coolantDs = _findDatasetByKeyword('coolant', 'temp');
+  var speedDs   = _findDatasetByKeyword('speed', 'km/h');
+
+  // RPM
+  if (rpmDs) {
+    var rpmVal = _chartValueAtTime(rpmDs.data, tsMs);
+    if (rpmVal !== null) _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val', rpmVal / 8000, Math.round(rpmVal));
+  }
+
+  // Coolant — with colour threshold
+  if (coolantDs) {
+    var cVal = _chartValueAtTime(coolantDs.data, tsMs);
+    if (cVal !== null) {
+      _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', (cVal - 40) / 80, Math.round(cVal) + '°');
+      var arc = document.getElementById('hud-gauge-coolant');
+      if (arc) {
+        var col = cVal > 105 ? '#ff2222' : cVal > 95 ? '#ff9944' : '#ff6b6b';
+        arc.setAttribute('stroke', col);
+        arc.style.filter = 'drop-shadow(0 0 4px ' + col + ')';
+      }
+    }
+  }
+
+  // Speed
+  if (speedDs) {
+    var sVal = _chartValueAtTime(speedDs.data, tsMs);
+    if (sVal !== null) _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', sVal / (window._maxSpeed || 120), Math.round(sVal));
+  }
+}
+
+// Recolour Peity sparklines to match HUD dataset colours
+function _hudRecolourSparklines() {
+  var colors = ['#00d4ff','#ff6b6b','#00ff88','#f4a261','#9b5de5','#00b4d8','#fb8500'];
+  $('#summary-section .table tbody tr').each(function(i) {
+    $(this).find('.line').peity('line', {
+      stroke: colors[i % colors.length],
+      fill: 'transparent',
+      width: 60,
+      height: 20
+    });
+  });
+}
+
+window.addEventListener('load', function() {
+  setTimeout(_hudRecolourSparklines, 200);
+});

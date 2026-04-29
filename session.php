@@ -586,6 +586,8 @@ if (isset($sids[0])) {
             }
           }
         });
+        // ── Initialise HUD gauges after chart is ready ──
+        setTimeout(_initGauges, 100);
       });
     </script>
 <?php } ?>
@@ -695,12 +697,17 @@ if (isset($sids[0])) {
           if (!window.torqueChart) return;
           var pts = window.torqueChart.getElementsAtEventForMode(e, 'index', { intersect: false }, true);
           if (pts.length) {
-            _showMapDot(window.torqueChart.data.datasets[0].data[pts[0].index].x);
+            var tsMs = window.torqueChart.data.datasets[0].data[pts[0].index].x;
+            _showMapDot(tsMs);
+            _updateGauges(tsMs);
           } else {
             _hideMapDot();
           }
         });
-        canvas.addEventListener('mouseleave', _hideMapDot);
+        canvas.addEventListener('mouseleave', function() {
+          _hideMapDot();
+          _initGauges();
+        });
       }
 
       // ── Map route hover → popup + chart crosshair ──
