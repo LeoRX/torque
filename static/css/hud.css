@@ -1,0 +1,29 @@
+/* ═══════════════════════════════════════════════════════════════
+   Open Torque Viewer — Dark Racing HUD Theme
+   Loaded after torque.css. All overrides live here.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Design tokens ── */
+:root {
+  --hud-bg:        #060912;
+  --hud-bg-map:    #0a0e1a;
+  --hud-cyan:      #00d4ff;
+  --hud-red:       #ff6b6b;
+  --hud-green:     #00ff88;
+  --hud-border:    rgba(0, 212, 255, 0.2);
+  --hud-glow-cyan: 0 0 12px rgba(0, 212, 255, 0.4);
+  --navbar-height: 46px;
+}
+
+/* ── Base ── */
+html, body { background: var(--hud-bg-map) !important; }
+
+/* Light mode = de-saturated dark (no white theme for session.php) */
+[data-bs-theme="light"] {
+  --hud-cyan:   rgba(0, 180, 210, 0.65);
+  --hud-green:  rgba(0, 180, 100, 0.65);
+  --hud-red:    rgba(210, 80, 80, 0.65);
+  --hud-border: rgba(0, 212, 255, 0.12);
+  --hud-glow-cyan: 0 0 8px rgba(0, 212, 255, 0.2);
+}
+[data-bs-theme="light"] body { background: #0d1117 !important; }

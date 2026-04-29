@@ -134,6 +134,7 @@ if (isset($sids[0])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.bootstrap5.min.css">
     <link rel="stylesheet" href="static/css/torque.css">
     <link rel="stylesheet" href="static/css/themes.css">
+    <link rel="stylesheet" href="static/css/hud.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
