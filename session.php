@@ -485,6 +485,9 @@ if (isset($sids[0])) {
       var s<?php echo $i; ?> = [<?php foreach(${"d".$i} as $b) {echo "[".$b[0].", ".$b[1]."],";} ?>];
 <?php     $i = $i + 1; ?>
 <?php   } ?>
+      var _hudColors     = ['#00d4ff','#ff6b6b','#00ff88','#f4a261','#9b5de5','#00b4d8','#fb8500'];
+      var _hudColorsFill = ['rgba(0,212,255,0.08)','rgba(255,107,107,0.08)','rgba(0,255,136,0.06)',
+                            'rgba(244,162,97,0.07)','rgba(155,93,229,0.07)','rgba(0,180,216,0.07)','rgba(251,133,0,0.07)'];
       var torqueDatasets = [
 <?php   $i=1; ?>
 <?php   while ( isset(${'var' . $i }) && !empty(${'var' . $i }) ) { ?>
@@ -495,7 +498,9 @@ if (isset($sids[0])) {
           pointRadius: 0,
           pointHitRadius: 8,
           tension: 0.1,
-          fill: false
+          borderColor: _hudColors[(<?php echo $i-1; ?>) % _hudColors.length],
+          backgroundColor: _hudColorsFill[(<?php echo $i-1; ?>) % _hudColorsFill.length],
+          fill: true
         }<?php if ( isset(${'var'.($i+1)}) ) echo ","; ?>
 
 <?php     $i = $i + 1; ?>
@@ -504,8 +509,9 @@ if (isset($sids[0])) {
       // Apply Chart.js colours to match current light/dark theme
       function _applyChartTheme(isDark) {
         if (typeof Chart === 'undefined') return;
-        var text = isDark ? '#c8c8d8' : '#555';
-        var grid = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+        // HUD is always dark — ignore isDark, use consistent dark colours
+        var text = '#8ab';
+        var grid = 'rgba(0, 212, 255, 0.07)';
         Chart.defaults.color       = text;
         Chart.defaults.borderColor = grid;
         if (window.torqueChart) {

@@ -204,3 +204,42 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
   margin-top: 1px;
   font-family: 'Courier New', monospace;
 }
+
+/* ── Chart strip ── */
+#chart-section {
+  background: var(--hud-bg) !important;
+  border-top: 1px solid var(--hud-border) !important;
+}
+
+#chart-section .torque-panel-header {
+  background: #040810 !important;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1) !important;
+}
+
+#chart-section .torque-panel-header h6 {
+  color: var(--hud-cyan) !important;
+  font-size: 9px !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+}
+
+#chart-section .btn-outline-secondary {
+  border-color: rgba(0, 212, 255, 0.3) !important;
+  color: var(--hud-cyan) !important;
+  font-size: 9px;
+}
+#chart-section .btn-outline-secondary:hover {
+  background: rgba(0, 212, 255, 0.08) !important;
+}
+
+#chartCanvas {
+  filter: drop-shadow(0 0 3px rgba(0, 212, 255, 0.2));
+}
+
+.chartjs-tooltip {
+  background: var(--hud-bg) !important;
+  border: 1px solid var(--hud-border) !important;
+  border-radius: 6px !important;
+  color: #ccc !important;
+  font-family: 'Courier New', monospace !important;
+}
