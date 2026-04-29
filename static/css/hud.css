@@ -472,3 +472,33 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
 
 .cal-action-bar { border-top-color: var(--hud-border) !important; }
 #cal-hint { color: #334 !important; }
+
+/* ── Map visual polish ── */
+
+.torque-speed-legend {
+  background: rgba(6, 9, 18, 0.82) !important;
+  border: 1px solid var(--hud-border) !important;
+  color: #8ab !important;
+  font-family: 'Courier New', monospace !important;
+  font-size: 10px !important;
+  box-shadow: 0 0 12px rgba(0,212,255,0.06), 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+.torque-speed-legend strong { color: var(--hud-cyan); letter-spacing: 1px; font-size: 9px; }
+
+@keyframes hudDotPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,212,255,0.5), 0 2px 6px rgba(0,0,0,0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(0,212,255,0), 0 2px 6px rgba(0,0,0,0.4); }
+  100% { box-shadow: 0 0 0 0 rgba(0,212,255,0), 0 2px 6px rgba(0,0,0,0.4); }
+}
+.hud-map-dot {
+  background: #0a0e1a !important;
+  border: 2px solid var(--hud-cyan) !important;
+  animation: hudDotPulse 1.5s ease-out infinite !important;
+}
+
+#torque-session-legend {
+  background: rgba(6, 9, 18, 0.88) !important;
+  border: 1px solid var(--hud-border) !important;
+  color: #8ab !important;
+}
+#torque-session-legend div { color: #8ab !important; }

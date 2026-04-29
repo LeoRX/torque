@@ -352,6 +352,8 @@ if (isset($sids[0])) {
                 'line-gradient': gradExpr
               }
             });
+            // Glow effect on the route line
+            map.setPaintProperty('route', 'line-blur', 2);
 
             map.fitBounds(bounds, { padding: 50, maxZoom: 17, duration: 0 });
 
@@ -671,10 +673,9 @@ if (isset($sids[0])) {
     // ── Map dot marker (shown when hovering the chart) ──
     var _mapDotEl = (function() {
       var el = document.createElement('div');
+      el.className = 'hud-map-dot';
       el.style.cssText =
-        'width:14px;height:14px;border-radius:50%;' +
-        'background:#fff;border:3px solid #0d6efd;' +
-        'box-shadow:0 0 0 3px rgba(13,110,253,0.25),0 2px 6px rgba(0,0,0,0.4);' +
+        'width:12px;height:12px;border-radius:50%;' +
         'pointer-events:none;display:none;';
       return el;
     })();
@@ -751,10 +752,10 @@ if (isset($sids[0])) {
           content.style.fontSize     = '12px';
           content.style.boxShadow    = '0 4px 18px rgba(0,0,0,0.22)';
           content.style.pointerEvents = 'none';
-          content.style.background   = dark ? '#1e1e2e' : '#ffffff';
-          content.style.color        = dark ? '#e0e0e0' : '#222222';
-          content.style.border       = dark ? '1px solid rgba(255,255,255,0.15)'
-                                            : '1px solid rgba(0,0,0,0.1)';
+          // HUD is always dark
+          content.style.background   = 'rgba(6, 9, 18, 0.92)';
+          content.style.color        = '#8ab';
+          content.style.border       = '1px solid rgba(0, 212, 255, 0.22)';
         }
 
         // Re-theme the popup whenever data-bs-theme changes on <html>
