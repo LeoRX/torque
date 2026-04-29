@@ -27,3 +27,83 @@ body { background: var(--hud-bg-map) !important; }
   --hud-border: rgba(0, 212, 255, 0.12);
   --hud-glow-cyan: 0 0 8px rgba(0, 212, 255, 0.2);
 }
+
+/* ── Navbar ── */
+.hud-navbar {
+  background: var(--hud-bg) !important;
+  border-bottom: 1px solid var(--hud-border);
+  min-height: var(--navbar-height) !important;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.hud-brand {
+  color: var(--hud-cyan) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 3px !important;
+  text-transform: uppercase !important;
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.6) !important;
+}
+.hud-brand:hover { color: #fff !important; text-shadow: 0 0 16px rgba(0,212,255,0.9) !important; }
+
+/* Navbar filter selects — override torque.css */
+.hud-navbar .navbar-filter {
+  background: rgba(0, 212, 255, 0.06) !important;
+  border-color: var(--hud-border) !important;
+  color: var(--hud-cyan) !important;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.hud-navbar .navbar-filter option { background: var(--hud-bg); color: #ccc; }
+
+/* Icon buttons */
+.hud-navbar .btn-outline-light {
+  border-color: rgba(0, 212, 255, 0.22) !important;
+  color: #445 !important;
+  width: 28px; height: 28px;
+  padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.hud-navbar .btn-outline-light:hover,
+.hud-navbar .btn-outline-light.active {
+  border-color: var(--hud-cyan) !important;
+  color: var(--hud-cyan) !important;
+  background: rgba(0, 212, 255, 0.06) !important;
+  box-shadow: var(--hud-glow-cyan) !important;
+}
+
+/* Merge button */
+.hud-navbar .btn-outline-primary {
+  border-color: rgba(0, 212, 255, 0.35) !important;
+  color: var(--hud-cyan) !important;
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.hud-navbar .btn-outline-primary:hover {
+  background: rgba(0, 212, 255, 0.12) !important;
+}
+
+/* Delete button */
+.hud-navbar .btn-outline-danger {
+  border-color: rgba(255, 107, 107, 0.4) !important;
+  color: var(--hud-red) !important;
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.hud-navbar .btn-outline-danger:hover {
+  background: rgba(255, 107, 107, 0.12) !important;
+}
+
+/* Navbar user text */
+.hud-navbar .navbar-user { color: #445 !important; font-size: 10px; }
+
+/* Adjust panel default top positions for new navbar height */
+#vars-section    { top: calc(var(--navbar-height) + 10px); }
+#summary-section { top: calc(var(--navbar-height) + 10px); }
+#cal-panel       { top: var(--navbar-height); }
+#ai-section      { top: calc(var(--navbar-height) + 8px); }

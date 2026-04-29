@@ -825,11 +825,11 @@ if (isset($sids[0])) {
     </script>
   </head>
   <body>
-    <nav class="navbar navbar-dark bg-dark fixed-top" style="min-height:58px;">
+    <nav class="navbar navbar-dark bg-dark fixed-top hud-navbar">
       <div class="container-fluid flex-nowrap gap-2">
 
         <!-- Brand -->
-        <a class="navbar-brand flex-shrink-0" href="session.php">Open Torque Viewer</a>
+        <a class="navbar-brand flex-shrink-0 hud-brand" href="session.php">⬡&nbsp;TORQUE</a>
 
         <!-- Filter + Session selection — horizontal row -->
         <form id="navfilterform" class="d-flex align-items-center gap-2 flex-nowrap flex-grow-1" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
