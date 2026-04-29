@@ -947,7 +947,6 @@ if (isset($sids[0])) {
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--cyan"
                   id="hud-gauge-rpm"
-                  stroke="#00d4ff"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-rpm-val">&#x2014;</text>
@@ -961,7 +960,6 @@ if (isset($sids[0])) {
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--red"
                   id="hud-gauge-coolant"
-                  stroke="#ff6b6b"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-coolant-val">&#x2014;</text>
@@ -975,7 +973,6 @@ if (isset($sids[0])) {
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--green"
                   id="hud-gauge-speed"
-                  stroke="#00ff88"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-speed-val">&#x2014;</text>
