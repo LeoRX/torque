@@ -152,6 +152,10 @@ body { background: var(--hud-bg-map) !important; }
   stroke-linecap: round;
   transition: stroke-dashoffset 0.25s ease-out, stroke 0.2s ease;
 }
+/* Slower sweep for page-load entry animation — removed by JS after first init */
+.hud-gauge-arc--loading {
+  transition-duration: 1.2s !important;
+}
 .hud-gauge-arc--cyan  { stroke: var(--hud-cyan); filter: drop-shadow(0 0 4px var(--hud-cyan)); }
 .hud-gauge-arc--red   { stroke: var(--hud-red);  filter: drop-shadow(0 0 4px var(--hud-red)); }
 .hud-gauge-arc--green { stroke: var(--hud-green); filter: drop-shadow(0 0 4px var(--hud-green)); }

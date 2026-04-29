@@ -660,8 +660,22 @@ function _setGauge(arcId, valId, fraction, text) {
   if (val) val.textContent = text !== undefined ? String(text) : '';
 }
 
+// Whether the first init (page-load sweep) has run
+var _gaugesInitialised = false;
+
 // Initialise gauges on page load — populate stats and animate to session averages
 function _initGauges() {
+  // On first call, apply a slow 1.2s sweep so the entry animation is dramatic
+  var arcs = document.querySelectorAll('.hud-gauge-arc');
+  if (!_gaugesInitialised) {
+    for (var a = 0; a < arcs.length; a++) arcs[a].classList.add('hud-gauge-arc--loading');
+    _gaugesInitialised = true;
+    // Remove loading class after the sweep completes
+    setTimeout(function() {
+      for (var a = 0; a < arcs.length; a++) arcs[a].classList.remove('hud-gauge-arc--loading');
+    }, 1300);
+  }
+
   // ── Distance from GPS ──
   var distEl = document.getElementById('hud-stat-dist');
   if (distEl && window._routeData && _routeData.length > 1) {

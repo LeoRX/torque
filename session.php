@@ -232,9 +232,10 @@ if (isset($sids[0])) {
           var noGpsDiv = document.createElement('div');
           noGpsDiv.style.cssText =
             'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;' +
-            'background:rgba(255,255,255,0.9);padding:12px 18px;border-radius:8px;' +
-            'font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);pointer-events:none;';
-          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#6c757d;display:block;margin-bottom:4px;"></i>No GPS data for this session';
+            'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
+            'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
+            'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
+          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No GPS data for this session';
           mapEl.appendChild(noGpsDiv);
           return;
         }
@@ -258,9 +259,10 @@ if (isset($sids[0])) {
           var noGpsDiv2 = document.createElement('div');
           noGpsDiv2.style.cssText =
             'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;' +
-            'background:rgba(255,255,255,0.9);padding:12px 18px;border-radius:8px;' +
-            'font-size:13px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);pointer-events:none;';
-          noGpsDiv2.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#6c757d;display:block;margin-bottom:4px;"></i>No valid GPS data for this session';
+            'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
+            'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
+            'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
+          noGpsDiv2.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No valid GPS data for this session';
           mapEl.appendChild(noGpsDiv2);
           return;
         }
