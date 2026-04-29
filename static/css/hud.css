@@ -16,14 +16,14 @@
 }
 
 /* ── Base ── */
-html, body { background: var(--hud-bg-map) !important; }
+body { background: var(--hud-bg-map) !important; }
 
 /* Light mode = de-saturated dark (no white theme for session.php) */
 [data-bs-theme="light"] {
+  --hud-bg-map: #0d1117;
   --hud-cyan:   rgba(0, 180, 210, 0.65);
   --hud-green:  rgba(0, 180, 100, 0.65);
   --hud-red:    rgba(210, 80, 80, 0.65);
   --hud-border: rgba(0, 212, 255, 0.12);
   --hud-glow-cyan: 0 0 8px rgba(0, 212, 255, 0.2);
 }
-[data-bs-theme="light"] body { background: #0d1117 !important; }
