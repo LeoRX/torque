@@ -243,3 +243,32 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
   color: #ccc !important;
   font-family: 'Courier New', monospace !important;
 }
+
+/* ── Floating panels — base ── */
+.torque-panel {
+  background: var(--hud-bg) !important;
+  border-color: var(--hud-border) !important;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.06), 0 4px 24px rgba(0, 0, 0, 0.7) !important;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.torque-panel--hidden {
+  opacity: 0 !important;
+  transform: translateY(6px) !important;
+  pointer-events: none !important;
+}
+
+.torque-panel-header {
+  background: #07101f !important;
+  border-bottom-color: rgba(0, 212, 255, 0.12) !important;
+}
+
+.torque-panel-header h6 {
+  color: var(--hud-cyan) !important;
+  font-size: 10px !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+}
+
+.torque-panel-close { color: var(--hud-cyan) !important; opacity: 0.4 !important; }
+.torque-panel-close:hover { opacity: 1 !important; }

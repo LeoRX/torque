@@ -786,17 +786,23 @@ if (isset($sids[0])) {
       function torqueToggle(id, btn) {
         var el = document.getElementById(id);
         if (!el) return;
-        var hidden = el.style.display === 'none';
-        el.style.display = hidden ? '' : 'none';
+        var hidden = el.classList.contains('torque-panel--hidden') || el.style.display === 'none';
+        if (hidden) {
+          el.style.display = '';
+          requestAnimationFrame(function() {
+            el.classList.remove('torque-panel--hidden');
+          });
+        } else {
+          el.classList.add('torque-panel--hidden');
+          setTimeout(function() { el.style.display = 'none'; }, 150);
+        }
         if (btn) btn.classList.toggle('active', hidden);
-        // Chart panel drives the map-shrink body class
         if (id === 'chart-section') {
           document.body.classList.toggle('chart-open', hidden);
           if (hidden && window.torqueChart) {
             setTimeout(function(){ window.torqueChart.resize(); }, 350);
           }
         }
-        // Mapbox always needs resize() after any panel state change
         if (window._torqueMap) {
           setTimeout(function(){ window._torqueMap.resize(); }, 350);
         }
