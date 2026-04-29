@@ -704,6 +704,13 @@ function _initGauges() {
     _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', (coolantAvg - 40) / 80, Math.round(coolantAvg) + '°');
   if (speedAvg !== null)
     _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', speedAvg / (window._maxSpeed || 120), Math.round(speedAvg));
+
+  // Reset coolant arc to default colour (mouseleave may leave it at a warning threshold)
+  var coolantArc = document.getElementById('hud-gauge-coolant');
+  if (coolantArc) {
+    coolantArc.setAttribute('stroke', '#ff6b6b');
+    coolantArc.style.filter = '';
+  }
 }
 
 // Update gauges from a chart timestamp — called on chart mousemove
