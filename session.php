@@ -936,6 +936,71 @@ if (isset($sids[0])) {
     <!-- Full-screen map canvas (sized by CSS) -->
     <div id="map-canvas"></div>
 
+<?php if ($setZoomManually === 0): ?>
+    <!-- ── HUD Widget — live arc gauges pinned to map ── -->
+    <div id="hud-widget">
+      <div class="hud-gauges">
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--cyan"
+                  id="hud-gauge-rpm"
+                  stroke="#00d4ff"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-rpm-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">RPM</div>
+        </div>
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--red"
+                  id="hud-gauge-coolant"
+                  stroke="#ff6b6b"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-coolant-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">COOLANT</div>
+        </div>
+
+        <div class="hud-gauge-wrap">
+          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+            <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
+            <path d="M 8 46 A 30 30 0 0 1 62 46"
+                  class="hud-gauge-arc hud-gauge-arc--green"
+                  id="hud-gauge-speed"
+                  stroke="#00ff88"
+                  stroke-dasharray="94"
+                  stroke-dashoffset="94"/>
+            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-speed-val">&#x2014;</text>
+          </svg>
+          <div class="hud-gauge-label">km/h</div>
+        </div>
+
+      </div>
+      <div class="hud-stats">
+        <div class="hud-stat">
+          <div class="hud-stat-val hud-stat-val--cyan" id="hud-stat-dur">&#x2014;</div>
+          <div class="hud-stat-label">DURATION</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-val" id="hud-stat-dist">&#x2014;</div>
+          <div class="hud-stat-label">DISTANCE</div>
+        </div>
+        <div class="hud-stat">
+          <div class="hud-stat-val hud-stat-val--green" id="hud-stat-fuel">&#x2014;</div>
+          <div class="hud-stat-label">L/100km</div>
+        </div>
+      </div>
+    </div>
+<?php endif; ?>
+
 <?php if ($setZoomManually === 0) { ?>
 
     <!-- ── Floating panel: Variables ── -->
