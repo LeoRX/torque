@@ -379,8 +379,7 @@ if (isset($sids[0])) {
               paint: {
                 'line-width': _lineWeight,
                 'line-opacity': _lineOpacity,
-                'line-gradient': gradExpr,
-                'line-blur': 2
+                'line-gradient': gradExpr
               }
             });
 
@@ -801,12 +800,16 @@ if (isset($sids[0])) {
           // Draw vertical crosshair on chart
           window._mapHoverTs = pt[3];
           if (window.torqueChart) window.torqueChart.draw();
+          // Update HUD gauges to values at this map position
+          if (typeof _updateGauges === 'function') _updateGauges(pt[3]);
         });
         map.on('mouseleave', 'route', function() {
           map.getCanvas().style.cursor = '';
           popup.remove();
           window._mapHoverTs = null;
           if (window.torqueChart) window.torqueChart.draw();
+          // Reset HUD gauges to session averages
+          if (typeof _initGauges === 'function') _initGauges();
         });
       });
     });
@@ -991,6 +994,13 @@ if (isset($sids[0])) {
       // HUD config and session averages — always emitted when a session exists
       var _hudConfig = <?php echo json_encode($hudConfig, JSON_UNESCAPED_UNICODE); ?>;
       var _hudSessionAvg = <?php echo json_encode($hudSessionAvg); ?>;
+      // Initialise HUD gauges once page (including HUD widget HTML) is fully loaded.
+      // This ensures gauges populate from session averages even when no chart variables
+      // are plotted yet. When the chart IS plotted, the chart-ready setTimeout also
+      // calls _initGauges — calling twice is harmless.
+      window.addEventListener('load', function() {
+        if (typeof _initGauges === 'function') _initGauges();
+      });
     </script>
     <!-- ── HUD Widget — live arc gauges pinned to map ── -->
     <div id="hud-widget">

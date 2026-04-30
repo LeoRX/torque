@@ -152,13 +152,14 @@ $mapbox_styles = [
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="static/css/torque.css">
   <link rel="stylesheet" href="static/css/themes.css">
+  <link rel="stylesheet" href="static/css/hud.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700">
   <style>
     /* Force page to scroll — torque.css sets html{overflow:hidden} for the map page */
     html, body { overflow-y: auto !important; height: auto !important; }
 
-    /* Navbar=58px, save-bar≈46px → content needs padding for both */
-    :root { --save-bar-height: 46px; }
+    /* hud.css sets --navbar-height:46px for the slim HUD navbar; settings.php uses 58px */
+    :root { --navbar-height: 58px; --save-bar-height: 46px; }
     .settings-content-top { padding-top: calc(var(--navbar-height) + var(--save-bar-height) + 16px); }
     .settings-wrapper { padding-bottom: 40px; }
     .section-icon { font-size: 1.1rem; margin-right: 0.4rem; opacity: 0.8; }
