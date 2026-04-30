@@ -445,6 +445,24 @@ function onSubmitIt() {
 
 $(document).ready(function(){
 
+  // ── Restore saved panel positions from localStorage ──
+  ['hud-widget', 'vars-section', 'summary-section'].forEach(function(id) {
+    try {
+      var saved = localStorage.getItem('torque-pos-' + id);
+      if (!saved) return;
+      var pos = JSON.parse(saved);
+      var el = document.getElementById(id);
+      if (!el || !pos || !pos.left || !pos.top) return;
+      // Clamp to visible viewport (handles window resize between sessions)
+      var leftPx = Math.min(Math.max(0, parseInt(pos.left, 10)), window.innerWidth  - 40);
+      var topPx  = Math.min(Math.max(58, parseInt(pos.top,  10)), window.innerHeight - 40);
+      el.style.left   = leftPx + 'px';
+      el.style.top    = topPx  + 'px';
+      el.style.right  = 'auto';
+      el.style.bottom = 'auto';
+    } catch(e) {}
+  });
+
   // "Show only variables with data" filter checkbox
   var filterCheck = document.getElementById('filterHasData');
   var plotSelect  = document.getElementById('plot_data');
@@ -569,6 +587,10 @@ $(document).ready(function(){
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup',   onMouseUp);
+        try {
+          localStorage.setItem('torque-pos-' + panel.id,
+            JSON.stringify({ left: panel.style.left, top: panel.style.top }));
+        } catch(e) {}
       }
 
       document.addEventListener('mousemove', onMouseMove);
@@ -604,12 +626,85 @@ $(document).ready(function(){
       function onTouchEnd() {
         header.removeEventListener('touchmove', onTouchMove);
         header.removeEventListener('touchend',  onTouchEnd);
+        try {
+          localStorage.setItem('torque-pos-' + panel.id,
+            JSON.stringify({ left: panel.style.left, top: panel.style.top }));
+        } catch(e) {}
       }
 
       header.addEventListener('touchmove', onTouchMove, { passive: false });
       header.addEventListener('touchend',  onTouchEnd);
     });
   });
+
+  // ── HUD Widget drag (via .hud-drag-handle) ──
+  var hudHandle = document.querySelector('.hud-drag-handle');
+  var hudPanel  = document.getElementById('hud-widget');
+  if (hudHandle && hudPanel) {
+    hudHandle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var rect      = hudPanel.getBoundingClientRect();
+      var startX    = e.clientX;
+      var startY    = e.clientY;
+      var startLeft = rect.left;
+      var startTop  = rect.top;
+
+      hudPanel.style.left   = startLeft + 'px';
+      hudPanel.style.top    = startTop  + 'px';
+      hudPanel.style.right  = 'auto';
+      hudPanel.style.bottom = 'auto';
+
+      function onHudMove(e) {
+        var newLeft = Math.max(0, Math.min(window.innerWidth  - 40, startLeft + e.clientX - startX));
+        var newTop  = Math.max(58, Math.min(window.innerHeight - 40, startTop  + e.clientY - startY));
+        hudPanel.style.left = newLeft + 'px';
+        hudPanel.style.top  = newTop  + 'px';
+      }
+      function onHudUp() {
+        document.removeEventListener('mousemove', onHudMove);
+        document.removeEventListener('mouseup',   onHudUp);
+        try {
+          localStorage.setItem('torque-pos-hud-widget',
+            JSON.stringify({ left: hudPanel.style.left, top: hudPanel.style.top }));
+        } catch(e) {}
+      }
+      document.addEventListener('mousemove', onHudMove);
+      document.addEventListener('mouseup',   onHudUp);
+    });
+
+    hudHandle.addEventListener('touchstart', function(e) {
+      var touch     = e.touches[0];
+      var rect      = hudPanel.getBoundingClientRect();
+      var startX    = touch.clientX;
+      var startY    = touch.clientY;
+      var startLeft = rect.left;
+      var startTop  = rect.top;
+
+      hudPanel.style.left   = startLeft + 'px';
+      hudPanel.style.top    = startTop  + 'px';
+      hudPanel.style.right  = 'auto';
+      hudPanel.style.bottom = 'auto';
+
+      function onHudTouchMove(e) {
+        e.preventDefault();
+        var t = e.touches[0];
+        var newLeft = Math.max(0, Math.min(window.innerWidth  - 40, startLeft + t.clientX - startX));
+        var newTop  = Math.max(58, Math.min(window.innerHeight - 40, startTop  + t.clientY - startY));
+        hudPanel.style.left = newLeft + 'px';
+        hudPanel.style.top  = newTop  + 'px';
+      }
+      function onHudTouchEnd() {
+        hudHandle.removeEventListener('touchmove', onHudTouchMove);
+        hudHandle.removeEventListener('touchend',  onHudTouchEnd);
+        try {
+          localStorage.setItem('torque-pos-hud-widget',
+            JSON.stringify({ left: hudPanel.style.left, top: hudPanel.style.top }));
+        } catch(e) {}
+      }
+      hudHandle.addEventListener('touchmove', onHudTouchMove, { passive: false });
+      hudHandle.addEventListener('touchend',  onHudTouchEnd);
+    });
+  }
 
 });
 
@@ -626,6 +721,16 @@ function _haversineKm(lat1, lon1, lat2, lon2) {
           Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
           Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Find first Chart.js dataset whose kcode property exactly matches the given k-code
+function _findDatasetByKCode(kcode) {
+  if (!window.torqueChart || !kcode) return null;
+  var ds = window.torqueChart.data.datasets;
+  for (var i = 0; i < ds.length; i++) {
+    if ((ds[i].kcode || '') === kcode) return ds[i];
+  }
+  return null;
 }
 
 // Find first Chart.js dataset whose label contains any of the given keywords (case-insensitive)
@@ -670,7 +775,6 @@ function _initGauges() {
   if (!_gaugesInitialised) {
     for (var a = 0; a < arcs.length; a++) arcs[a].classList.add('hud-gauge-arc--loading');
     _gaugesInitialised = true;
-    // Remove loading class after the sweep completes
     setTimeout(function() {
       for (var a = 0; a < arcs.length; a++) arcs[a].classList.remove('hud-gauge-arc--loading');
     }, 1300);
@@ -681,7 +785,6 @@ function _initGauges() {
   if (distEl && window._routeData && _routeData.length > 1) {
     var dist = 0;
     for (var i = 1; i < _routeData.length; i++) {
-      // _routeData[i] = [lon, lat, speed, ts]
       dist += _haversineKm(_routeData[i - 1][1], _routeData[i - 1][0],
                            _routeData[i][1],     _routeData[i][0]);
     }
@@ -695,29 +798,57 @@ function _initGauges() {
     durEl.textContent = Math.round(dur) + ' min';
   }
 
-  // ── Fuel average from chart data ──
+  // ── Fuel stat: prefer chart dataset, fall back to session average ──
   var fuelEl = document.getElementById('hud-stat-fuel');
   if (fuelEl) {
-    var fuelDs = _findDatasetByKeyword('fuel', 'l/100', 'consumption');
+    var fuelPid = (window._hudConfig && _hudConfig.fuel) ? _hudConfig.fuel.pid : 'kff5203';
+    var fuelDs  = _findDatasetByKCode(fuelPid);
     var fuelAvg = _datasetMean(fuelDs);
-    fuelEl.textContent = fuelAvg !== null ? fuelAvg.toFixed(1) : '—';
+    if (fuelAvg !== null) {
+      fuelEl.textContent = fuelAvg.toFixed(1);
+    } else if (window._hudSessionAvg && _hudSessionAvg.fuel !== null && _hudSessionAvg.fuel !== undefined) {
+      fuelEl.textContent = _hudSessionAvg.fuel.toFixed(1);
+    } else {
+      fuelEl.textContent = '—';
+    }
   }
 
-  // ── Animate gauges to session averages ──
-  var rpmDs     = _findDatasetByKeyword('rpm');
-  var coolantDs = _findDatasetByKeyword('coolant', 'temp');
-  var speedDs   = _findDatasetByKeyword('speed', 'km/h');
+  // ── Animate gauges: prefer chart dataset mean, fall back to session average ──
+  var cfg = window._hudConfig || {};
+  var avg = window._hudSessionAvg || {};
 
-  var rpmAvg     = _datasetMean(rpmDs);
-  var coolantAvg = _datasetMean(coolantDs);
-  var speedAvg   = _datasetMean(speedDs);
+  // Gauge 1
+  var g1cfg = cfg.gauge1 || {pid:'kc', min:0, max:8000, suffix:''};
+  var g1ds  = _findDatasetByKCode(g1cfg.pid);
+  var g1val = _datasetMean(g1ds);
+  if (g1val === null && avg.gauge1 !== null && avg.gauge1 !== undefined) g1val = avg.gauge1;
+  if (g1val !== null) {
+    var g1max  = (g1cfg.max > 0) ? g1cfg.max : (window._maxSpeed || 120);
+    var g1frac = (g1val - g1cfg.min) / (g1max - g1cfg.min);
+    _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val', g1frac, Math.round(g1val) + (g1cfg.suffix || ''));
+  }
 
-  if (rpmAvg !== null)
-    _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val', rpmAvg / 8000, Math.round(rpmAvg));
-  if (coolantAvg !== null)
-    _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', (coolantAvg - 40) / 80, Math.round(coolantAvg) + '°');
-  if (speedAvg !== null)
-    _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', speedAvg / (window._maxSpeed || 120), Math.round(speedAvg));
+  // Gauge 2
+  var g2cfg = cfg.gauge2 || {pid:'k5', min:40, max:120, suffix:'°'};
+  var g2ds  = _findDatasetByKCode(g2cfg.pid);
+  var g2val = _datasetMean(g2ds);
+  if (g2val === null && avg.gauge2 !== null && avg.gauge2 !== undefined) g2val = avg.gauge2;
+  if (g2val !== null) {
+    var g2max  = (g2cfg.max > 0) ? g2cfg.max : (window._maxSpeed || 120);
+    var g2frac = (g2val - g2cfg.min) / (g2max - g2cfg.min);
+    _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', g2frac, Math.round(g2val) + (g2cfg.suffix || ''));
+  }
+
+  // Gauge 3
+  var g3cfg = cfg.gauge3 || {pid:'kd', min:0, max:0, suffix:''};
+  var g3ds  = _findDatasetByKCode(g3cfg.pid);
+  var g3val = _datasetMean(g3ds);
+  if (g3val === null && avg.gauge3 !== null && avg.gauge3 !== undefined) g3val = avg.gauge3;
+  if (g3val !== null) {
+    var g3max  = (g3cfg.max > 0) ? g3cfg.max : (window._maxSpeed || 120);
+    var g3frac = (g3val - g3cfg.min) / (g3max - g3cfg.min);
+    _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', g3frac, Math.round(g3val) + (g3cfg.suffix || ''));
+  }
 
   // Reset coolant arc to default colour (mouseleave may leave it at a warning threshold)
   var coolantArc = document.getElementById('hud-gauge-coolant');
@@ -729,34 +860,51 @@ function _initGauges() {
 
 // Update gauges from a chart timestamp — called on chart mousemove
 function _updateGauges(tsMs) {
-  var rpmDs     = _findDatasetByKeyword('rpm');
-  var coolantDs = _findDatasetByKeyword('coolant', 'temp');
-  var speedDs   = _findDatasetByKeyword('speed', 'km/h');
+  var cfg = window._hudConfig || {};
 
-  // RPM
-  if (rpmDs) {
-    var rpmVal = _chartValueAtTime(rpmDs.data, tsMs);
-    if (rpmVal !== null) _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val', rpmVal / 8000, Math.round(rpmVal));
+  // Gauge 1
+  var g1cfg = cfg.gauge1 || {pid:'kc', min:0, max:8000, suffix:''};
+  var g1ds  = _findDatasetByKCode(g1cfg.pid);
+  if (g1ds) {
+    var g1val = _chartValueAtTime(g1ds.data, tsMs);
+    if (g1val !== null) {
+      var g1max = (g1cfg.max > 0) ? g1cfg.max : (window._maxSpeed || 120);
+      _setGauge('hud-gauge-rpm', 'hud-gauge-rpm-val',
+        (g1val - g1cfg.min) / (g1max - g1cfg.min),
+        Math.round(g1val) + (g1cfg.suffix || ''));
+    }
   }
 
-  // Coolant — with colour threshold
-  if (coolantDs) {
-    var cVal = _chartValueAtTime(coolantDs.data, tsMs);
-    if (cVal !== null) {
-      _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val', (cVal - 40) / 80, Math.round(cVal) + '°');
-      var arc = document.getElementById('hud-gauge-coolant');
-      if (arc) {
-        var col = cVal > 105 ? '#ff2222' : cVal > 95 ? '#ff9944' : '#ff6b6b';
-        arc.setAttribute('stroke', col);
-        arc.style.filter = 'drop-shadow(0 0 4px ' + col + ')';
+  // Gauge 2 — with coolant temperature colour thresholds (hardcoded to gauge 2)
+  var g2cfg = cfg.gauge2 || {pid:'k5', min:40, max:120, suffix:'°'};
+  var g2ds  = _findDatasetByKCode(g2cfg.pid);
+  if (g2ds) {
+    var g2val = _chartValueAtTime(g2ds.data, tsMs);
+    if (g2val !== null) {
+      var g2max = (g2cfg.max > 0) ? g2cfg.max : (window._maxSpeed || 120);
+      _setGauge('hud-gauge-coolant', 'hud-gauge-coolant-val',
+        (g2val - g2cfg.min) / (g2max - g2cfg.min),
+        Math.round(g2val) + (g2cfg.suffix || ''));
+      var arc2 = document.getElementById('hud-gauge-coolant');
+      if (arc2) {
+        var col = g2val > 105 ? '#ff2222' : g2val > 95 ? '#ff9944' : '#ff6b6b';
+        arc2.setAttribute('stroke', col);
+        arc2.style.filter = 'drop-shadow(0 0 4px ' + col + ')';
       }
     }
   }
 
-  // Speed
-  if (speedDs) {
-    var sVal = _chartValueAtTime(speedDs.data, tsMs);
-    if (sVal !== null) _setGauge('hud-gauge-speed', 'hud-gauge-speed-val', sVal / (window._maxSpeed || 120), Math.round(sVal));
+  // Gauge 3
+  var g3cfg = cfg.gauge3 || {pid:'kd', min:0, max:0, suffix:''};
+  var g3ds  = _findDatasetByKCode(g3cfg.pid);
+  if (g3ds) {
+    var g3val = _chartValueAtTime(g3ds.data, tsMs);
+    if (g3val !== null) {
+      var g3max = (g3cfg.max > 0) ? g3cfg.max : (window._maxSpeed || 120);
+      _setGauge('hud-gauge-speed', 'hud-gauge-speed-val',
+        (g3val - g3cfg.min) / (g3max - g3cfg.min),
+        Math.round(g3val) + (g3cfg.suffix || ''));
+    }
   }
 }
 
