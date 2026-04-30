@@ -379,11 +379,10 @@ if (isset($sids[0])) {
               paint: {
                 'line-width': _lineWeight,
                 'line-opacity': _lineOpacity,
-                'line-gradient': gradExpr
+                'line-gradient': gradExpr,
+                'line-blur': 2
               }
             });
-            // Glow effect on the route line
-            map.setPaintProperty('route', 'line-blur', 2);
 
             map.fitBounds(bounds, { padding: 50, maxZoom: 17, duration: 0 });
 
