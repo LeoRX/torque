@@ -35,6 +35,26 @@ $_setting_defaults = [
   'claude_api_key'        => ['',       'string',  'Claude API Key',             'Your Anthropic API key (sk-ant-...). Get one at console.anthropic.com.',                   'ai'],
   'claude_model'          => ['claude-haiku-4-5-20251001', 'select', 'Claude Model', 'Model to use. Haiku is fast/cheap; Sonnet is more capable.',                           'ai'],
   'claude_max_tokens'     => ['1024',   'integer', 'Max Response Tokens',        'Maximum response length (256–4096 tokens).',                                               'ai'],
+  // HUD Widget
+  'hud_gauge1_pid'        => ['kc',       'string',  'Gauge 1 PID',           'OBD k-code for gauge 1 (default: RPM).', 'hud'],
+  'hud_gauge1_label'      => ['RPM',      'string',  'Gauge 1 Label',         'Label shown below gauge 1 arc.', 'hud'],
+  'hud_gauge1_min'        => ['0',        'float',   'Gauge 1 Min',           'Scale minimum for gauge 1.', 'hud'],
+  'hud_gauge1_max'        => ['8000',     'float',   'Gauge 1 Max',           'Scale maximum for gauge 1 (0 = use session max speed).', 'hud'],
+  'hud_gauge1_suffix'     => ['',         'string',  'Gauge 1 Suffix',        'Appended to the displayed value (e.g. °).', 'hud'],
+  'hud_gauge2_pid'        => ['k5',       'string',  'Gauge 2 PID',           'OBD k-code for gauge 2 (default: Coolant Temp).', 'hud'],
+  'hud_gauge2_label'      => ['COOLANT',  'string',  'Gauge 2 Label',         'Label shown below gauge 2 arc.', 'hud'],
+  'hud_gauge2_min'        => ['40',       'float',   'Gauge 2 Min',           'Scale minimum for gauge 2.', 'hud'],
+  'hud_gauge2_max'        => ['120',      'float',   'Gauge 2 Max',           'Scale maximum for gauge 2.', 'hud'],
+  'hud_gauge2_suffix'     => ['°',        'string',  'Gauge 2 Suffix',        'Appended to the displayed value.', 'hud'],
+  'hud_gauge3_pid'        => ['kd',       'string',  'Gauge 3 PID',           'OBD k-code for gauge 3 (default: OBD Speed).', 'hud'],
+  'hud_gauge3_label'      => ['km/h',     'string',  'Gauge 3 Label',         'Label shown below gauge 3 arc.', 'hud'],
+  'hud_gauge3_min'        => ['0',        'float',   'Gauge 3 Min',           'Scale minimum for gauge 3.', 'hud'],
+  'hud_gauge3_max'        => ['0',        'float',   'Gauge 3 Max',           'Scale maximum for gauge 3 (0 = use session max speed dynamically).', 'hud'],
+  'hud_gauge3_suffix'     => ['',         'string',  'Gauge 3 Suffix',        'Appended to the displayed value.', 'hud'],
+  'hud_stat_dur_label'    => ['DURATION', 'string',  'Duration Stat Label',   'Label for the duration statistic.', 'hud'],
+  'hud_stat_dist_label'   => ['DISTANCE', 'string',  'Distance Stat Label',   'Label for the distance statistic.', 'hud'],
+  'hud_stat_fuel_pid'     => ['kff5203',  'string',  'Fuel Stat PID',         'OBD k-code for the fuel consumption stat.', 'hud'],
+  'hud_stat_fuel_label'   => ['L/100km',  'string',  'Fuel Stat Label',       'Label for the fuel statistic.', 'hud'],
 ];
 
 // Remove obsolete Google Maps settings from DB (one-time cleanup)
@@ -99,4 +119,25 @@ $claude_enabled    = !empty($settings['claude_enabled']) && $settings['claude_en
 $claude_api_key    = $settings['claude_api_key']    ?? '';
 $claude_model      = $settings['claude_model']      ?? 'claude-haiku-4-5-20251001';
 $claude_max_tokens = (int)($settings['claude_max_tokens'] ?? 1024);
+
+// HUD Widget config — typed PHP variables
+$hud_gauge1_pid      =        ($settings['hud_gauge1_pid']      ?? 'kc');
+$hud_gauge1_label    =        ($settings['hud_gauge1_label']    ?? 'RPM');
+$hud_gauge1_min      = (float)($settings['hud_gauge1_min']      ?? 0);
+$hud_gauge1_max      = (float)($settings['hud_gauge1_max']      ?? 8000);
+$hud_gauge1_suffix   =        ($settings['hud_gauge1_suffix']   ?? '');
+$hud_gauge2_pid      =        ($settings['hud_gauge2_pid']      ?? 'k5');
+$hud_gauge2_label    =        ($settings['hud_gauge2_label']    ?? 'COOLANT');
+$hud_gauge2_min      = (float)($settings['hud_gauge2_min']      ?? 40);
+$hud_gauge2_max      = (float)($settings['hud_gauge2_max']      ?? 120);
+$hud_gauge2_suffix   =        ($settings['hud_gauge2_suffix']   ?? '°');
+$hud_gauge3_pid      =        ($settings['hud_gauge3_pid']      ?? 'kd');
+$hud_gauge3_label    =        ($settings['hud_gauge3_label']    ?? 'km/h');
+$hud_gauge3_min      = (float)($settings['hud_gauge3_min']      ?? 0);
+$hud_gauge3_max      = (float)($settings['hud_gauge3_max']      ?? 0);
+$hud_gauge3_suffix   =        ($settings['hud_gauge3_suffix']   ?? '');
+$hud_stat_dur_label  =        ($settings['hud_stat_dur_label']  ?? 'DURATION');
+$hud_stat_dist_label =        ($settings['hud_stat_dist_label'] ?? 'DISTANCE');
+$hud_stat_fuel_pid   =        ($settings['hud_stat_fuel_pid']   ?? 'kff5203');
+$hud_stat_fuel_label =        ($settings['hud_stat_fuel_label'] ?? 'L/100km');
 ?>

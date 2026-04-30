@@ -35,12 +35,12 @@ torque/
 ├── creds.php                  ← DB credentials + login users (GITIGNORED — never commit)
 ├── creds.example.php          ← Template for creds.php
 ├── db.php                     ← MySQLi connection + helper functions (quote_name, quote_value)
-├── get_settings.php           ← Loads torque_settings from DB; exposes $display_timezone, tz_date()
+├── get_settings.php           ← Loads torque_settings from DB; exposes $display_timezone, tz_date(), and all hud_* vars
 ├── get_sessions.php           ← Builds session lists for the UI ($sids, $seshdates, etc.)
 ├── get_sessions_ajax.php      ← AJAX endpoint for calendar/session browser
 ├── get_session_gps.php        ← Returns GPS [lon,lat,speed,time] JSON for map rendering
 ├── get_columns.php            ← Returns available OBD2 PIDs (k-codes) for a session
-├── session.php                ← Main page: map + chart + data summary (HTML output ~500 lines)
+├── session.php                ← Main page: map + chart + HUD widget + data summary; injects _hudConfig, _hudSessionAvg
 ├── plot.php                   ← Fetches OBD time-series data for Chart.js
 ├── auth_user.php              ← Login page HTML + session auth logic
 ├── auth_app.php               ← Torque Pro app authentication (upload auth)
@@ -59,7 +59,8 @@ torque/
 ├── parse_functions.php        ← Data parsing helpers
 ├── static/
 │   ├── css/torque.css         ← All custom CSS (Bootstrap 5 overrides, dark mode, map popup)
-│   └── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers
+│   ├── css/hud.css            ← Dark Racing HUD theme: design tokens, navbar, gauges, panels, drag handle
+│   └── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers, HUD gauge system, panel drag
 └── data/                      ← Runtime data directory (gitignored)
 ```
 
@@ -139,6 +140,25 @@ All settings are stored in `torque_settings` and loaded by `get_settings.php`.
 | `claude_model` | `$claude_model` | `claude-haiku-4-5-20251001` | Model selection |
 | `source_is_fahrenheit` | `$source_is_fahrenheit` | `0` | Source data unit |
 | `use_miles` | `$use_miles` | `0` | Display unit |
+| `hud_gauge1_pid` | `$hud_gauge1_pid` | `kc` | k-code for HUD gauge 1 (RPM arc) |
+| `hud_gauge1_label` | `$hud_gauge1_label` | `RPM` | Label below gauge 1 arc |
+| `hud_gauge1_min` | `$hud_gauge1_min` | `0` | Scale minimum for gauge 1 |
+| `hud_gauge1_max` | `$hud_gauge1_max` | `8000` | Scale maximum for gauge 1 (0 = use `_maxSpeed`) |
+| `hud_gauge1_suffix` | `$hud_gauge1_suffix` | `` | Appended to displayed value |
+| `hud_gauge2_pid` | `$hud_gauge2_pid` | `k5` | k-code for HUD gauge 2 (Coolant arc) |
+| `hud_gauge2_label` | `$hud_gauge2_label` | `COOLANT` | Label below gauge 2 arc |
+| `hud_gauge2_min` | `$hud_gauge2_min` | `40` | Scale minimum for gauge 2 |
+| `hud_gauge2_max` | `$hud_gauge2_max` | `120` | Scale maximum for gauge 2 |
+| `hud_gauge2_suffix` | `$hud_gauge2_suffix` | `°` | Appended to displayed value |
+| `hud_gauge3_pid` | `$hud_gauge3_pid` | `kd` | k-code for HUD gauge 3 (Speed arc) |
+| `hud_gauge3_label` | `$hud_gauge3_label` | `km/h` | Label below gauge 3 arc |
+| `hud_gauge3_min` | `$hud_gauge3_min` | `0` | Scale minimum for gauge 3 |
+| `hud_gauge3_max` | `$hud_gauge3_max` | `0` | Scale maximum for gauge 3 (0 = use `_maxSpeed`) |
+| `hud_gauge3_suffix` | `$hud_gauge3_suffix` | `` | Appended to displayed value |
+| `hud_stat_dur_label` | `$hud_stat_dur_label` | `DURATION` | Duration stat label |
+| `hud_stat_dist_label` | `$hud_stat_dist_label` | `DISTANCE` | Distance stat label |
+| `hud_stat_fuel_pid` | `$hud_stat_fuel_pid` | `kff5203` | k-code for fuel stat |
+| `hud_stat_fuel_label` | `$hud_stat_fuel_label` | `L/100km` | Fuel stat label |
 
 ### `tz_date()` Helper (in `get_settings.php`)
 ```php
@@ -181,6 +201,14 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - Map popup theming: use `_applyPopupTheme()` with inline styles (not CSS — Mapbox injects its own stylesheet at runtime which overrides static CSS even with `!important`)
 - `MutationObserver` on `document.documentElement` watches `data-bs-theme` to re-apply popup theme on toggle
 
+**HUD Widget** (`#hud-widget`, `static/css/hud.css`, `torquehelpers.js`):
+- Three SVG arc gauges (cyan/red/green) + three stat cells (duration, distance, fuel)
+- **Always-on**: `session.php` injects `_hudConfig` (gauge PIDs/labels/scales from settings) and `_hudSessionAvg` (SQL `AVG()` per PID) into every session page. `_initGauges()` populates arcs from session averages on load; `_updateGauges(tsMs)` takes over on chart hover; mouseleave returns to averages (not zero).
+- **Dataset lookup**: each Chart.js dataset has a `kcode` property (raw k-code e.g. `kc`). `_findDatasetByKCode(kcode)` matches on this — reliable regardless of display label. `_findDatasetByKeyword()` still exists but is no longer used by the gauge system.
+- **Draggable**: `.hud-drag-handle` (braille dots ⠿) at top of widget triggers mouse/touch drag. `#hud-widget` has `pointer-events: auto`; `.hud-gauges` and `.hud-stats` have `pointer-events: none` so the map remains clickable through the data area.
+- **Position memory**: all three floating panels (`hud-widget`, `vars-section`, `summary-section`) save position to `localStorage` key `torque-pos-{id}` on drag-end and restore on `$(document).ready` with viewport clamping.
+- **Coolant threshold**: gauge 2 arc colour changes orange >95°C, red >105°C — hardcoded to gauge 2 regardless of which PID is configured there.
+
 ---
 
 ## AI Assistant (TorqueAI)
@@ -214,6 +242,8 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Tom Select in panels**: Always set `dropdownParent: 'body'` to escape `overflow: hidden` panels.
 - **Never use `date()` directly** for user-facing timestamps — always use `tz_date()`.
 - **All DB queries**: use `quote_name()`/`quote_value()` from `db.php`. Never raw string interpolation.
+- **`_hudConfig` / `_hudSessionAvg` scope**: these are injected in their own `<script>` block inside `<?php if ($setZoomManually === 0): ?>` — NOT inside the `$var1 != ""` block that only runs when chart variables are plotted. They must remain in the always-emitted block so always-on gauges work before any variables are plotted.
+- **HUD avg query placement**: the `AVG()` SQL query for `_hudSessionAvg` must run **before** `mysqli_close($con)` (currently line ~142 in `session.php`). Don't move it below the connection close.
 
 ---
 
