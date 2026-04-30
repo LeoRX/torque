@@ -999,40 +999,40 @@ if (isset($sids[0])) {
       <div class="hud-gauges">
 
         <div class="hud-gauge-wrap">
-          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+          <div class="hud-gauge-val hud-gauge-val--cyan" id="hud-gauge-rpm-val">&#x2014;</div>
+          <svg width="70" height="40" viewBox="0 0 70 46" class="hud-gauge-svg">
             <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--cyan"
                   id="hud-gauge-rpm"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
-            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-rpm-val">&#x2014;</text>
           </svg>
           <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge1_label); ?></div>
         </div>
 
         <div class="hud-gauge-wrap">
-          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+          <div class="hud-gauge-val hud-gauge-val--red" id="hud-gauge-coolant-val">&#x2014;</div>
+          <svg width="70" height="40" viewBox="0 0 70 46" class="hud-gauge-svg">
             <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--red"
                   id="hud-gauge-coolant"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
-            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-coolant-val">&#x2014;</text>
           </svg>
           <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge2_label); ?></div>
         </div>
 
         <div class="hud-gauge-wrap">
-          <svg width="70" height="50" viewBox="0 0 70 50" class="hud-gauge-svg">
+          <div class="hud-gauge-val hud-gauge-val--green" id="hud-gauge-speed-val">&#x2014;</div>
+          <svg width="70" height="40" viewBox="0 0 70 46" class="hud-gauge-svg">
             <path d="M 8 46 A 30 30 0 0 1 62 46" class="hud-gauge-track"/>
             <path d="M 8 46 A 30 30 0 0 1 62 46"
                   class="hud-gauge-arc hud-gauge-arc--green"
                   id="hud-gauge-speed"
                   stroke-dasharray="94"
                   stroke-dashoffset="94"/>
-            <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-speed-val">&#x2014;</text>
           </svg>
           <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge3_label); ?></div>
         </div>
