@@ -124,7 +124,7 @@ body { background: var(--hud-bg-map) !important; }
   box-shadow: 0 0 24px rgba(0, 212, 255, 0.08), 0 4px 20px rgba(0, 0, 0, 0.6);
   padding: 12px 14px;
   min-width: 224px;
-  pointer-events: none;
+  pointer-events: auto;
   user-select: none;
 }
 
@@ -521,3 +521,25 @@ svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
 #summary-section .table td:nth-child(5) {
   font-family: 'Courier New', monospace;
 }
+
+/* ── HUD pointer-events: data areas pass clicks through to map ── */
+.hud-gauges,
+.hud-stats { pointer-events: none; }
+
+/* ── HUD drag handle ── */
+.hud-drag-handle {
+  cursor: grab;
+  text-align: center;
+  color: rgba(0, 212, 255, 0.2);
+  font-size: 10px;
+  line-height: 1;
+  margin: -4px -4px 6px;
+  padding: 2px 0;
+  border-radius: 10px 10px 0 0;
+  transition: color 0.15s;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hud-drag-handle:hover  { color: rgba(0, 212, 255, 0.55); }
+.hud-drag-handle:active { cursor: grabbing; }
