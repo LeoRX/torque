@@ -72,6 +72,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     'display_timezone',
     // AI Assistant
     'claude_enabled','claude_api_key','claude_model','claude_max_tokens',
+    // HUD Widget
+    'hud_gauge1_pid','hud_gauge1_label','hud_gauge1_min','hud_gauge1_max','hud_gauge1_suffix',
+    'hud_gauge2_pid','hud_gauge2_label','hud_gauge2_min','hud_gauge2_max','hud_gauge2_suffix',
+    'hud_gauge3_pid','hud_gauge3_label','hud_gauge3_min','hud_gauge3_max','hud_gauge3_suffix',
+    'hud_stat_dur_label','hud_stat_dist_label','hud_stat_fuel_pid','hud_stat_fuel_label',
     // (map_default_type and gmaps_api_key removed)
   ];
   // Boolean fields — unchecked checkboxes send nothing, so default to 0
