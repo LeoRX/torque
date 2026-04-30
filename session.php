@@ -111,6 +111,34 @@ if (isset($sids[0])) {
     $i = $i + 1;
   }
 
+  // ── HUD Widget config (from settings) ──
+  $hudConfig = [
+    'gauge1' => ['pid' => $hud_gauge1_pid, 'label' => $hud_gauge1_label, 'min' => $hud_gauge1_min, 'max' => $hud_gauge1_max, 'suffix' => $hud_gauge1_suffix],
+    'gauge2' => ['pid' => $hud_gauge2_pid, 'label' => $hud_gauge2_label, 'min' => $hud_gauge2_min, 'max' => $hud_gauge2_max, 'suffix' => $hud_gauge2_suffix],
+    'gauge3' => ['pid' => $hud_gauge3_pid, 'label' => $hud_gauge3_label, 'min' => $hud_gauge3_min, 'max' => $hud_gauge3_max, 'suffix' => $hud_gauge3_suffix],
+    'fuel'   => ['pid' => $hud_stat_fuel_pid, 'label' => $hud_stat_fuel_label],
+  ];
+
+  // ── HUD session averages — query AVG for each configured PID ──
+  // k-codes come from torque_settings (validated on save); use quote_name() for column identifiers.
+  $hudSessionAvg = ['gauge1' => null, 'gauge2' => null, 'gauge3' => null, 'fuel' => null];
+  $_g1col  = quote_name($hud_gauge1_pid);
+  $_g2col  = quote_name($hud_gauge2_pid);
+  $_g3col  = quote_name($hud_gauge3_pid);
+  $_fcol   = quote_name($hud_stat_fuel_pid);
+  $_avg_sql = "SELECT AVG($_g1col) AS g1, AVG($_g2col) AS g2,
+                      AVG($_g3col) AS g3, AVG($_fcol) AS fuel
+               FROM $db_table_full WHERE session=$session_id";
+  $_avg_res = mysqli_query($con, $_avg_sql);
+  if ($_avg_res) {
+    $_avg_row = mysqli_fetch_assoc($_avg_res);
+    $hudSessionAvg['gauge1'] = $_avg_row['g1']   !== null ? (float)$_avg_row['g1']   : null;
+    $hudSessionAvg['gauge2'] = $_avg_row['g2']   !== null ? (float)$_avg_row['g2']   : null;
+    $hudSessionAvg['gauge3'] = $_avg_row['g3']   !== null ? (float)$_avg_row['g3']   : null;
+    $hudSessionAvg['fuel']   = $_avg_row['fuel'] !== null ? (float)$_avg_row['fuel'] : null;
+    mysqli_free_result($_avg_res);
+  }
+
   //Close the MySQL connection, which is why we can't query years later
   mysqli_free_result($sessionqry);
   mysqli_close($con);
@@ -497,6 +525,7 @@ if (isset($sids[0])) {
 <?php   while ( isset(${'var' . $i }) && !empty(${'var' . $i }) ) { ?>
         {
           label: <?php echo "${'v'.$i.'_label'}"; ?>,
+          kcode: '<?php echo htmlspecialchars(${'v'.$i}); ?>',
           data: s<?php echo $i; ?>.map(function(p){ return {x: p[0], y: p[1]}; }),
           borderWidth: 1.5,
           pointRadius: 0,
@@ -959,8 +988,14 @@ if (isset($sids[0])) {
     <div id="map-canvas"></div>
 
 <?php if ($setZoomManually === 0): ?>
+    <script>
+      // HUD config and session averages — always emitted when a session exists
+      var _hudConfig = <?php echo json_encode($hudConfig, JSON_UNESCAPED_UNICODE); ?>;
+      var _hudSessionAvg = <?php echo json_encode($hudSessionAvg); ?>;
+    </script>
     <!-- ── HUD Widget — live arc gauges pinned to map ── -->
     <div id="hud-widget">
+      <div class="hud-drag-handle" title="Drag to move"><span class="hud-drag-dots">⠿</span></div>
       <div class="hud-gauges">
 
         <div class="hud-gauge-wrap">
@@ -973,7 +1008,7 @@ if (isset($sids[0])) {
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-rpm-val">&#x2014;</text>
           </svg>
-          <div class="hud-gauge-label">RPM</div>
+          <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge1_label); ?></div>
         </div>
 
         <div class="hud-gauge-wrap">
@@ -986,7 +1021,7 @@ if (isset($sids[0])) {
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-coolant-val">&#x2014;</text>
           </svg>
-          <div class="hud-gauge-label">COOLANT</div>
+          <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge2_label); ?></div>
         </div>
 
         <div class="hud-gauge-wrap">
@@ -999,22 +1034,22 @@ if (isset($sids[0])) {
                   stroke-dashoffset="94"/>
             <text x="35" y="38" class="hud-gauge-val" id="hud-gauge-speed-val">&#x2014;</text>
           </svg>
-          <div class="hud-gauge-label">km/h</div>
+          <div class="hud-gauge-label"><?php echo htmlspecialchars($hud_gauge3_label); ?></div>
         </div>
 
       </div>
       <div class="hud-stats">
         <div class="hud-stat">
           <div class="hud-stat-val hud-stat-val--cyan" id="hud-stat-dur">&#x2014;</div>
-          <div class="hud-stat-label">DURATION</div>
+          <div class="hud-stat-label"><?php echo htmlspecialchars($hud_stat_dur_label); ?></div>
         </div>
         <div class="hud-stat">
           <div class="hud-stat-val" id="hud-stat-dist">&#x2014;</div>
-          <div class="hud-stat-label">DISTANCE</div>
+          <div class="hud-stat-label"><?php echo htmlspecialchars($hud_stat_dist_label); ?></div>
         </div>
         <div class="hud-stat">
           <div class="hud-stat-val hud-stat-val--green" id="hud-stat-fuel">&#x2014;</div>
-          <div class="hud-stat-label">L/100km</div>
+          <div class="hud-stat-label"><?php echo htmlspecialchars($hud_stat_fuel_label); ?></div>
         </div>
       </div>
     </div>
