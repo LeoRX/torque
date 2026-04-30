@@ -230,6 +230,20 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 
 ---
 
+## Before Making Any Changes
+
+**Always sync with remote before starting work:**
+
+```bash
+git fetch origin
+git status        # confirm clean working tree
+git rebase origin/main   # or origin/<current-branch> if already on a feature branch
+```
+
+If the rebase has conflicts, resolve them before proceeding. Never start editing files on a stale local branch.
+
+---
+
 ## Common Pitfalls
 
 - **Monthly table routing**: Always derive `raw_logs_YYYY_MM` from `session` ID via `date('Y', intdiv($session_id, 1000))`. Never assume a fixed table name.
