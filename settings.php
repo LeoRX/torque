@@ -111,6 +111,7 @@ $group_labels = [
   'display'  => ['label' => 'Display',        'icon' => 'bi-palette'],
   'map'      => ['label' => 'Map',            'icon' => 'bi-map'],
   'ai'       => ['label' => 'AI Assistant',   'icon' => 'bi-robot'],
+  'hud'      => ['label' => 'HUD Widget',     'icon' => 'bi-speedometer2'],
 ];
 
 $claude_models = [
@@ -577,6 +578,49 @@ $mapbox_styles = [
                   name="<?php echo htmlspecialchars($key); ?>" value="<?php echo htmlspecialchars($val); ?>">
               <?php endif; ?>
             </div>
+            <?php endforeach; ?>
+          </div>
+
+          <?php elseif ($group_key === 'hud'): ?>
+          <div class="card-body p-0">
+            <?php
+              // Render HUD settings grouped by gauge for clarity
+              $hud_groups = [
+                'Gauge 1 (Left arc)'   => ['hud_gauge1_pid','hud_gauge1_label','hud_gauge1_min','hud_gauge1_max','hud_gauge1_suffix'],
+                'Gauge 2 (Centre arc)' => ['hud_gauge2_pid','hud_gauge2_label','hud_gauge2_min','hud_gauge2_max','hud_gauge2_suffix'],
+                'Gauge 3 (Right arc)'  => ['hud_gauge3_pid','hud_gauge3_label','hud_gauge3_min','hud_gauge3_max','hud_gauge3_suffix'],
+                'Stat Row'             => ['hud_stat_dur_label','hud_stat_dist_label','hud_stat_fuel_pid','hud_stat_fuel_label'],
+              ];
+              foreach ($hud_groups as $group_title => $keys):
+            ?>
+              <div class="setting-row">
+                <div class="setting-label mb-2" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.55;">
+                  <?php echo $group_title; ?>
+                </div>
+                <div class="row g-2">
+                  <?php foreach ($keys as $key):
+                    if (!isset($all_settings['hud'][$key])) continue;
+                    $row = $all_settings['hud'][$key];
+                    $val = $settings[$key] ?? $row['setting_value'];
+                    $is_num = in_array($row['setting_type'], ['float','integer']);
+                    $step   = $row['setting_type'] === 'float' ? 'any' : '1';
+                  ?>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label small mb-1" for="hud_<?php echo htmlspecialchars($key); ?>">
+                      <?php echo htmlspecialchars($row['setting_label']); ?>
+                    </label>
+                    <input type="<?php echo $is_num ? 'number' : 'text'; ?>"
+                      class="form-control form-control-sm"
+                      id="hud_<?php echo htmlspecialchars($key); ?>"
+                      name="<?php echo htmlspecialchars($key); ?>"
+                      value="<?php echo htmlspecialchars($val); ?>"
+                      <?php if ($is_num) echo 'step="'.$step.'" min="0"'; ?>
+                      title="<?php echo htmlspecialchars($row['setting_description']); ?>">
+                    <div class="form-text" style="font-size:10px;"><?php echo htmlspecialchars($row['setting_description']); ?></div>
+                  </div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
             <?php endforeach; ?>
           </div>
 

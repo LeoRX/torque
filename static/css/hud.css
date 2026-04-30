@@ -161,16 +161,19 @@ body { background: var(--hud-bg-map) !important; }
 .hud-gauge-arc--green { stroke: var(--hud-green); filter: drop-shadow(0 0 4px var(--hud-green)); }
 
 .hud-gauge-val {
-  fill: #8ab;
-  font-size: 11px;
+  display: block;
+  text-align: center;
+  font-size: 15px;
   font-weight: 700;
   font-family: 'Courier New', monospace;
-  text-anchor: middle;
-  dominant-baseline: auto;
+  color: #8ab;
+  line-height: 1;
+  margin-bottom: 3px;
+  letter-spacing: 0.5px;
 }
-svg:has(.hud-gauge-arc--cyan)  .hud-gauge-val { fill: var(--hud-cyan); }
-svg:has(.hud-gauge-arc--red)   .hud-gauge-val { fill: var(--hud-red); }
-svg:has(.hud-gauge-arc--green) .hud-gauge-val { fill: var(--hud-green); }
+.hud-gauge-val--cyan  { color: var(--hud-cyan);  text-shadow: 0 0 8px rgba(0,212,255,0.5); }
+.hud-gauge-val--red   { color: var(--hud-red);   text-shadow: 0 0 8px rgba(255,107,107,0.5); }
+.hud-gauge-val--green { color: var(--hud-green); text-shadow: 0 0 8px rgba(0,255,136,0.5); }
 
 .hud-gauge-label {
   color: rgba(100, 120, 160, 0.7);
