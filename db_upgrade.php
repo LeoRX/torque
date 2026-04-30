@@ -65,5 +65,14 @@
   }
 
   echo "Upgrade complete.\n";
+
+# ── v2.1 HUD Widget Enhancements (2026-04-30) ────────────────────────────────
+# New torque_settings keys added (auto-seeded by get_settings.php — no ALTER needed):
+#   hud_gauge1_pid, hud_gauge1_label, hud_gauge1_min, hud_gauge1_max, hud_gauge1_suffix
+#   hud_gauge2_pid, hud_gauge2_label, hud_gauge2_min, hud_gauge2_max, hud_gauge2_suffix
+#   hud_gauge3_pid, hud_gauge3_label, hud_gauge3_min, hud_gauge3_max, hud_gauge3_suffix
+#   hud_stat_dur_label, hud_stat_dist_label, hud_stat_fuel_pid, hud_stat_fuel_label
+# No ALTER TABLE required — get_settings.php INSERT IGNORE seeds all defaults on first load.
+# ─────────────────────────────────────────────────────────────────────────────
 ?>
 
