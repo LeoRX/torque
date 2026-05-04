@@ -29,18 +29,17 @@ if (isset($_GET['logout'])) {
 // $filteryearmonth is already set (and sanitised) by get_sessions.php above.
 
 // Define some variables to be used in variable management later, specifically when choosing default vars to plot
-$i=1;
-$var1 = "";
+$plotVar = [];
+$i = 1;
 while ( isset($_POST["s$i"]) || isset($_GET["s$i"]) ) {
-  ${'var' . $i} = "";
   if (isset($_POST["s$i"])) {
-    ${'var' . $i} = $_POST["s$i"];
-  }
-  elseif (isset($_GET["s$i"])) {
-    ${'var' . $i} = $_GET["s$i"];
+    $plotVar[$i] = $_POST["s$i"];
+  } elseif (isset($_GET["s$i"])) {
+    $plotVar[$i] = $_GET["s$i"];
   }
   $i = $i + 1;
 }
+$var1 = $plotVar[1] ?? "";
 
 // From the output of the get_sessions.php file, populate the page with info from
 //  the current session. Using successful existence of a session as a trigger, 
@@ -60,8 +59,10 @@ if (isset($sids[0])) {
   $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
   // Get GPS data + speed for the selected session (used by Leaflet heatmap)
   // Try with kff1001 (GPS speed sensor) first; fall back if column doesn't exist in older tables
-  $_gps_sql_full = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), NULLIF(kff1001,0), 0) AS speed, time FROM $db_table_full WHERE session=$session_id AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
-  $_gps_sql_basic = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), 0) AS speed, time FROM $db_table_full WHERE session=$session_id AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
+  $_gps_tbl       = quote_name($db_table_full);
+  $_gps_sid       = quote_value($session_id);
+  $_gps_sql_full  = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), NULLIF(kff1001,0), 0) AS speed, time FROM $_gps_tbl WHERE session=$_gps_sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
+  $_gps_sql_basic = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), 0) AS speed, time FROM $_gps_tbl WHERE session=$_gps_sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
   $sessionqry = mysqli_query($con, $_gps_sql_full);
   if (!$sessionqry) {
     $sessionqry = mysqli_query($con, $_gps_sql_basic);
@@ -566,8 +567,8 @@ if (isset($sids[0])) {
 <?php if ($setZoomManually === 0 && $var1 != "") { ?>
     <script>
 <?php   $i=1; ?>
-<?php   while ( isset(${'var' . $i }) && !empty(${'var' . $i }) ) { ?>
-      var s<?php echo $i; ?> = [<?php foreach(${"d".$i} as $b) {echo "[".$b[0].", ".$b[1]."],";} ?>];
+<?php   while ( isset($plotVar[$i]) && !empty($plotVar[$i]) ) { ?>
+      var s<?php echo $i; ?> = [<?php foreach($plotData[$i] as $b) {echo "[".$b[0].", ".$b[1]."],";} ?>];
 <?php     $i = $i + 1; ?>
 <?php   } ?>
       var _hudColors     = ['#00d4ff','#ff6b6b','#00ff88','#f4a261','#9b5de5','#00b4d8','#fb8500'];
@@ -575,10 +576,10 @@ if (isset($sids[0])) {
                             'rgba(244,162,97,0.07)','rgba(155,93,229,0.07)','rgba(0,180,216,0.07)','rgba(251,133,0,0.07)'];
       var torqueDatasets = [
 <?php   $i=1; ?>
-<?php   while ( isset(${'var' . $i }) && !empty(${'var' . $i }) ) { ?>
+<?php   while ( isset($plotVar[$i]) && !empty($plotVar[$i]) ) { ?>
         {
-          label: <?php echo "${'v'.$i.'_label'}"; ?>,
-          kcode: '<?php echo htmlspecialchars(${'v'.$i}); ?>',
+          label: <?php echo $plotLabel[$i]; ?>,
+          kcode: '<?php echo htmlspecialchars($plotVar[$i]); ?>',
           data: s<?php echo $i; ?>.map(function(p){ return {x: p[0], y: p[1]}; }),
           borderWidth: 1.5,
           pointRadius: 0,
@@ -587,7 +588,7 @@ if (isset($sids[0])) {
           borderColor: _hudColors[(<?php echo $i-1; ?>) % _hudColors.length],
           backgroundColor: _hudColorsFill[(<?php echo $i-1; ?>) % _hudColorsFill.length],
           fill: true
-        }<?php if ( isset(${'var'.($i+1)}) ) echo ","; ?>
+        }<?php if ( isset($plotVar[$i+1]) ) echo ","; ?>
 
 <?php     $i = $i + 1; ?>
 <?php   } ?>
@@ -1149,7 +1150,7 @@ if (isset($sids[0])) {
 ?>
             <option value="<?php echo htmlspecialchars($xcol['colname']); ?>"
               data-has-data="<?php echo $hasData; ?>"
-              <?php $i = 1; while ( isset(${'var' . $i}) ) { if ( (${'var' . $i} == $xcol['colname'] ) OR ( $xcol['colfavorite'] == 1 ) ) { echo " selected"; } $i = $i + 1; } ?>><?php echo htmlspecialchars($xcol['colcomment']); ?></option>
+              <?php $i = 1; while ( isset($plotVar[$i]) ) { if ( ($plotVar[$i] == $xcol['colname'] ) || ( $xcol['colfavorite'] == 1 ) ) { echo " selected"; } $i = $i + 1; } ?>><?php echo htmlspecialchars($xcol['colcomment']); ?></option>
 <?php   } ?>
           </select>
         </form>
@@ -1185,7 +1186,7 @@ if (isset($sids[0])) {
         <button class="torque-panel-close" onclick="torqueToggle('summary-section', document.getElementById('btn-summary'))">×</button>
       </div>
       <div class="torque-panel-body">
-<?php   if ( $var1 <> "" ) { ?>
+<?php   if ( $var1 !== "" ) { ?>
         <div class="table-responsive">
           <table class="table table-striped table-hover table-sm mb-0">
             <thead class="table-light">
@@ -1194,14 +1195,14 @@ if (isset($sids[0])) {
               </tr>
             </thead>
             <tbody>
-<?php     $i=1; while ( isset(${'var' . $i }) ) { ?>
+<?php     $i=1; while ( isset($plotVar[$i]) ) { ?>
               <tr>
-                <td><strong><?php echo htmlspecialchars(substr(${'v' . $i . '_label'}, 1, -1)); ?></strong></td>
-                <td><?php echo htmlspecialchars(${'min' . $i}.'/'.${'max' . $i}); ?></td>
-                <td><?php echo htmlspecialchars(${'pcnt25data' . $i}); ?></td>
-                <td><?php echo htmlspecialchars(${'pcnt75data' . $i}); ?></td>
-                <td><?php echo htmlspecialchars(${'avg' . $i}); ?></td>
-                <td><span class="line"><?php echo htmlspecialchars(${'sparkdata' . $i}); ?></span></td>
+                <td><strong><?php echo htmlspecialchars(substr($plotLabel[$i], 1, -1)); ?></strong></td>
+                <td><?php echo htmlspecialchars($plotMin[$i].'/'.$plotMax[$i]); ?></td>
+                <td><?php echo htmlspecialchars($plotPcnt25[$i]); ?></td>
+                <td><?php echo htmlspecialchars($plotPcnt75[$i]); ?></td>
+                <td><?php echo htmlspecialchars($plotAvg[$i]); ?></td>
+                <td><span class="line"><?php echo htmlspecialchars($plotSparkData[$i]); ?></span></td>
               </tr>
 <?php       $i = $i + 1; } ?>
             </tbody>

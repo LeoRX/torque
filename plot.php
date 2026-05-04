@@ -40,61 +40,76 @@ if (!$source_is_fahrenheit && $use_fahrenheit) { //From Celsius to Fahrenheit
     $temp_measurand = ' (&deg;C)';
 }
 
+$plotVar      = [];
+$plotData     = [];
+$plotMeasurand = [];
+$plotSpark    = [];
+$plotLabel    = [];
+$plotSparkData = [];
+$plotMax      = [];
+$plotMin      = [];
+$plotAvg      = [];
+$plotPcnt25   = [];
+$plotPcnt75   = [];
+
 // Grab the session number
-if (isset($_GET["id"]) and in_array($_GET["id"], $sids)) {
+if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
     $session_id = mysqli_real_escape_string($con, $_GET['id']);
     // Get the torque key->val mappings
-    $keyquery = mysqli_query($con, "SELECT id,description,units FROM $db_name.$db_keys_table");
+    $keyquery = mysqli_query($con, "SELECT id,description,units FROM " . quote_name($db_name) . "." . quote_name($db_keys_table));
     $keyarr = [];
-    while($row = mysqli_fetch_assoc($keyquery)) {
-      $keyarr[$row['id']] = array($row['description'], $row['units']);
+    while ($row = mysqli_fetch_assoc($keyquery)) {
+        $keyarr[$row['id']] = [$row['description'], $row['units']];
     }
-	// 2015.08.04 - edit by surfrock66 - Adding experimental support for unlimited vars, 
-	//   while requiring no default PID
-	$selectstring = "time";
-	$i = 1;
-	while ( isset($_GET["s$i"]) ) {
-		${'v' . $i} = $_GET["s$i"];
-		$selectstring = $selectstring.",".quote_name(${'v' . $i});
-		$i = $i + 1;
-	}
-	// Get data for session
-	$tableYear = date( "Y", intdiv((int)$session_id, 1000) );
-	$tableMonth = date( "m", intdiv((int)$session_id, 1000) );
-	$db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
-	$sessionqry = mysqli_query($con, "SELECT $selectstring FROM $db_table_full WHERE session=".quote_value($session_id)." ORDER BY time DESC");
-	while($row = mysqli_fetch_assoc($sessionqry)) {
-	    $i = 1;
-		while (isset(${'v' . $i})) {
-	        if (substri_count($keyarr[${'v' . $i}][0], "Speed") > 0) {
-	            $x = intval($row[${'v' . $i}]) * $speed_factor;
-	            ${'v' . $i . '_measurand'} = $speed_measurand;
-	        } elseif (substri_count($keyarr[${'v' . $i}][0], "Distance") > 0) {
-	            $x = intval($row[${'v' . $i}]) * $speed_factor;
-	            ${'v' . $i . '_measurand'} = $distance_measurand;
-	        } elseif (substri_count($keyarr[${'v' . $i}][0], "Temp") > 0) {
-	            $x = $temp_func ( floatval($row[${'v' . $i}]) );
-	            ${'v' . $i . '_measurand'} = $temp_measurand;
-	        } else {
-	            $x = $row[${'v' . $i}];
-	            ${'v' . $i . '_measurand'} = ' ('.$keyarr[${'v' . $i}][1].')';
-	        }
-	        ${'d' . $i}[] = array($row['time'], $x);
-			${'spark' . $i}[] = $x;
-			$i = $i + 1;
-		}
-	}
-	$i = 1;	
-	while (isset(${'v' . $i})) {
-	    ${'v' . $i . '_label'} = '"'.$keyarr[${'v' . $i}][0].${'v' . $i . '_measurand'}.'"';
-	    ${'sparkdata' . $i} = implode(",", array_reverse(${'spark' . $i}));
-	    ${'max' . $i} = round(max(${'spark' . $i}), 1);
-	    ${'min' . $i} = round(min(${'spark' . $i}), 1);
-	    ${'avg' . $i} = round(average(${'spark' . $i}), 1);
-	    ${'pcnt25data' . $i} = round(calc_percentile(${'spark' . $i}, 25), 1);
-	    ${'pcnt75data' . $i} = round(calc_percentile(${'spark' . $i}, 75), 1);
-		$i = $i + 1;
-	}
+    // Build the SELECT column list from requested variables
+    $selectstring = "time";
+    $i = 1;
+    while (isset($_GET["s$i"])) {
+        $plotVar[$i]   = $_GET["s$i"];
+        $selectstring .= "," . quote_name($plotVar[$i]);
+        $i++;
+    }
+    // Get data for session
+    $tableYear     = date("Y", intdiv((int)$session_id, 1000));
+    $tableMonth    = date("m", intdiv((int)$session_id, 1000));
+    $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
+    $sessionqry = mysqli_query($con,
+        "SELECT $selectstring FROM " . quote_name($db_table_full) .
+        " WHERE session=" . quote_value($session_id) . " ORDER BY time DESC");
+    while ($row = mysqli_fetch_assoc($sessionqry)) {
+        $i = 1;
+        while (isset($plotVar[$i])) {
+            $kcode = $plotVar[$i];
+            if (substri_count($keyarr[$kcode][0], "Speed") > 0) {
+                $x = intval($row[$kcode]) * $speed_factor;
+                $plotMeasurand[$i] = $speed_measurand;
+            } elseif (substri_count($keyarr[$kcode][0], "Distance") > 0) {
+                $x = intval($row[$kcode]) * $speed_factor;
+                $plotMeasurand[$i] = $distance_measurand;
+            } elseif (substri_count($keyarr[$kcode][0], "Temp") > 0) {
+                $x = $temp_func(floatval($row[$kcode]));
+                $plotMeasurand[$i] = $temp_measurand;
+            } else {
+                $x = $row[$kcode];
+                $plotMeasurand[$i] = ' (' . $keyarr[$kcode][1] . ')';
+            }
+            $plotData[$i][]  = [$row['time'], $x];
+            $plotSpark[$i][] = $x;
+            $i++;
+        }
+    }
+    $i = 1;
+    while (isset($plotVar[$i])) {
+        $kcode           = $plotVar[$i];
+        $plotLabel[$i]     = '"' . $keyarr[$kcode][0] . $plotMeasurand[$i] . '"';
+        $plotSparkData[$i] = implode(",", array_reverse($plotSpark[$i]));
+        $plotMax[$i]       = round(max($plotSpark[$i]), 1);
+        $plotMin[$i]       = round(min($plotSpark[$i]), 1);
+        $plotAvg[$i]       = round(average($plotSpark[$i]), 1);
+        $plotPcnt25[$i]    = round(calc_percentile($plotSpark[$i], 25), 1);
+        $plotPcnt75[$i]    = round(calc_percentile($plotSpark[$i], 75), 1);
+        $i++;
+    }
 }
 //echo "<!-- End plot.php at ".date("H:i:s", microtime(true))." -->\r\n";
 ?>
