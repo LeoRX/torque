@@ -933,58 +933,61 @@ if (isset($sids[0])) {
     </script>
   </head>
   <body>
-    <nav class="navbar navbar-dark bg-dark fixed-top hud-navbar">
-      <div class="container-fluid flex-nowrap gap-2">
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hud-navbar">
+      <div class="container-fluid gap-2">
 
-        <!-- Brand -->
+        <!-- Brand — always visible -->
         <a class="navbar-brand flex-shrink-0 hud-brand" href="session.php">⬡&nbsp;TORQUE</a>
 
-        <!-- Filter + Session selection — horizontal row -->
-        <form id="navfilterform" class="d-flex align-items-center gap-2 flex-nowrap flex-grow-1" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
-          <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter flex-shrink-0" style="max-width:130px;" onchange="document.getElementById('navfilterform').submit()">
+        <!-- Profile filter + calendar — always visible (most essential session control) -->
+        <form id="navfilterform" class="d-flex align-items-center gap-2 flex-shrink-0" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
+          <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" onchange="document.getElementById('navfilterform').submit()">
             <option value="ALL"<?php if ($filterprofile == '%' || $filterprofile == 'ALL' || empty($filterprofile)) echo ' selected'; ?>>All Profiles</option>
 <?php $i = 0; while(isset($profilearray[$i])) { ?>
             <option value="<?php echo $profilearray[$i]; ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo $profilearray[$i]; ?></option>
 <?php   $i = $i + 1; } ?>
           </select>
-          <!-- Calendar date range picker toggle -->
           <button type="button" id="btn-cal" class="btn btn-sm btn-outline-light flex-shrink-0" title="Select date range by calendar"><i class="bi bi-calendar3"></i></button>
-          <!-- Merge / Delete for current session -->
-<?php if(isset($session_id) && !empty($session_id)){ ?>
-          <button type="submit" form="formmerge" class="btn btn-sm btn-outline-primary flex-shrink-0" title="Merge session">
-            <i class="bi bi-diagram-2"></i>
-          </button>
-          <button type="submit" form="formdelete" class="btn btn-sm btn-outline-danger flex-shrink-0" title="Delete session" id="deletebtn">
-            <i class="bi bi-trash3"></i>
-          </button>
-<?php } ?>
         </form>
 
-        <!-- Right-side icon controls -->
-        <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-auto">
+        <!-- Hamburger toggler — only visible on mobile (< md = 768px) -->
+        <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Collapsible section: merge/delete + all action buttons + username -->
+        <div class="collapse navbar-collapse" id="navbarCollapse">
+          <div class="d-flex align-items-center gap-1 flex-wrap flex-md-nowrap ms-md-auto py-1 py-md-0" id="navbar-action-btns">
+<?php if(isset($session_id) && !empty($session_id)){ ?>
+            <button type="submit" form="formmerge" class="btn btn-sm btn-outline-primary flex-shrink-0" title="Merge session">
+              <i class="bi bi-diagram-2"></i>
+            </button>
+            <button type="submit" form="formdelete" class="btn btn-sm btn-outline-danger flex-shrink-0" title="Delete session" id="deletebtn">
+              <i class="bi bi-trash3"></i>
+            </button>
+<?php } ?>
 <?php if ($setZoomManually === 0) { ?>
-          <button id="btn-vars" class="btn btn-sm btn-outline-light" onclick="torqueToggle('vars-section', this)" title="Toggle Variables"><i class="bi bi-sliders"></i></button>
-          <button id="btn-chart" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('chart-section', this)" title="Toggle Chart"><i class="bi bi-bar-chart-line"></i></button>
-          <button id="btn-summary" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('summary-section', this)" title="Toggle Data Summary"><i class="bi bi-table"></i></button>
-          <button id="btn-export" class="btn btn-sm btn-outline-light" onclick="torqueToggle('export-section', this)" title="Toggle Export"><i class="bi bi-download"></i></button>
+            <button id="btn-vars" class="btn btn-sm btn-outline-light" onclick="torqueToggle('vars-section', this)" title="Toggle Variables"><i class="bi bi-sliders"></i></button>
+            <button id="btn-chart" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('chart-section', this)" title="Toggle Chart"><i class="bi bi-bar-chart-line"></i></button>
+            <button id="btn-summary" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('summary-section', this)" title="Toggle Data Summary"><i class="bi bi-table"></i></button>
+            <button id="btn-export" class="btn btn-sm btn-outline-light" onclick="torqueToggle('export-section', this)" title="Toggle Export"><i class="bi bi-download"></i></button>
 <?php } ?>
 <?php if ($claude_enabled): ?>
-          <!-- AI Chat -->
-          <button id="btn-ai" class="btn btn-sm btn-outline-light" onclick="torqueToggle('ai-section', this)" title="AI Assistant"><i class="bi bi-robot"></i></button>
+            <button id="btn-ai" class="btn btn-sm btn-outline-light" onclick="torqueToggle('ai-section', this)" title="AI Assistant"><i class="bi bi-robot"></i></button>
 <?php endif; ?>
-          <!-- Settings -->
-          <a href="settings.php" class="btn btn-sm btn-outline-light" title="Settings"><i class="bi bi-gear"></i></a>
-          <!-- Dark mode toggle -->
-          <button class="btn btn-sm btn-outline-light" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
+            <a href="settings.php" class="btn btn-sm btn-outline-light" title="Settings"><i class="bi bi-gear"></i></a>
+            <button class="btn btn-sm btn-outline-light" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
 <?php if ( !empty($_SESSION['torque_user']) ) { ?>
-          <span class="navbar-text navbar-user ms-1 flex-shrink-0">
-            <?php echo htmlspecialchars($_SESSION['torque_user']); ?>
-            <a href="session.php?logout=true" class="ms-2" title="Logout">
-              <img width="20" height="20" src="./static/logout.png" alt="Logout">
-            </a>
-          </span>
+            <span class="navbar-text navbar-user ms-1 flex-shrink-0">
+              <?php echo htmlspecialchars($_SESSION['torque_user']); ?>
+              <a href="session.php?logout=true" class="ms-2" title="Logout">
+                <img width="20" height="20" src="./static/logout.png" alt="Logout">
+              </a>
+            </span>
 <?php } ?>
-        </div>
+          </div>
+        </div><!-- /navbar-collapse -->
+
       </div>
     </nav>
 
@@ -1059,7 +1062,10 @@ if (isset($sids[0])) {
     </script>
     <!-- ── HUD Widget — live arc gauges pinned to map ── -->
     <div id="hud-widget">
-      <div class="hud-drag-handle" title="Drag to move"><span class="hud-drag-dots">⠿</span></div>
+      <div class="hud-drag-handle d-flex align-items-center justify-content-between" title="Drag to move">
+        <span class="hud-drag-dots">⠿</span>
+        <button id="hud-collapse-btn" title="Collapse HUD"><i class="bi bi-chevron-down" id="hud-collapse-icon"></i></button>
+      </div>
       <div class="hud-gauges">
 
         <div class="hud-gauge-wrap">

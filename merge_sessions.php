@@ -82,6 +82,16 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
     <link rel="stylesheet" href="static/css/themes.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
     <script>(function(){ var s=localStorage.getItem('torque-theme')||'light'; document.documentElement.setAttribute('data-bs-theme',s); })();</script>
+    <style>
+      @media (max-width: 767px) {
+        .merge-table th:nth-child(5), .merge-table td:nth-child(5) { display: none; } /* hide datapoints */
+        .merge-table td { font-size: 13px; white-space: nowrap; }
+      }
+      @media (max-width: 480px) {
+        .merge-table th:nth-child(3), .merge-table td:nth-child(3) { display: none; } /* hide end time */
+        .merge-table td { font-size: 12px; }
+      }
+    </style>
   </head>
   <body>
     <nav class="navbar navbar-dark bg-dark fixed-top" style="min-height:58px;">
@@ -103,7 +113,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
-              <table class="table table-striped table-hover table-sm mb-0">
+              <table class="table table-striped table-hover table-sm mb-0 merge-table">
                 <thead class="table-light">
                   <tr>
                     <th>Merge?</th>

@@ -47,6 +47,18 @@ body { background: var(--hud-bg-map) !important; }
 }
 .hud-brand:hover { color: #fff !important; text-shadow: 0 0 16px rgba(0,212,255,0.9) !important; }
 
+/* ── Navbar hamburger (mobile collapse) ── */
+.hud-navbar .navbar-collapse {
+  background: var(--hud-bg);
+  border-top: 1px solid var(--hud-border);
+  padding: 6px 8px;
+}
+@media (min-width: 768px) {
+  .hud-navbar .navbar-collapse { background: transparent; border-top: none; padding: 0; }
+}
+.hud-navbar .navbar-toggler { border-color: var(--hud-border) !important; padding: 3px 7px; }
+.hud-navbar .navbar-toggler-icon { filter: invert(60%) sepia(80%) saturate(400%) hue-rotate(160deg); }
+
 /* Navbar filter selects — override torque.css */
 .hud-navbar .navbar-filter {
   background: rgba(0, 212, 255, 0.06) !important;
@@ -127,6 +139,37 @@ body { background: var(--hud-bg-map) !important; }
   pointer-events: auto;
   user-select: none;
 }
+
+/* ── HUD Widget — mobile repositioning & collapse ── */
+@media (max-width: 767px) {
+  #hud-widget {
+    top: auto !important;
+    left: 8px !important;
+    right: auto;
+    bottom: 8px;
+    min-width: 0;
+    width: auto;
+    padding: 8px 10px;
+  }
+  body.chart-open #hud-widget {
+    bottom: calc(min(240px, 38vh) + 8px);
+  }
+  #hud-widget.hud-collapsed .hud-gauges,
+  #hud-widget.hud-collapsed .hud-stats { display: none; }
+  #hud-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    color: rgba(0, 212, 255, 0.4);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  #hud-collapse-btn:hover { color: var(--hud-cyan); }
+}
+@media (min-width: 768px) { #hud-collapse-btn { display: none; } }
 
 .hud-gauges {
   display: flex;
@@ -523,6 +566,14 @@ body { background: var(--hud-bg-map) !important; }
 #summary-section .table td:nth-child(4),
 #summary-section .table td:nth-child(5) {
   font-family: 'Courier New', monospace;
+}
+
+/* ── Summary table: mobile readability ── */
+@media (max-width: 767px) {
+  #summary-section .table { font-size: 12px; }
+  /* Hide sparkline (last) column on phones to save space */
+  #summary-section .table th:last-child,
+  #summary-section .table td:last-child { display: none; }
 }
 
 /* ── HUD pointer-events: data areas pass clicks through to map ── */

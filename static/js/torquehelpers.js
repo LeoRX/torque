@@ -445,6 +445,9 @@ function onSubmitIt() {
 
 $(document).ready(function(){
 
+  // Read actual navbar height from CSS variable — single source of truth in hud.css
+  var _navbarH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height'), 10) || 46;
+
   // ── Restore saved panel positions from localStorage ──
   ['hud-widget', 'vars-section', 'summary-section'].forEach(function(id) {
     try {
@@ -455,13 +458,27 @@ $(document).ready(function(){
       if (!el || !pos || !pos.left || !pos.top) return;
       // Clamp to visible viewport (handles window resize between sessions)
       var leftPx = Math.min(Math.max(0, parseInt(pos.left, 10)), window.innerWidth  - 40);
-      var topPx  = Math.min(Math.max(58, parseInt(pos.top,  10)), window.innerHeight - 40);
+      var topPx  = Math.min(Math.max(_navbarH, parseInt(pos.top,  10)), window.innerHeight - 40);
       el.style.left   = leftPx + 'px';
       el.style.top    = topPx  + 'px';
       el.style.right  = 'auto';
       el.style.bottom = 'auto';
     } catch(e) {}
   });
+
+  // ── Auto-close navbar collapse when an action button is tapped on mobile ──
+  var navActionBtns = document.getElementById('navbar-action-btns');
+  if (navActionBtns) {
+    navActionBtns.addEventListener('click', function(e) {
+      if (e.target.closest('.btn, a')) {
+        var collapseEl = document.getElementById('navbarCollapse');
+        if (collapseEl) {
+          var bsCollapse = bootstrap.Collapse.getInstance(collapseEl);
+          if (bsCollapse) bsCollapse.hide();
+        }
+      }
+    });
+  }
 
   // "Show only variables with data" filter checkbox
   var filterCheck = document.getElementById('filterHasData');
@@ -576,10 +593,10 @@ $(document).ready(function(){
         var dx = e.clientX - startX;
         var dy = e.clientY - startY;
         var newLeft = Math.max(0, startLeft + dx);
-        var newTop  = Math.max(58, startTop  + dy); // 58px = navbar height
-        // Clamp to right/bottom edges of viewport
-        newLeft = Math.min(window.innerWidth  - 40, newLeft);
-        newTop  = Math.min(window.innerHeight - 40, newTop);
+        var newTop  = Math.max(_navbarH, startTop  + dy);
+        // Clamp to right/bottom edges of viewport using panel's actual width
+        newLeft = Math.min(window.innerWidth  - Math.min(panel.offsetWidth  || 40, window.innerWidth),  newLeft);
+        newTop  = Math.min(window.innerHeight - Math.min(panel.offsetHeight || 40, window.innerHeight), newTop);
         panel.style.left = newLeft + 'px';
         panel.style.top  = newTop  + 'px';
       }
@@ -616,9 +633,9 @@ $(document).ready(function(){
         e.preventDefault();
         var t = e.touches[0];
         var newLeft = Math.max(0, startLeft + t.clientX - startX);
-        var newTop  = Math.max(58, startTop  + t.clientY - startY);
-        newLeft = Math.min(window.innerWidth  - 40, newLeft);
-        newTop  = Math.min(window.innerHeight - 40, newTop);
+        var newTop  = Math.max(_navbarH, startTop  + t.clientY - startY);
+        newLeft = Math.min(window.innerWidth  - Math.min(panel.offsetWidth  || 40, window.innerWidth),  newLeft);
+        newTop  = Math.min(window.innerHeight - Math.min(panel.offsetHeight || 40, window.innerHeight), newTop);
         panel.style.left = newLeft + 'px';
         panel.style.top  = newTop  + 'px';
       }
@@ -637,9 +654,25 @@ $(document).ready(function(){
     });
   });
 
+  // ── HUD Widget: mobile collapse ──
+  var hudPanel = document.getElementById('hud-widget');
+  if (hudPanel) {
+    // Start collapsed on mobile so the HUD doesn't block the map
+    if (window.innerWidth < 768) hudPanel.classList.add('hud-collapsed');
+    var hudCollapseBtn  = document.getElementById('hud-collapse-btn');
+    var hudCollapseIcon = document.getElementById('hud-collapse-icon');
+    if (hudCollapseBtn && hudCollapseIcon) {
+      hudCollapseBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        hudPanel.classList.toggle('hud-collapsed');
+        hudCollapseIcon.className = hudPanel.classList.contains('hud-collapsed')
+          ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+      });
+    }
+  }
+
   // ── HUD Widget drag (via .hud-drag-handle) ──
   var hudHandle = document.querySelector('.hud-drag-handle');
-  var hudPanel  = document.getElementById('hud-widget');
   if (hudHandle && hudPanel) {
     hudHandle.addEventListener('mousedown', function(e) {
       e.preventDefault();
@@ -655,8 +688,8 @@ $(document).ready(function(){
       hudPanel.style.bottom = 'auto';
 
       function onHudMove(e) {
-        var newLeft = Math.max(0, Math.min(window.innerWidth  - 40, startLeft + e.clientX - startX));
-        var newTop  = Math.max(58, Math.min(window.innerHeight - 40, startTop  + e.clientY - startY));
+        var newLeft = Math.max(0, Math.min(window.innerWidth  - Math.min(hudPanel.offsetWidth  || 40, window.innerWidth),  startLeft + e.clientX - startX));
+        var newTop  = Math.max(_navbarH, Math.min(window.innerHeight - Math.min(hudPanel.offsetHeight || 40, window.innerHeight), startTop  + e.clientY - startY));
         hudPanel.style.left = newLeft + 'px';
         hudPanel.style.top  = newTop  + 'px';
       }
@@ -688,8 +721,8 @@ $(document).ready(function(){
       function onHudTouchMove(e) {
         e.preventDefault();
         var t = e.touches[0];
-        var newLeft = Math.max(0, Math.min(window.innerWidth  - 40, startLeft + t.clientX - startX));
-        var newTop  = Math.max(58, Math.min(window.innerHeight - 40, startTop  + t.clientY - startY));
+        var newLeft = Math.max(0, Math.min(window.innerWidth  - Math.min(hudPanel.offsetWidth  || 40, window.innerWidth),  startLeft + t.clientX - startX));
+        var newTop  = Math.max(_navbarH, Math.min(window.innerHeight - Math.min(hudPanel.offsetHeight || 40, window.innerHeight), startTop  + t.clientY - startY));
         hudPanel.style.left = newLeft + 'px';
         hudPanel.style.top  = newTop  + 'px';
       }

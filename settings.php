@@ -206,7 +206,7 @@ $mapbox_styles = [
     .theme-icon { font-size: 1.2rem; }
 
     .color-input-wrap { display: flex; align-items: center; gap: 0.6rem; }
-    input[type="color"] { width: 42px; height: 36px; padding: 2px; border-radius: 6px; cursor: pointer; }
+    input[type="color"] { width: 44px; height: 44px; padding: 2px; border-radius: 6px; cursor: pointer; border: none; }
     .color-hex { font-family: monospace; width: 90px; }
 
     /* ── Dark mode overrides for settings-specific elements ── */

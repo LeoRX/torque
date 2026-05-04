@@ -1,8 +1,5 @@
 /* Open Torque Viewer - Modern Theme */
 
-:root {
-  --navbar-height: 58px;
-}
 
 * { font-family: 'Lato', sans-serif; }
 
@@ -94,14 +91,14 @@ body.chart-open #map-canvas { bottom: 300px; }
 }
 
 /* Individual default positions */
-#vars-section    { top: 68px; right: 10px; width: 300px; }
-#summary-section { top: 68px; left: 10px;  width: 430px; }
-#export-section  { bottom: 14px; right: 10px; width: 190px; }
+#vars-section    { top: 68px; right: 10px; width: min(300px, calc(100vw - 16px)); }
+#summary-section { top: 68px; left: 10px;  width: min(430px, calc(100vw - 16px)); }
+#export-section  { bottom: 14px; right: 10px; width: min(190px, calc(100vw - 16px)); }
 
 /* Chart — full-width bottom panel */
 #chart-section {
   bottom: 0; left: 0; right: 0;
-  height: 300px;
+  height: min(300px, 38vh);
   border-radius: 10px 10px 0 0 !important;
   border-bottom: none !important;
   border-left: none !important;
@@ -258,10 +255,18 @@ body.settings-page { overflow: auto; }
     left: 4px !important;
     right: 4px !important;
     width: auto !important;
-    top: 68px !important;
+    top: calc(var(--navbar-height) + 10px) !important;
   }
-  #chart-section { height: 220px; }
-  body.chart-open #map-canvas { bottom: 220px; }
+  #chart-section { height: min(240px, 38vh); }
+  body.chart-open #map-canvas { bottom: min(240px, 38vh); }
+}
+
+@media (max-width: 480px) {
+  #chart-section { height: min(210px, 35vh); }
+  body.chart-open #map-canvas { bottom: min(210px, 35vh); }
+  .torque-panel:not(#chart-section):not(#cal-panel) { left: 2px !important; right: 2px !important; }
+  .navbar .ts-wrapper { min-width: 70px; max-width: 100px; }
+  .navbar .ts-wrapper .ts-control { font-size: 10px !important; }
 }
 
 /* ── Tom Select inside floating panels (dark mode) ── */
@@ -465,7 +470,7 @@ body.settings-page { overflow: auto; }
 
 /* ── AI Chat panel ── */
 #ai-section {
-  width: 380px;
+  width: min(380px, calc(100vw - 16px));
   right: 12px;
   top: calc(var(--navbar-height) + 8px);
   bottom: auto;
