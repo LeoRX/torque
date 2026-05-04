@@ -298,6 +298,55 @@ if (isset($sids[0])) {
         // Already [lon, lat] — pass directly to Mapbox
         var coords = _routeData.map(function(p) { return [p[0], p[1]]; });
 
+        // Detect stationary sessions: bounding box < ~10 m means all points are the same location.
+        // A zero-length LineString is invalid GeoJSON; Mapbox silently fails to draw it.
+        var lons = _routeData.map(function(p) { return p[0]; });
+        var lats = _routeData.map(function(p) { return p[1]; });
+        var lonSpan = Math.max.apply(null, lons) - Math.min.apply(null, lons);
+        var latSpan = Math.max.apply(null, lats) - Math.min.apply(null, lats);
+        var _isStationary = (lonSpan < 0.0001 && latSpan < 0.0001); // ≈10 m threshold
+
+        // Fit bounds immediately (before style loads) so the viewport is correct
+        var bounds = new mapboxgl.LngLatBounds();
+        coords.forEach(function(c) { bounds.extend(c); });
+
+        // For stationary sessions draw a parked-pin marker instead of a route polyline.
+        if (_isStationary) {
+          var pinLng = lons[0], pinLat = lats[0];
+          window._torqueDrawRoute = function drawRoute() {
+            try {
+              // Remove any previous layers
+              if (map.getLayer('route'))         { map.removeLayer('route'); }
+              if (map.getLayer('route-outline')) { map.removeLayer('route-outline'); }
+              if (map.getSource('route'))        { map.removeSource('route'); }
+              // Draw a cyan pin marker at the parked location
+              var pinEl = document.createElement('div');
+              pinEl.style.cssText =
+                'width:18px;height:18px;border-radius:50%;' +
+                'background:#00d4ff;border:3px solid rgba(0,212,255,0.4);' +
+                'box-shadow:0 0 0 6px rgba(0,212,255,0.15),0 2px 8px rgba(0,0,0,0.5);' +
+                'cursor:default;';
+              new mapboxgl.Marker({ element: pinEl, anchor: 'center' })
+                .setLngLat([pinLng, pinLat])
+                .addTo(map);
+              map.flyTo({ center: [pinLng, pinLat], zoom: 16, duration: 0 });
+              // Label
+              var infoEl = document.createElement('div');
+              infoEl.style.cssText =
+                'position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:10;' +
+                'background:rgba(6,9,18,0.88);color:#8ab;padding:5px 12px;border-radius:8px;' +
+                'border:1px solid rgba(0,212,255,0.2);font-size:11px;white-space:nowrap;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,0.4);pointer-events:none;';
+              infoEl.innerHTML = '<i class="bi bi-p-circle-fill me-1" style="color:#00d4ff"></i>Stationary session — no route to plot';
+              mapEl.appendChild(infoEl);
+            } catch(e) { console.error('Stationary pin error:', e); }
+          };
+          // Fire immediately or on load
+          if (map.loaded()) { window._torqueDrawRoute(); }
+          else { map.once('load', function() { window._torqueDrawRoute(); }); }
+          return; // Skip normal route-drawing path
+        }
+
         // Cap gradient to 50 evenly-spaced samples to avoid Mapbox expression size limits
         var MAX_STOPS = 50;
         var rawFractions = [];
@@ -309,10 +358,6 @@ if (isset($sids[0])) {
         // Ensure at least 2 stops (required by interpolate)
         if (rawFractions.length < 2) { rawFractions = [0, 0]; }
         var fractions = rawFractions;
-
-        // Fit bounds immediately (before style loads) so the viewport is correct
-        var bounds = new mapboxgl.LngLatBounds();
-        coords.forEach(function(c) { bounds.extend(c); });
 
         // drawRoute: called once the style is ready; exposed globally for dark-mode style swaps
         window._torqueDrawRoute = function drawRoute() {
