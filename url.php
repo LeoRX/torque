@@ -6,7 +6,12 @@ if (!headers_sent()) {
     header('Referrer-Policy: strict-origin-when-cross-origin');
 }
 
-session_set_cookie_params(0, dirname($_SERVER['SCRIPT_NAME']));
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => dirname($_SERVER['SCRIPT_NAME']),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 if (!isset($_SESSION)) { session_start(); }
 
 // Session ID — digits only
@@ -48,7 +53,7 @@ if (isset($_GET["makechart"])) {
     if (isset($_POST["plotdata"])) {
         $plotdataarray = $_POST["plotdata"];
         $i = 1;
-        while (isset($plotdataarray[$i-1]) && $plotdataarray[$i-1] <> "Plot!") {
+        while (isset($plotdataarray[$i-1]) && $plotdataarray[$i-1] !== "Plot!") {
             $key = $plotdataarray[$i-1];
             // Validate: Torque keys are 'k' followed by hex chars (e.g. k5, kc, kff1005)
             if (preg_match('/^k[a-fA-F0-9]+$/', $key)) {

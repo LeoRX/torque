@@ -3,7 +3,12 @@ require_once ('creds.php');
 require_once ('auth_functions.php');
 
 //session.cookie_path = "/torque/";
-session_set_cookie_params(0,dirname($_SERVER['SCRIPT_NAME'])); 
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => dirname($_SERVER['SCRIPT_NAME']),
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 if (!isset($_SESSION)) { session_start(); }
 
 //This variable will be evaluated at the end of this file to check if a user is authenticated

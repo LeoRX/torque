@@ -21,11 +21,13 @@ $tableYear  = date("Y", intdiv($session_id, 1000));
 $tableMonth = date("m", intdiv($session_id, 1000));
 $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
 
+$tbl  = quote_name($db_table_full);
+$stbl = quote_name($db_sessions_table);
 $sql = mysqli_query($con,
-    "SELECT * FROM $db_table_full
-     JOIN $db_sessions_table ON $db_table_full.session = $db_sessions_table.session
-     WHERE $db_table_full.session = $session_id
-     ORDER BY $db_table_full.time DESC"
+    "SELECT * FROM $tbl
+     JOIN $stbl ON $tbl.session = $stbl.session
+     WHERE $tbl.session = " . quote_value($session_id) . "
+     ORDER BY $tbl.time DESC"
 );
 
 if (!$sql) {
@@ -50,7 +52,12 @@ if ($filetype === 'csv') {
     // Data rows — stream directly rather than building one giant string
     while ($row = mysqli_fetch_array($sql, MYSQLI_NUM)) {
         $cells = array_map(function($v) {
-            return '"' . str_replace('"', '""', (string)$v) . '"';
+            $v = (string)$v;
+            // Neutralise spreadsheet formula injection (=, +, -, @, |, %)
+            if ($v !== '' && strspn($v, '=+-@|%') === 1) {
+                $v = "'" . $v;
+            }
+            return '"' . str_replace('"', '""', $v) . '"';
         }, $row);
         echo implode(',', $cells) . "\n";
     }
@@ -60,11 +67,14 @@ if ($filetype === 'csv') {
     header('Content-Type: application/json; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $jsonfilename . '"');
 
-    $rows = [];
+    // Stream JSON row-by-row to avoid loading the full result set into memory
+    echo '[';
+    $first = true;
     while ($r = mysqli_fetch_assoc($sql)) {
-        $rows[] = $r;
+        echo ($first ? '' : ',') . json_encode($r, JSON_UNESCAPED_UNICODE);
+        $first = false;
     }
-    echo json_encode($rows, JSON_UNESCAPED_UNICODE);
+    echo ']';
 }
 
 mysqli_free_result($sql);

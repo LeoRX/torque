@@ -17,8 +17,17 @@ require_once ('creds.php');
 mysqli_report(MYSQLI_REPORT_OFF);
 
 // Connect to Database
-$con = mysqli_connect($db_host, $db_user, $db_pass,$db_name,$db_port) or die(mysqli_error($con));
-mysqli_select_db($con, $db_name) or die(mysqli_error($con));
+$con = mysqli_connect($db_host, $db_user, $db_pass, $db_name, $db_port);
+if (!$con) {
+    error_log('DB connect failed: ' . mysqli_connect_error());
+    http_response_code(503);
+    exit('Service unavailable.');
+}
+if (!mysqli_select_db($con, $db_name)) {
+    error_log('DB select failed: ' . mysqli_error($con));
+    http_response_code(503);
+    exit('Service unavailable.');
+}
 
 // helper function to quote a single identifier
 // suitable for a single column name or table name

@@ -27,17 +27,10 @@ function substri_count($haystack, $needle) {
 }
 
 // Calculate average
-function average($arr)
+function average(array $arr): float
 {
-    if (!count($arr)) return 0;
-
-    $sum = 0;
-    for ($i = 0; $i < count($arr); $i++)
-    {
-        $sum += $arr[$i];
-    }
-
-    return $sum / count($arr);
+    if ($arr === []) return 0.0;
+    return array_sum($arr) / count($arr);
 }
 
 
@@ -67,8 +60,8 @@ function calc_percentile($data, $percentile){
 }
 
 // Make comma separated string for sparkline data.
-function make_spark_data($sparkarry) {
-    return implode(",", array_reverse($sparkarray));
+function make_spark_data(array $data): string {
+    return implode(",", array_reverse($data));
 }
 
 

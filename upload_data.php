@@ -10,9 +10,9 @@ require_once ('auth_app.php');
 (function() {
   $log_dir = __DIR__ . '/data/upload_log';
 
-  // Create directory if it doesn't exist (silent fail — never break uploads)
-  if (!is_dir($log_dir)) {
-    @mkdir($log_dir, 0755, true);
+  // Create directory if it doesn't exist — failure is non-fatal, never break uploads
+  if (!is_dir($log_dir) && !mkdir($log_dir, 0755, true) && !is_dir($log_dir)) {
+    return; // can't create dir — skip logging silently
   }
 
   // Opportunistic cleanup: scan for files older than 14 days.
@@ -20,8 +20,9 @@ require_once ('auth_app.php');
   if (rand(1, 50) === 1) {
     $cutoff = time() - (14 * 86400);
     foreach (glob($log_dir . '/*.log') ?: [] as $f) {
-      if (@filemtime($f) < $cutoff) {
-        @unlink($f);
+      $mtime = filemtime($f);
+      if ($mtime !== false && $mtime < $cutoff) {
+        unlink($f); // best-effort; ignore if already gone
       }
     }
   }
@@ -33,7 +34,7 @@ require_once ('auth_app.php');
 
   $log_file = $log_dir . '/' . $_GET['session'] . '.log';
   $line     = date('Y-m-d H:i:s') . "\t" . $_SERVER['QUERY_STRING'] . "\n";
-  @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX);
+  file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX); // failure is non-fatal
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
