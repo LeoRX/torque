@@ -38,13 +38,13 @@ require_once ('auth_app.php');
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
-$newest_table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' and table_name like '$db_table%' ORDER BY table_name DESC LIMIT 1;");
+$newest_table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = " . quote_value($db_name) . " AND table_name LIKE " . quote_value($db_table . '%') . " ORDER BY table_name DESC LIMIT 1;");
 $newest_table = "";
 while( $row = mysqli_fetch_assoc($newest_table_list) ) {
   $newest_table = $row["table_name"];
 }
 // Create an array of all the existing fields in the database
-$result = mysqli_query($con, "SHOW COLUMNS FROM $newest_table") ;
+$result = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($newest_table)) ;
 if (mysqli_num_rows($result) > 0) {
   while ($row = mysqli_fetch_assoc($result)) {
     $dbfields[]=($row['Field']);
@@ -74,13 +74,13 @@ if (sizeof($_GET) > 0) {
   $tableMonth = date( "m", (int)$session_id/1000 );
   $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
   // If the desired table name doesn't exist, create it copying columns from the previous month's table
-  $current_table_list_query = "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' and table_name = '$db_table_full'";
+  $current_table_list_query = "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = " . quote_value($db_name) . " AND table_name = " . quote_value($db_table_full);
 #echo "<br />Debug 01 $current_table_list_query<br />";
   $current_table_list = mysqli_query($con, $current_table_list_query);
 #echo "<br />Debug 02<br />";
   if ( ! mysqli_fetch_assoc($current_table_list) ) {
 #echo "<br />Debug 03<br />";
-    mysqli_query($con, "CREATE TABLE $db_table_full SELECT * FROM $newest_table WHERE 1=0") ;
+    mysqli_query($con, "CREATE TABLE " . quote_name($db_table_full) . " SELECT * FROM " . quote_name($newest_table) . " WHERE 1=0") ;
   }
 #echo "<br />Debug 04<br />";
   foreach ($_GET as $key => $value) {
@@ -149,12 +149,12 @@ if (sizeof($_GET) > 0) {
     if (!in_array($key, $dbfields) and $submitval == 2) {
 #echo "<br />Debug 15<br />";
       // If the value isn't already in the latest DB table, we better check every DB table
-      $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' and table_name like '$db_table%' ORDER BY table_name DESC;");
+      $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = " . quote_value($db_name) . " AND table_name LIKE " . quote_value($db_table . '%') . " ORDER BY table_name DESC;");
       while( $row = mysqli_fetch_assoc($table_list) ) {
         $db_table_name = $row["table_name"];
 #echo "<br />Debug 16 $db_table_name<br />";
         // Create an array of all the existing fields in the database
-        $result = mysqli_query($con, "SHOW COLUMNS FROM $db_table_name") ;
+        $result = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($db_table_name)) ;
         if (mysqli_num_rows($result) > 0) {
           $dbfields_per_table = array();
           while ($row = mysqli_fetch_assoc($result)) {
@@ -168,11 +168,11 @@ if (sizeof($_GET) > 0) {
           // In PHP float and double are the same, so start with float as a default
           if ( is_float($value) ) {
             // Add field if it's a float to EVERY raw values table
-            $sqlalter = "ALTER TABLE $db_table_name ADD ".quote_name($key)." float NOT NULL default '0'";
+            $sqlalter = "ALTER TABLE " . quote_name($db_table_name) . " ADD ".quote_name($key)." float NOT NULL default '0'";
 #echo "<br />Debug 20 $sqlalter<br />";
           } else {
             // Add field if it's a string to EVERY raw values table, specifically varchar(255)
-            $sqlalter = "ALTER TABLE $db_table_name ADD ".quote_name($key)." VARCHAR(255) NOT NULL default 'Not Specified'";
+            $sqlalter = "ALTER TABLE " . quote_name($db_table_name) . " ADD ".quote_name($key)." VARCHAR(255) NOT NULL default 'Not Specified'";
 #echo "<br />Debug 21 $sqlalter<br />";
           }
           mysqli_query($con, $sqlalter) ;
@@ -180,11 +180,11 @@ if (sizeof($_GET) > 0) {
         }
       }
     }
-    $sqlkeyquery = "SELECT id FROM $db_keys_table WHERE id=".quote_value($key);
+    $sqlkeyquery = "SELECT id FROM " . quote_name($db_keys_table) . " WHERE id=".quote_value($key);
     $result = mysqli_query($con, $sqlkeyquery);
     $row = mysqli_fetch_assoc($result);
     if ( ! $row and $submitval == 2 ) {
-      $sqlalterkey = "INSERT INTO $db_keys_table (id, description, type, populated) VALUES (".quote_value($key).", ".quote_value($key).", 'varchar(255)', '1')";
+      $sqlalterkey = "INSERT INTO " . quote_name($db_keys_table) . " (id, description, type, populated) VALUES (".quote_value($key).", ".quote_value($key).", 'varchar(255)', '1')";
 #echo "<br />Debug 23 $sqlalterkey<br />";
       mysqli_query($con, $sqlalterkey) ;
 #echo "<br />Debug 24<br />";
@@ -199,13 +199,13 @@ if (sizeof($_GET) > 0) {
   //   If one doesn't, create an entry.  If one does, collect current values
   if ( $submitval >= 1 && (sizeof($sesskeys) === sizeof($sessvalues)) && sizeof($sesskeys) > 0 ) {
 #echo "<br />Debug 25<br />";
-    $sessionqrystring = "SELECT session, timestart, timeend, sessionsize FROM $db_sessions_table WHERE session LIKE ".quote_value($sessuploadid);
+    $sessionqrystring = "SELECT session, timestart, timeend, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE session LIKE ".quote_value($sessuploadid);
 #echo "<br />Debug 26 $sessionqrystring<br />";
     $sessionqry = mysqli_query($con, $sessionqrystring) ;
     $row = mysqli_fetch_assoc($sessionqry);
     if ( ! $row ) {
 #echo "<br />Debug 27<br />";
-      $sessioninsertstring = "INSERT INTO $db_sessions_table (".quote_names($sesskeys).", timestart, sessionsize) VALUES (".quote_values($sessvalues).", $sesstime, '1')";
+      $sessioninsertstring = "INSERT INTO " . quote_name($db_sessions_table) . " (".quote_names($sesskeys).", timestart, sessionsize) VALUES (".quote_values($sessvalues).", $sesstime, '1')";
 #echo "<br />Debug 28 $sessioninsertstring<br />";
       mysqli_query($con, $sessioninsertstring) ;
       // Initialize session tracking vars for the first datapoint of a new session.
@@ -234,7 +234,7 @@ if (sizeof($_GET) > 0) {
   if ( $submitval == 2 && ( sizeof($datakeys) === sizeof($datavalues) ) && sizeof($datakeys) > 0 ) {
 #echo "<br />Debug 31<br />";
     // Now insert the data for all the fields into the raw logs table
-    $sql = "INSERT INTO $db_table_full (".quote_names($datakeys).") VALUES (".quote_values($datavalues).")";
+    $sql = "INSERT INTO " . quote_name($db_table_full) . " (".quote_names($datakeys).") VALUES (".quote_values($datavalues).")";
 #echo "<br />Debug 32 $sql<br />";
     mysqli_query($con, $sql) ;
     // Update session variables
@@ -249,13 +249,13 @@ if (sizeof($_GET) > 0) {
     // Increment the session size counter
     $sessSize = $sessSize + 1;
     // Update the session table
-    $dataqrystring = "UPDATE $db_sessions_table SET timestart = ".quote_value($sessTimeStart).", timeend = ".quote_value($sessTimeEnd).", sessionsize = ".quote_value($sessSize)." WHERE session = ".quote_value($sessuploadid);
+    $dataqrystring = "UPDATE " . quote_name($db_sessions_table) . " SET timestart = ".quote_value($sessTimeStart).", timeend = ".quote_value($sessTimeEnd).", sessionsize = ".quote_value($sessSize)." WHERE session = ".quote_value($sessuploadid);
 #echo "<br />Debug 33 $dataqrystring<br />";
     mysqli_query($con, $dataqrystring) ;
   }
   if ( $submitval == 3 ) {
 #echo "<br />Debug 34<br />";
-    $profileqrystring = "UPDATE $db_sessions_table SET profileName = ".quote_value($sessprofilename).", profileFuelType = ".quote_value($sessprofilefueltype).", profileWeight = ".quote_value($sessprofileweight).", profileVe = ".quote_value($sessprofileve).", profileFuelCost = ".quote_value($sessprofilefuelcost)." WHERE session = ".quote_value($sessuploadid);
+    $profileqrystring = "UPDATE " . quote_name($db_sessions_table) . " SET profileName = ".quote_value($sessprofilename).", profileFuelType = ".quote_value($sessprofilefueltype).", profileWeight = ".quote_value($sessprofileweight).", profileVe = ".quote_value($sessprofileve).", profileFuelCost = ".quote_value($sessprofilefuelcost)." WHERE session = ".quote_value($sessuploadid);
 #echo "<br />Debug 35 $profileqrystring<br />";
     mysqli_query($con, $profileqrystring) ;
   }

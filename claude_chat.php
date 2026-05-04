@@ -55,7 +55,7 @@ function session_obd_summary($con, $db_table, $session_id_str) {
         AVG(CAST(NULLIF(k2182,'') AS DECIMAL(10,4))) AS atf_temp,
         AVG(CAST(NULLIF(kb,'')   AS DECIMAL(10,4))) AS map_kpa,
         AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km
-        FROM `$tbl` WHERE session=$sid");
+        FROM " . quote_name($tbl) . " WHERE session=$sid");
     if (!$q) return [];
     $r = mysqli_fetch_assoc($q);
     if (!$r) return [];
@@ -146,14 +146,15 @@ function detect_date_range($message, $timezone) {
 }
 
 // ── Build DB context for the system prompt ──────────────────────────────────
-$ctx      = [];
-$tz_str   = $display_timezone ?? 'UTC';
+$ctx           = [];
+$tz_str        = $display_timezone ?? 'UTC';
+$q_sess_tbl    = quote_name($db_sessions_table);
 
 // ── 1. Current session info + OBD averages ───────────────────────────────────
 if ($session_id) {
     $sid_esc = (int)$session_id;
     $sq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize, profileName, profileFuelType
-                              FROM $db_sessions_table WHERE session=$sid_esc LIMIT 1");
+                              FROM $q_sess_tbl WHERE session=$sid_esc LIMIT 1");
     if ($sq && ($sr = mysqli_fetch_assoc($sq))) {
         $ts  = intdiv((int)$sr['session'], 1000);
         $dur = max(0, (int)(((int)$sr['timeend'] - (int)$sr['timestart']) / 1000));
@@ -177,7 +178,7 @@ if ($date_range) {
         $label .= ' to ' . $dr_end->format('D M j Y');
 
     $dq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize, profileName
-                               FROM $db_sessions_table
+                               FROM $q_sess_tbl
                                WHERE CAST(timestart AS UNSIGNED) >= $ms_start
                                  AND CAST(timestart AS UNSIGNED) <= $ms_end
                                ORDER BY CAST(timestart AS UNSIGNED) ASC
@@ -206,7 +207,7 @@ if ($date_range) {
 // ── 3. Recent sessions list (last 14 days, up to 40 sessions) ───────────────
 $recent_cutoff = (time() - 14 * 86400) * 1000;
 $rq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize
-                           FROM $db_sessions_table
+                           FROM $q_sess_tbl
                            WHERE CAST(timestart AS UNSIGNED) >= $recent_cutoff
                              AND sessionsize >= $min_session_size
                            ORDER BY CAST(timestart AS UNSIGNED) DESC
@@ -227,7 +228,7 @@ if ($recent_sessions) {
 // ── 4. LT fuel trim trend (monthly, last 12 months) ─────────────────────────
 $lt_trend_q = mysqli_query($con, "SELECT DISTINCT
     CONCAT(YEAR(FROM_UNIXTIME(session/1000)),'_',DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) AS ym
-    FROM $db_sessions_table ORDER BY ym DESC LIMIT 24");
+    FROM $q_sess_tbl ORDER BY ym DESC LIMIT 24");
 $trend_rows = [];
 if ($lt_trend_q) {
     while ($r = mysqli_fetch_assoc($lt_trend_q)) {
@@ -236,7 +237,7 @@ if ($lt_trend_q) {
         $tr  = mysqli_query($con, "SELECT
             AVG(CAST(NULLIF(k9,'') AS DECIMAL(10,2))) AS lt_b2,
             AVG(CAST(NULLIF(k7,'') AS DECIMAL(10,2))) AS lt_b1
-            FROM `$tbl`
+            FROM " . quote_name($tbl) . "
             WHERE k5 IS NOT NULL AND k5 != ''
               AND CAST(k5 AS DECIMAL(10,2)) > 40");
         if ($tr && ($row = mysqli_fetch_assoc($tr)) && ($row['lt_b2'] !== null || $row['lt_b1'] !== null)) {
@@ -255,7 +256,7 @@ if ($trend_rows) {
 $statsq = mysqli_query($con, "SELECT COUNT(*) AS cnt,
     FROM_UNIXTIME(MIN(session)/1000,'%Y-%m-%d') AS first_date,
     FROM_UNIXTIME(MAX(session)/1000,'%Y-%m-%d') AS last_date
-    FROM $db_sessions_table WHERE sessionsize >= $min_session_size");
+    FROM $q_sess_tbl WHERE sessionsize >= $min_session_size");
 if ($statsq && ($sr2 = mysqli_fetch_assoc($statsq))) {
     $ctx[] = "DATABASE: {$sr2['cnt']} sessions from {$sr2['first_date']} to {$sr2['last_date']}";
 }

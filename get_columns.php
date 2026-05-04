@@ -6,7 +6,7 @@
 // 2015.08.21 - edit by surfrock66 - Rather than pull from the column comments,
 //   oull from a new database created which manages variables. Include
 //   a column flagging whether a variable is populated or not.
-$colqry = mysqli_query($con, "SELECT id,description,type,favorite FROM $db_keys_table WHERE populated = 1 ORDER BY description");
+$colqry = mysqli_query($con, "SELECT id,description,type,favorite FROM " . quote_name($db_keys_table) . " WHERE populated = 1 ORDER BY description");
 while ($x = mysqli_fetch_array($colqry)) {
   if ((substr($x[0], 0, 1) == "k") && ($x[2] == "float")) {
     $coldata[] = array("colname"=>$x[0], "colcomment"=>$x[1], "colfavorite"=>$x[3]);
@@ -39,7 +39,7 @@ if (!empty($coldata) && isset($session_id) && !empty($session_id)) {
   // Use try/catch: PHP 8.1+ throws mysqli_sql_exception if a column doesn't exist in older tables
   try {
     $maxqry = mysqli_query($con, "SELECT " . implode(", ", $max_selects) .
-      " FROM $db_table_check WHERE session = " . quote_value(strval($session_id)));
+      " FROM " . quote_name($db_table_check) . " WHERE session = " . quote_value(strval($session_id)));
     if ($maxqry) {
       $maxrow = mysqli_fetch_assoc($maxqry);
       mysqli_free_result($maxqry);
