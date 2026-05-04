@@ -298,53 +298,63 @@ if (isset($sids[0])) {
         // Already [lon, lat] — pass directly to Mapbox
         var coords = _routeData.map(function(p) { return [p[0], p[1]]; });
 
-        // Detect stationary sessions: bounding box < ~10 m means all points are the same location.
-        // A zero-length LineString is invalid GeoJSON; Mapbox silently fails to draw it.
+        // Detect fixed-GPS sessions: bounding box < ~10 m means all GPS rows share
+        // the same coordinate (zero-length LineString → Mapbox silently fails to render).
+        // Two causes:
+        //   1. Truly parked  — GPS fixed AND max speed ≈ 0
+        //   2. GPS frozen    — GPS fixed BUT OBD speed was non-zero (phone lost GPS lock;
+        //                      Torque repeats the last-known position for every row)
         var lons = _routeData.map(function(p) { return p[0]; });
         var lats = _routeData.map(function(p) { return p[1]; });
         var lonSpan = Math.max.apply(null, lons) - Math.min.apply(null, lons);
         var latSpan = Math.max.apply(null, lats) - Math.min.apply(null, lats);
-        var _isStationary = (lonSpan < 0.0001 && latSpan < 0.0001); // ≈10 m threshold
+        var _gpsFixed = (lonSpan < 0.0001 && latSpan < 0.0001); // ≈10 m threshold
 
         // Fit bounds immediately (before style loads) so the viewport is correct
         var bounds = new mapboxgl.LngLatBounds();
         coords.forEach(function(c) { bounds.extend(c); });
 
-        // For stationary sessions draw a parked-pin marker instead of a route polyline.
-        if (_isStationary) {
+        if (_gpsFixed) {
+          // _maxSpeed comes from OBD speed (kd) via COALESCE in the PHP GPS query,
+          // so it reflects actual vehicle speed even when GPS speed is 0.
+          var _gpsFrozen = (_maxSpeed > 5); // car was moving — GPS lock lost
           var pinLng = lons[0], pinLat = lats[0];
+          var pinColor   = _gpsFrozen ? '#f4a261' : '#00d4ff'; // amber = frozen, cyan = parked
+          var pinGlow    = _gpsFrozen ? 'rgba(244,162,97,0.15)' : 'rgba(0,212,255,0.15)';
+          var pinBorder  = _gpsFrozen ? 'rgba(244,162,97,0.4)'  : 'rgba(0,212,255,0.4)';
+          var pinMsg     = _gpsFrozen
+            ? '<i class="bi bi-exclamation-triangle-fill me-1" style="color:#f4a261"></i>GPS position frozen — route unavailable (phone lost GPS lock)'
+            : '<i class="bi bi-p-circle-fill me-1" style="color:#00d4ff"></i>Parked session — no route to plot';
+
           window._torqueDrawRoute = function drawRoute() {
             try {
-              // Remove any previous layers
               if (map.getLayer('route'))         { map.removeLayer('route'); }
               if (map.getLayer('route-outline')) { map.removeLayer('route-outline'); }
               if (map.getSource('route'))        { map.removeSource('route'); }
-              // Draw a cyan pin marker at the parked location
+              // Pin marker at recorded location
               var pinEl = document.createElement('div');
               pinEl.style.cssText =
-                'width:18px;height:18px;border-radius:50%;' +
-                'background:#00d4ff;border:3px solid rgba(0,212,255,0.4);' +
-                'box-shadow:0 0 0 6px rgba(0,212,255,0.15),0 2px 8px rgba(0,0,0,0.5);' +
-                'cursor:default;';
+                'width:18px;height:18px;border-radius:50%;cursor:default;' +
+                'background:' + pinColor + ';border:3px solid ' + pinBorder + ';' +
+                'box-shadow:0 0 0 6px ' + pinGlow + ',0 2px 8px rgba(0,0,0,0.5);';
               new mapboxgl.Marker({ element: pinEl, anchor: 'center' })
                 .setLngLat([pinLng, pinLat])
                 .addTo(map);
-              map.flyTo({ center: [pinLng, pinLat], zoom: 16, duration: 0 });
-              // Label
+              map.flyTo({ center: [pinLng, pinLat], zoom: 15, duration: 0 });
+              // Info banner at bottom of map
               var infoEl = document.createElement('div');
               infoEl.style.cssText =
                 'position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:10;' +
                 'background:rgba(6,9,18,0.88);color:#8ab;padding:5px 12px;border-radius:8px;' +
                 'border:1px solid rgba(0,212,255,0.2);font-size:11px;white-space:nowrap;' +
                 'box-shadow:0 2px 8px rgba(0,0,0,0.4);pointer-events:none;';
-              infoEl.innerHTML = '<i class="bi bi-p-circle-fill me-1" style="color:#00d4ff"></i>Stationary session — no route to plot';
+              infoEl.innerHTML = pinMsg;
               mapEl.appendChild(infoEl);
-            } catch(e) { console.error('Stationary pin error:', e); }
+            } catch(e) { console.error('Fixed-GPS pin error:', e); }
           };
-          // Fire immediately or on load
           if (map.loaded()) { window._torqueDrawRoute(); }
           else { map.once('load', function() { window._torqueDrawRoute(); }); }
-          return; // Skip normal route-drawing path
+          return;
         }
 
         // Cap gradient to 50 evenly-spaced samples to avoid Mapbox expression size limits
