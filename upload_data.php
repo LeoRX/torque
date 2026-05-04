@@ -2,6 +2,40 @@
 require_once ('db.php');
 require_once ('auth_app.php');
 
+// ── Upload debug log (14-day rolling retention) ───────────────────────────────
+// One file per session in data/upload_log/SESSIONID.log.
+// Each line: server_timestamp TAB raw_query_string
+// Files are removed automatically after 14 days.
+// To inspect: cat data/upload_log/SESSIONID.log
+(function() {
+  $log_dir = __DIR__ . '/data/upload_log';
+
+  // Create directory if it doesn't exist (silent fail — never break uploads)
+  if (!is_dir($log_dir)) {
+    @mkdir($log_dir, 0755, true);
+  }
+
+  // Opportunistic cleanup: scan for files older than 14 days.
+  // Runs on ~1 in 50 requests to avoid glob() overhead on every call.
+  if (rand(1, 50) === 1) {
+    $cutoff = time() - (14 * 86400);
+    foreach (glob($log_dir . '/*.log') ?: [] as $f) {
+      if (@filemtime($f) < $cutoff) {
+        @unlink($f);
+      }
+    }
+  }
+
+  // Log this datapoint: validate session ID first (same check as main code below)
+  if (!isset($_GET['session']) || !preg_match('/^\d{10,15}$/', $_GET['session'])) {
+    return; // malformed request — main code will reject it too
+  }
+
+  $log_file = $log_dir . '/' . $_GET['session'] . '.log';
+  $line     = date('Y-m-d H:i:s') . "\t" . $_SERVER['QUERY_STRING'] . "\n";
+  @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX);
+})();
+// ─────────────────────────────────────────────────────────────────────────────
 
 $newest_table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' and table_name like '$db_table%' ORDER BY table_name DESC LIMIT 1;");
 $newest_table = "";
