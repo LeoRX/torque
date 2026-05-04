@@ -58,9 +58,9 @@ torque/
 ├── db_upgrade.php             ← Schema migration utility
 ├── parse_functions.php        ← Data parsing helpers
 ├── static/
-│   ├── css/torque.css         ← All custom CSS (Bootstrap 5 overrides, dark mode, map popup)
-│   ├── css/hud.css            ← Dark Racing HUD theme: design tokens, navbar, gauges, panels, drag handle
-│   └── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers, HUD gauge system, panel drag
+│   ├── css/torque.css         ← All custom CSS (Bootstrap 5 overrides, dark mode, map popup, responsive breakpoints)
+│   ├── css/hud.css            ← Dark Racing HUD theme: design tokens, navbar, gauges, panels, drag handle, mobile layout
+│   └── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers, HUD gauge system, panel drag, mobile collapse
 └── data/                      ← Runtime data directory (gitignored)
 ```
 
@@ -201,12 +201,23 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - Map popup theming: use `_applyPopupTheme()` with inline styles (not CSS — Mapbox injects its own stylesheet at runtime which overrides static CSS even with `!important`)
 - `MutationObserver` on `document.documentElement` watches `data-bs-theme` to re-apply popup theme on toggle
 
+**Navbar** (`session.php`):
+- Uses `navbar-expand-md` — below 768px collapses to hamburger. Always-visible: brand, profile select, calendar button. Hidden behind toggle: merge/delete, all icon buttons, username.
+- The collapse panel auto-closes when any action button is tapped (delegated listener on `#navbar-action-btns` in `torquehelpers.js`).
+
+**Responsive layout** (`torque.css`, `hud.css`):
+- `--navbar-height` is defined **only in `hud.css`** (46px) — it was removed from `torque.css` to eliminate a conflict. `torquehelpers.js` reads it via `getComputedStyle` into `_navbarH` at runtime.
+- Floating panels use `min(Npx, calc(100vw - 16px))` widths — they never overflow the viewport.
+- Chart height: `min(300px, 38vh)`. Map bottom tracks chart height via matching `body.chart-open #map-canvas` rule.
+- Two responsive breakpoints: `@media (max-width: 767px)` and `@media (max-width: 480px)`.
+
 **HUD Widget** (`#hud-widget`, `static/css/hud.css`, `torquehelpers.js`):
 - Three SVG arc gauges (cyan/red/green) + three stat cells (duration, distance, fuel)
 - **Always-on**: `session.php` injects `_hudConfig` (gauge PIDs/labels/scales from settings) and `_hudSessionAvg` (SQL `AVG()` per PID) into every session page. `_initGauges()` populates arcs from session averages on load; `_updateGauges(tsMs)` takes over on chart hover; mouseleave returns to averages (not zero).
 - **Dataset lookup**: each Chart.js dataset has a `kcode` property (raw k-code e.g. `kc`). `_findDatasetByKCode(kcode)` matches on this — reliable regardless of display label. `_findDatasetByKeyword()` still exists but is no longer used by the gauge system.
 - **Draggable**: `.hud-drag-handle` (braille dots ⠿) at top of widget triggers mouse/touch drag. `#hud-widget` has `pointer-events: auto`; `.hud-gauges` and `.hud-stats` have `pointer-events: none` so the map remains clickable through the data area.
-- **Position memory**: all three floating panels (`hud-widget`, `vars-section`, `summary-section`) save position to `localStorage` key `torque-pos-{id}` on drag-end and restore on `$(document).ready` with viewport clamping.
+- **Mobile**: on screens ≤767px the widget repositions to bottom-left, starts collapsed (`.hud-collapsed` class added on load), and exposes a `#hud-collapse-btn` chevron to toggle visibility. `body.chart-open` pushes it above the chart strip via CSS.
+- **Position memory**: all three floating panels (`hud-widget`, `vars-section`, `summary-section`) save position to `localStorage` key `torque-pos-{id}` on drag-end and restore on `$(document).ready` with viewport clamping. Drag clamping uses the panel's actual `offsetWidth`/`offsetHeight` — not a hardcoded pixel margin.
 - **Coolant threshold**: gauge 2 arc colour changes orange >95°C, red >105°C — hardcoded to gauge 2 regardless of which PID is configured there.
 
 ---
@@ -258,6 +269,9 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **All DB queries**: use `quote_name()`/`quote_value()` from `db.php`. Never raw string interpolation.
 - **`_hudConfig` / `_hudSessionAvg` scope**: these are injected in their own `<script>` block inside `<?php if ($setZoomManually === 0): ?>` — NOT inside the `$var1 != ""` block that only runs when chart variables are plotted. They must remain in the always-emitted block so always-on gauges work before any variables are plotted.
 - **HUD avg query placement**: the `AVG()` SQL query for `_hudSessionAvg` must run **before** `mysqli_close($con)` (currently line ~142 in `session.php`). Don't move it below the connection close.
+- **`--navbar-height` single source**: defined only in `hud.css` as `46px`. Do NOT re-add it to `torque.css` — that caused a conflict where 58px overrode the correct 46px. `torquehelpers.js` reads it via `getComputedStyle` into `_navbarH`.
+- **Navbar is `navbar-expand-md`**: collapses below 768px. Action buttons live inside `#navbarCollapse` / `#navbar-action-btns`. If you add a new navbar button it must go inside that div or it won't appear on desktop.
+- **Chart height and HUD mobile bottom are coupled**: `hud.css` has `body.chart-open #hud-widget { bottom: calc(min(240px, 38vh) + 8px) }` — this must match the chart height in the `@media (max-width: 767px)` block in `torque.css`. Keep them in sync if you change chart height.
 
 ---
 

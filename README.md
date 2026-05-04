@@ -16,6 +16,7 @@ Browse sessions, plot OBD2 time-series data against interactive charts, follow y
 - **TorqueAI** — Claude-powered assistant with session context (OBD averages, fuel trim trends)
 - **Data export** — CSV and JSON per session
 - **Dark mode** — persistent, toggle in navbar
+- **Mobile-responsive** — hamburger navbar on phones, viewport-relative chart and panel sizing, collapsible HUD widget
 - **Docker-ready** — single `php:8.2-apache` container, credentials injected at runtime via env vars
 - **Traefik-compatible** — HTTPS via Let's Encrypt, separate HTTP-only upload endpoint for Torque Pro
 
