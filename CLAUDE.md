@@ -174,6 +174,7 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Auth flow**: `auth_functions.php::auth_user()` checks `torque_users` DB table first (bcrypt), then falls back to `$users[]` array in `creds.php`
 - **Session**: `$_SESSION['torque_logged_in']` + `$_SESSION['torque_user']`
 - **Torque Pro upload auth**: `auth_app.php` via `auth_id()` — checks `$torque_id` / `$torque_id_hash` in `creds.php`
+- **Bearer token gate**: `auth_app.php` checks `$bearer_token` (from `creds.php`) before any other auth. If set, requires `Authorization: Bearer <token>` header — enables HTTPS uploads. Controlled by `BEARER_TOKEN` env var; empty = disabled (backwards-compatible).
 
 ---
 
@@ -266,11 +267,12 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **Mapbox popup styling**: Use JS inline styles via `_applyPopupTheme()`, not CSS classes. Mapbox's runtime stylesheet wins specificity battles.
 - **Tom Select in panels**: Always set `dropdownParent: 'body'` to escape `overflow: hidden` panels.
 - **Never use `date()` directly** for user-facing timestamps — always use `tz_date()`.
-- **All DB queries**: use `quote_name()`/`quote_value()` from `db.php`. Never raw string interpolation.
+- **All DB queries**: use `quote_name()`/`quote_value()` from `db.php`. Never raw string interpolation. This includes every table identifier (`$db_table_full`, `$db_sessions_table`, `$db_keys_table`, `$newest_table`, `$db_table_name`) and INFORMATION_SCHEMA string values (`table_schema`, `table_name` literals). `quote_name()` wraps in backticks; `quote_value()` escapes and wraps in single quotes.
 - **`_hudConfig` / `_hudSessionAvg` scope**: these are injected in their own `<script>` block inside `<?php if ($setZoomManually === 0): ?>` — NOT inside the `$var1 != ""` block that only runs when chart variables are plotted. They must remain in the always-emitted block so always-on gauges work before any variables are plotted.
 - **HUD avg query placement**: the `AVG()` SQL query for `_hudSessionAvg` must run **before** `mysqli_close($con)` (currently line ~142 in `session.php`). Don't move it below the connection close.
 - **`--navbar-height` single source**: defined only in `hud.css` as `46px`. Do NOT re-add it to `torque.css` — that caused a conflict where 58px overrode the correct 46px. `torquehelpers.js` reads it via `getComputedStyle` into `_navbarH`.
 - **Navbar is `navbar-expand-md`**: collapses below 768px. Action buttons live inside `#navbarCollapse` / `#navbar-action-btns`. If you add a new navbar button it must go inside that div or it won't appear on desktop.
+- **`plot.php` named arrays**: chart variable data is stored in 11 named indexed arrays — `$plotVar`, `$plotData`, `$plotMeasurand`, `$plotSpark`, `$plotLabel`, `$plotSparkData`, `$plotMax`, `$plotMin`, `$plotAvg`, `$plotPcnt25`, `$plotPcnt75` — all keyed from `$i = 1`. Do NOT reintroduce PHP variable variables (`${'v'.$i}` etc.). `session.php` re-initialises `$plotVar[]` after `include plot.php` (safe — same GET/POST source); `$plotData`, `$plotLabel`, etc. are untouched. `$var1 = $plotVar[1] ?? ""` is a kept alias for the many `if ($var1 != "")` guards throughout `session.php` — do not remove it.
 - **Chart height and HUD mobile bottom are coupled**: `hud.css` has `body.chart-open #hud-widget { bottom: calc(min(240px, 38vh) + 8px) }` — this must match the chart height in the `@media (max-width: 767px)` block in `torque.css`. Keep them in sync if you change chart height.
 
 ---

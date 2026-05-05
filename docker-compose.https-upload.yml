@@ -1,0 +1,24 @@
+# docker-compose.https-upload.yml
+#
+# Compose override that switches the Torque Pro upload endpoint from HTTP to HTTPS.
+# Requires BEARER_TOKEN to be set in .env (the bearer gate in auth_app.php ensures
+# only requests with a valid token are accepted).
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.https-upload.yml up -d
+#
+# Prerequisites:
+#   1. Set BEARER_TOKEN=<your_token> in .env
+#      Generate one: openssl rand -hex 32
+#   2. In Torque Pro: Settings → Data Logging & Upload → Web Logging
+#      - Enable "Send Authorization Header"
+#      - Paste the same token
+#      - Change Webserver URL to https://torqueupload.your-domain.com/upload_data.php
+#   3. Ensure your Traefik letsencrypt certresolver is configured (same as the UI router)
+
+services:
+  torque:
+    labels:
+      # Switch the upload router from HTTP (web) to HTTPS (websecure) + TLS
+      - "traefik.http.routers.torque-upload.entrypoints=websecure"
+      - "traefik.http.routers.torque-upload.tls.certresolver=letsencrypt"

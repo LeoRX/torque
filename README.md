@@ -71,7 +71,8 @@ The included `docker-compose.yml` has Traefik labels pre-configured for:
 | Route | Entrypoint | Notes |
 |-------|-----------|-------|
 | `torque.yourdomain.com` | HTTPS (websecure) | Web UI, auto Let's Encrypt |
-| `torqueupload.yourdomain.com` | HTTP (web) | Upload only — Torque Pro needs plain HTTP |
+| `torqueupload.yourdomain.com` | HTTP (web) | Default — no auth required |
+| `torqueupload.yourdomain.com` | HTTPS (websecure) | With `BEARER_TOKEN` set (see below) |
 
 Update the domain labels in `docker-compose.yml` and join your Traefik network:
 
@@ -81,6 +82,39 @@ networks:
     external: true
     name: your_traefik_network
 ```
+
+---
+
+## HTTPS Uploads with Bearer Token
+
+By default the upload endpoint runs on plain HTTP. To serve it over HTTPS:
+
+**1. Generate a token**
+
+```bash
+openssl rand -hex 32
+```
+
+**2. Add it to `.env`**
+
+```env
+BEARER_TOKEN=your_generated_token_here
+```
+
+**3. Configure Torque Pro**
+
+In the app: **Settings → Data Logging & Upload → Web Logging**
+- Enable "Send Authorization Header"
+- Paste the same token
+- Change the Webserver URL to `https://torqueupload.yourdomain.com/upload_data.php`
+
+**4. Apply the HTTPS upload Traefik override**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.https-upload.yml up -d
+```
+
+> **Non-Traefik users**: The bearer gate lives in PHP (`auth_app.php`) and works with any reverse proxy or direct HTTPS setup — just set `BEARER_TOKEN` and terminate TLS however you prefer.
 
 ---
 

@@ -23,6 +23,11 @@ services:
       - TORQUE_ID=${TORQUE_ID:-}
       - TORQUE_ID_HASH=${TORQUE_ID_HASH:-}
 
+      # ── Bearer token auth for HTTPS uploads ──────────────────────────────────
+      # Set to require "Authorization: Bearer <token>" from Torque Pro.
+      # See docker-compose.https-upload.yml to switch the upload router to HTTPS.
+      - BEARER_TOKEN=${BEARER_TOKEN:-}
+
     # Lets the container reach services running on the NAS host (MariaDB)
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -37,8 +42,9 @@ services:
       - "traefik.http.routers.torque-ui.service=torque-ui"
       - "traefik.http.services.torque-ui.loadbalancer.server.port=80"
 
-      # ── Upload endpoint — HTTP only, no TLS redirect (Torque Pro Android) ─────
-      # Torque Pro has issues with HTTPS; this router deliberately stays on HTTP.
+      # ── Upload endpoint — HTTP by default ────────────────────────────────────
+      # Set BEARER_TOKEN env var and use docker-compose.https-upload.yml to switch
+      # this router to HTTPS once bearer auth is configured in Torque Pro.
       - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.your-domain.com`)"
       - "traefik.http.routers.torque-upload.entrypoints=web"
       - "traefik.http.routers.torque-upload.service=torque-upload"

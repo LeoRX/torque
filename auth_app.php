@@ -2,6 +2,18 @@
 require_once ('creds.php');
 require_once ('auth_functions.php');
 
+// Bearer token gate — runs before all other auth if $bearer_token is set in creds.php
+if (!empty($bearer_token ?? '')) {
+    $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (!preg_match('/^Bearer\s+(.+)$/i', $auth_header, $m)
+        || !hash_equals($bearer_token, trim($m[1]))) {
+        http_response_code(401);
+        header('WWW-Authenticate: Bearer realm="Torque Upload"');
+        echo 'ERROR. Bearer token authentication required.';
+        exit(0);
+    }
+}
+
 //This variable will be evaluated at the end of this file to check if a user is authenticated
 $logged_in = false;
 

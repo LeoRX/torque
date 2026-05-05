@@ -25,6 +25,7 @@ cat > /var/www/html/creds.php << PHP
 \$db_sessions_table = 'sessions';
 \$torque_id         = '${TORQUE_ID:-}';
 \$torque_id_hash    = '${TORQUE_ID_HASH:-}';
+\$bearer_token      = '${BEARER_TOKEN:-}';
 
 // Web login users (legacy array — new accounts should use the torque_users DB table)
 \$users = [];

@@ -22,6 +22,14 @@ $db_sessions_table = 'sessions';
 $torque_id      = ''; // e.g. 123456789012345
 $torque_id_hash = ''; // e.g. 58b9b9268acaef64ac6a80b0543357e6
 
+// ── Optional: Bearer token for HTTPS upload auth ──────────────────────────────
+// If non-empty, upload_data.php requires "Authorization: Bearer <token>" header.
+// Enable in Torque Pro: Settings → Data Logging & Upload → Web Logging →
+//   "Send Authorization Header" (on) and paste your token there.
+// Generate a strong token: openssl rand -hex 32
+// When running in Docker, set BEARER_TOKEN env var instead of editing this file.
+$bearer_token = '';
+
 // ── Web login users (legacy — prefer torque_users DB table for new accounts) ──
 $users = [];
 $users[] = ['user' => 'torque', 'pass' => 'your_login_password_here'];
