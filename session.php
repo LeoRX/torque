@@ -156,6 +156,7 @@ if (isset($sids[0])) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
     <title>Open Torque Viewer</title>
     <meta name="description" content="Open Torque Viewer">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
