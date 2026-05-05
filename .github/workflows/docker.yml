@@ -9,6 +9,8 @@ jobs:
   build-and-push:
     name: Lint, scan, build, push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
