@@ -11,7 +11,7 @@ if (!$logged_in) {
 require_once('get_settings.php');
 
 // ── 1. Validate session_id ────────────────────────────────────────────────
-$session_id = trim($_POST['session_id'] ?? '');
+$session_id = trim($_POST['session_id'] ?? ''); // overrides any $session_id set by auth_app.php
 if (!preg_match('/^\d{10,15}$/', $session_id)) {
     echo "ERROR. Invalid session_id.";
     exit;
@@ -52,7 +52,6 @@ if (!($table_exists && mysqli_fetch_assoc($table_exists))) {
 
 // ── 5. Parse profile.properties.txt if present ───────────────────────────
 $profile_name  = '';
-$trip_distance = null;
 if (isset($_FILES['profile']) && $_FILES['profile']['error'] === UPLOAD_ERR_OK) {
     $lines = file($_FILES['profile']['tmp_name'],
         FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -63,7 +62,6 @@ if (isset($_FILES['profile']) && $_FILES['profile']['error'] === UPLOAD_ERR_OK) 
         $k = trim($parts[0]);
         $v = trim($parts[1]);
         if ($k === 'profile')  $profile_name  = $v;
-        if ($k === 'distance') $trip_distance = (float)$v;
     }
 }
 
@@ -72,6 +70,10 @@ $header_map = [];
 $hmap_res = mysqli_query($con,
     "SELECT id, csv_header FROM " . quote_name($db_keys_table) .
     " WHERE csv_header IS NOT NULL");
+if (!$hmap_res) {
+    echo "ERROR. csv_header column missing from torque_keys — run db_upgrade.php first.";
+    exit;
+}
 while ($hrow = mysqli_fetch_assoc($hmap_res)) {
     $header_map[trim($hrow['csv_header'])] = $hrow['id'];
 }
@@ -280,6 +282,8 @@ function _insert_batch($con, $table, $batch, $mode) {
                " ($col_list) VALUES $values_sql";
     }
 
-    mysqli_query($con, $sql);
+    if (!mysqli_query($con, $sql)) {
+        error_log('upload_batch: INSERT failed: ' . mysqli_error($con));
+    }
 }
 ?>
