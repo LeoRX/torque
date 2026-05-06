@@ -77,6 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     'hud_gauge2_pid','hud_gauge2_label','hud_gauge2_min','hud_gauge2_max','hud_gauge2_suffix',
     'hud_gauge3_pid','hud_gauge3_label','hud_gauge3_min','hud_gauge3_max','hud_gauge3_suffix',
     'hud_stat_dur_label','hud_stat_dist_label','hud_stat_fuel_pid','hud_stat_fuel_label',
+    // Plugin Upload
+    'batch_duplicate_mode',
     // (map_default_type and gmaps_api_key removed)
   ];
   // Boolean fields — unchecked checkboxes send nothing, so default to 0
@@ -117,6 +119,7 @@ $group_labels = [
   'map'      => ['label' => 'Map',            'icon' => 'bi-map'],
   'ai'       => ['label' => 'AI Assistant',   'icon' => 'bi-robot'],
   'hud'      => ['label' => 'HUD Widget',     'icon' => 'bi-speedometer2'],
+  'plugin'   => ['label' => 'Plugin Upload',    'icon' => 'bi-cloud-upload'],
 ];
 
 $claude_models = [
@@ -663,6 +666,27 @@ $mapbox_styles = [
 
         </div>
       <?php endforeach; ?>
+
+      <?php // ── Plugin Upload section ───────────────────────────────────────────── ?>
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#section-plugin" style="cursor:pointer">
+          <i class="bi bi-cloud-upload section-icon"></i>
+          <span class="fw-semibold">Plugin Upload</span>
+          <i class="bi bi-chevron-down ms-auto"></i>
+        </div>
+        <div class="collapse show" id="section-plugin">
+          <div class="card-body p-0">
+            <div class="setting-row">
+              <div class="setting-label mb-1">Duplicate Data Handling</div>
+              <div class="setting-desc mb-2">Controls what happens when the plugin uploads a session that already exists from a previous Torque Pro real-time upload. <strong>Ignore</strong> keeps existing rows intact; <strong>Overwrite</strong> replaces them with the CSV data.</div>
+              <select class="form-select form-select-sm" style="max-width:320px;" name="batch_duplicate_mode">
+                <option value="ignore"    <?php if (($settings['batch_duplicate_mode'] ?? 'ignore') === 'ignore')    echo 'selected'; ?>>Ignore (keep existing)</option>
+                <option value="overwrite" <?php if (($settings['batch_duplicate_mode'] ?? 'ignore') === 'overwrite') echo 'selected'; ?>>Overwrite (replace existing)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="text-center mt-2">
         <button type="submit" name="save_settings" class="btn btn-primary px-5">

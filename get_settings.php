@@ -55,6 +55,10 @@ $_setting_defaults = [
   'hud_stat_dist_label'   => ['DISTANCE', 'string',  'Distance Stat Label',   'Label for the distance statistic.', 'hud'],
   'hud_stat_fuel_pid'     => ['kff5203',  'string',  'Fuel Stat PID',         'OBD k-code for the fuel consumption stat.', 'hud'],
   'hud_stat_fuel_label'   => ['L/100km',  'string',  'Fuel Stat Label',       'Label for the fuel statistic.', 'hud'],
+  // Plugin Upload
+  'batch_duplicate_mode'  => ['ignore', 'select',  'Duplicate Data Handling',
+    'Controls what happens when the plugin uploads a session that was already received via real-time upload. "ignore" keeps existing rows; "overwrite" replaces them.',
+    'plugin'],
 ];
 
 // Remove obsolete Google Maps settings from DB (one-time cleanup)
@@ -140,4 +144,5 @@ $hud_stat_dur_label  =        ($settings['hud_stat_dur_label']  ?? 'DURATION');
 $hud_stat_dist_label =        ($settings['hud_stat_dist_label'] ?? 'DISTANCE');
 $hud_stat_fuel_pid   =        ($settings['hud_stat_fuel_pid']   ?? 'kff5203');
 $hud_stat_fuel_label =        ($settings['hud_stat_fuel_label'] ?? 'L/100km');
+$batch_duplicate_mode = $settings['batch_duplicate_mode'] ?? 'ignore';
 ?>
