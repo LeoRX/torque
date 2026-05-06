@@ -5,8 +5,21 @@ require_once ('auth_functions.php');
 // Bearer token gate — runs before all other auth if $bearer_token is set in creds.php
 if (!empty($bearer_token ?? '')) {
     $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    if (!preg_match('/^Bearer\s+(.+)$/i', $auth_header, $m)
-        || !hash_equals($bearer_token, trim($m[1]))) {
+    if ($auth_header === '' && function_exists('apache_request_headers')) {
+        $hdrs = apache_request_headers();
+        $auth_header = $hdrs['Authorization'] ?? $hdrs['authorization'] ?? '';
+    }
+    $token_ok = preg_match('/^Bearer\s+(.+)$/i', $auth_header, $m)
+                && hash_equals($bearer_token, trim($m[1]));
+    if (!$token_ok) {
+        // Debug log — records what PHP actually received so header-stripping issues can be diagnosed
+        $log_line = date('Y-m-d H:i:s')
+            . "\tSERVER_AUTH="   . (isset($_SERVER['HTTP_AUTHORIZATION']) ? 'present' : 'missing')
+            . "\tAPACHE_AUTH="   . ($auth_header !== '' ? 'present' : 'missing')
+            . "\tHEADER_VALUE="  . (strlen($auth_header) > 0 ? substr($auth_header, 0, 20) . '…' : '(empty)')
+            . "\tIP="            . ($_SERVER['REMOTE_ADDR'] ?? '')
+            . "\n";
+        @file_put_contents(__DIR__ . '/data/auth_debug.log', $log_line, FILE_APPEND | LOCK_EX);
         http_response_code(401);
         header('WWW-Authenticate: Bearer realm="Torque Upload"');
         echo 'ERROR. Bearer token authentication required.';
