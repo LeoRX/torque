@@ -2,12 +2,6 @@
 require_once('db.php');
 require_once('auth_app.php');
 
-if (!$logged_in) {
-    http_response_code(401);
-    echo "ERROR. Authentication required.";
-    exit;
-}
-
 require_once('get_settings.php');
 
 // ── 1. Validate session_id ────────────────────────────────────────────────
@@ -123,7 +117,7 @@ if ($cols_res && mysqli_num_rows($cols_res) > 0) {
 }
 
 foreach ($all_kcodes as $kcode) {
-    if (in_array($kcode, $dbfields)) continue;
+    if (in_array($kcode, $dbfields, true)) continue;
 
     // Not in target table — scan all monthly tables and add if missing
     $all_tables = mysqli_query($con,
@@ -139,7 +133,7 @@ foreach ($all_kcodes as $kcode) {
         while ($tc = mysqli_fetch_assoc($tc_res)) {
             $tfields[] = $tc['Field'];
         }
-        if (!in_array($kcode, $tfields)) {
+        if (!in_array($kcode, $tfields, true)) {
             // Use float for k-codes that are known numeric; VARCHAR for string ones
             $type_sql = "float NOT NULL DEFAULT '0'";
             mysqli_query($con,
@@ -217,12 +211,15 @@ $sess_check = mysqli_query($con,
 
 if ($sess_check && mysqli_fetch_assoc($sess_check)) {
     // Session already exists — update time bounds, size, profile
+    $update_fields = "timestart = " . quote_value($time_start) .
+        ", timeend = " . quote_value($time_end) .
+        ", sessionsize = " . quote_value($row_count);
+    if (!empty($profile_name)) {
+        $update_fields .= ", profileName = " . quote_value($profile_name);
+    }
     mysqli_query($con,
         "UPDATE " . quote_name($db_sessions_table) .
-        " SET timestart = " . quote_value($time_start) .
-        ", timeend = " . quote_value($time_end) .
-        ", sessionsize = " . quote_value($row_count) .
-        ", profileName = " . quote_value($profile_name) .
+        " SET " . $update_fields .
         " WHERE session = " . quote_value($session_id));
 } else {
     mysqli_query($con,
