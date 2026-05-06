@@ -53,6 +53,8 @@ torque/
 ├── del_session.php            ← Session deletion handler
 ├── export.php                 ← CSV / JSON export
 ├── upload_data.php            ← Torque Pro data upload receiver
+├── upload_batch.php           ← Plugin batch CSV upload receiver (POST multipart)
+├── check_session.php          ← Session existence check for plugin pre-upload query
 ├── url.php                    ← URL helpers
 ├── index.php                  ← Redirect to session.php
 ├── db_upgrade.php             ← Schema migration utility
@@ -159,6 +161,7 @@ All settings are stored in `torque_settings` and loaded by `get_settings.php`.
 | `hud_stat_dist_label` | `$hud_stat_dist_label` | `DISTANCE` | Distance stat label |
 | `hud_stat_fuel_pid` | `$hud_stat_fuel_pid` | `kff5203` | k-code for fuel stat |
 | `hud_stat_fuel_label` | `$hud_stat_fuel_label` | `L/100km` | Fuel stat label |
+| `batch_duplicate_mode` | `$batch_duplicate_mode` | `ignore` | Plugin upload duplicate handling: `ignore` = INSERT IGNORE; `overwrite` = ON DUPLICATE KEY UPDATE |
 
 ### `tz_date()` Helper (in `get_settings.php`)
 ```php
@@ -175,6 +178,7 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Session**: `$_SESSION['torque_logged_in']` + `$_SESSION['torque_user']`
 - **Torque Pro upload auth**: `auth_app.php` via `auth_id()` — checks `$torque_id` / `$torque_id_hash` in `creds.php`
 - **Bearer token gate**: `auth_app.php` checks `$bearer_token` (from `creds.php`) before any other auth. If set, requires `Authorization: Bearer <token>` header — enables HTTPS uploads. Controlled by `BEARER_TOKEN` env var; empty = disabled (backwards-compatible).
+- **Plugin upload auth**: `upload_batch.php` and `check_session.php` both require `auth_app.php` — same bearer token / Torque ID / user+password flow as `upload_data.php`.
 
 ---
 
@@ -274,6 +278,9 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **Navbar is `navbar-expand-md`**: collapses below 768px. Action buttons live inside `#navbarCollapse` / `#navbar-action-btns`. If you add a new navbar button it must go inside that div or it won't appear on desktop.
 - **`plot.php` named arrays**: chart variable data is stored in 11 named indexed arrays — `$plotVar`, `$plotData`, `$plotMeasurand`, `$plotSpark`, `$plotLabel`, `$plotSparkData`, `$plotMax`, `$plotMin`, `$plotAvg`, `$plotPcnt25`, `$plotPcnt75` — all keyed from `$i = 1`. Do NOT reintroduce PHP variable variables (`${'v'.$i}` etc.). `session.php` re-initialises `$plotVar[]` after `include plot.php` (safe — same GET/POST source); `$plotData`, `$plotLabel`, etc. are untouched. `$var1 = $plotVar[1] ?? ""` is a kept alias for the many `if ($var1 != "")` guards throughout `session.php` — do not remove it.
 - **Chart height and HUD mobile bottom are coupled**: `hud.css` has `body.chart-open #hud-widget { bottom: calc(min(240px, 38vh) + 8px) }` — this must match the chart height in the `@media (max-width: 767px)` block in `torque.css`. Keep them in sync if you change chart height.
+- **`upload_batch.php` column pre-scan**: All k-code columns are verified/added to every monthly table BEFORE batch inserts begin. The ADD COLUMN loop runs once per unique k-code, not per row.
+- **Device Time parsing**: `strtotime()` on Torque's `13-Mar.-2018 17:14:41.361` format — verify it returns `!== false && > 0` before using; fall back to `(int)$session_id` otherwise.
+- **`_insert_batch` function**: Uses `error_log()` on failed INSERT. The function is prefixed with `_` to avoid conflicts with any future PHP built-ins.
 
 ---
 

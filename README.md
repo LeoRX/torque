@@ -19,6 +19,7 @@ Browse sessions, plot OBD2 time-series data against interactive charts, follow y
 - **Mobile-responsive** — hamburger navbar on phones, viewport-relative chart and panel sizing, collapsible HUD widget
 - **Docker-ready** — single `php:8.2-apache` container, credentials injected at runtime via env vars
 - **Traefik-compatible** — HTTPS via Let's Encrypt, separate HTTP-only upload endpoint for Torque Pro
+- **Plugin batch upload** — `upload_batch.php` receives complete trip CSV files from the companion Android plugin; `check_session.php` lets the plugin check for existing sessions before uploading
 
 ---
 
@@ -61,6 +62,15 @@ The container serves plain HTTP on port 80. `creds.php` is generated automatical
 In the Torque Pro app:
 - **Settings → Data Logging & Upload → Webserver URL**: `http://YOUR_HOST/upload_data.php`
 - Enable "Upload to web-server"
+
+### 4. Plugin Upload (optional)
+
+The companion Android plugin uploads complete trip logs retrospectively via:
+
+- `POST /upload_batch.php` — receives `session_id`, `tracklog` (CSV), and optionally `profile` (properties file)
+- `GET /check_session.php?session_id=<id>` — returns `{"exists":true/false}` so the plugin can skip already-uploaded sessions
+
+Both endpoints use the same authentication as the main upload endpoint. The **Settings → Plugin Upload** section controls how duplicate data points are handled when a session was already received via real-time upload.
 
 ---
 
