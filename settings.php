@@ -379,6 +379,7 @@ $mapbox_styles = [
 
       <?php foreach ($group_labels as $group_key => $group_meta): ?>
         <?php if (empty($all_settings[$group_key])) continue; ?>
+        <?php if ($group_key === 'plugin') continue; // rendered as custom card after this loop ?>
 
         <div class="card mb-4">
           <div class="card-header d-flex align-items-center">
