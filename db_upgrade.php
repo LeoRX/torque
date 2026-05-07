@@ -100,7 +100,7 @@
     ['kff5203', 'Fuel Consumption Rate',   'Litres Per 100 Kilometer(Long Term Average)(l/100km)'],
     ['kff1010', 'GPS Altitude',           'GPS Altitude(m)'],
     ['kff1226', 'Horsepower',             'Horsepower (At the wheels)(hp)'],
-    ['kff1227', 'Cost per km (Trip)',      'Cost per mile/km (Trip)($/km)'],
+
     ['kff1200', 'CO2 g/km (Average)',      'CO₂ in g/km (Average)(g/km)'],
     ['kff1201', 'CO2 g/km (Instant)',      'CO₂ in g/km (Instantaneous)(g/km)'],
     ['kff1202', 'MPG Instant',            'Miles Per Gallon(Instant)(mpg)'],
