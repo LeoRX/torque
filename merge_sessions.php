@@ -30,41 +30,60 @@ if (isset($mergesession)) {
 
 //if (isset($mergesession) && !empty($mergesession) && isset($mergesessionwith) && !empty($mergesessionwith) ) {
 if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empty($mergesess1) ) {
-    // Cast all session IDs to int to prevent SQL injection
     $mergesession_int = (int)$mergesession;
-    $qrystr = "SELECT MIN(timestart) as timestart, MAX(timeend) as timeend, MIN(session) as session, SUM(sessionsize) as sessionsize FROM $db_sessions_table WHERE session = $mergesession_int";
-    $i=1;
-    while (isset(${'mergesess' . $i}) || !empty(${'mergesess' . $i})) {
-        $qrystr = $qrystr . " OR session = " . (int)${'mergesess' . $i};
-        $i = $i + 1;
+    $qrystr = "SELECT MIN(timestart) AS timestart, MAX(timeend) AS timeend, MIN(session) AS session, SUM(sessionsize) AS sessionsize"
+        . " FROM " . quote_name($db_sessions_table)
+        . " WHERE session = " . quote_value($mergesession_int);
+    $i = 1;
+    while (isset(${'mergesess' . $i}) && !empty(${'mergesess' . $i})) {
+        $qrystr .= " OR session = " . quote_value((int)${'mergesess' . $i});
+        $i++;
     }
-    $mergeqry = mysqli_query($con, $qrystr) ;
+    $mergeqry = mysqli_query($con, $qrystr);
+    if (!$mergeqry) {
+        error_log('merge_sessions: aggregate query failed: ' . mysqli_error($con));
+        header('Location: session.php?id=' . $mergesession);
+        exit;
+    }
     $mergerow = mysqli_fetch_assoc($mergeqry);
-    $newsession = $mergerow['session'];
-    $newtimestart = $mergerow['timestart'];
-    $newtimeend = $mergerow['timeend'];
+    $newsession    = $mergerow['session'];
+    $newtimestart  = $mergerow['timestart'];
+    $newtimeend    = $mergerow['timeend'];
     $newsessionsize = $mergerow['sessionsize'];
     mysqli_free_result($mergeqry);
 
-    $tableYear = date( "Y", $mergesession/1000 );
-    $tableMonth = date( "m", $mergesession/1000 );
-    $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
-
     foreach ($sessionids as $value) {
-        $value_int = (int)$value; // ensure integer — no SQL injection possible
+        $value_int = (int)$value;
         if ($value_int == $newsession) {
-            $updatequery = "UPDATE $db_sessions_table SET timestart=$newtimestart, timeend=$newtimeend, sessionsize=$newsessionsize WHERE session=$newsession";
-            mysqli_query($con, $updatequery);
+            $r = mysqli_query($con,
+                "UPDATE " . quote_name($db_sessions_table)
+                . " SET timestart = " . quote_value($newtimestart)
+                . ", timeend = "      . quote_value($newtimeend)
+                . ", sessionsize = "  . quote_value($newsessionsize)
+                . " WHERE session = " . quote_value($newsession));
+            if (!$r) {
+                error_log('merge_sessions: sessions UPDATE failed for ' . $newsession . ': ' . mysqli_error($con));
+            }
         } else {
-            $delquery = "DELETE FROM $db_sessions_table WHERE session = $value_int";
-            mysqli_query($con, $delquery);
-            $updatequery = "UPDATE $db_table_full SET session=$newsession WHERE session=$value_int";
-            mysqli_query($con, $updatequery);
+            // Compute the per-session table from this session's own timestamp
+            $val_year  = date('Y', intdiv($value_int, 1000));
+            $val_month = date('m', intdiv($value_int, 1000));
+            $val_table = "{$db_table}_{$val_year}_{$val_month}";
+
+            $r1 = mysqli_query($con,
+                "DELETE FROM " . quote_name($db_sessions_table)
+                . " WHERE session = " . quote_value($value_int));
+            $r2 = mysqli_query($con,
+                "UPDATE " . quote_name($val_table)
+                . " SET session = " . quote_value($newsession)
+                . " WHERE session = " . quote_value($value_int));
+            if (!$r1 || !$r2) {
+                error_log('merge_sessions: DELETE/UPDATE failed for session ' . $value_int . ': ' . mysqli_error($con));
+            }
         }
     }
-    //Show merged session
-    $session_id = $mergesession;
     header('Location: session.php?id=' . $mergesession);
+    exit;
 } elseif (isset($mergesession) && !empty($mergesession)) {
 ?>
 <!DOCTYPE html>
@@ -125,7 +144,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
                 </thead>
                 <tbody>
 <?php
-    $sessqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM $db_sessions_table WHERE sessionsize >= $min_session_size ORDER BY session desc") ;
+    $sessqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE sessionsize >= " . quote_value((int)$min_session_size) . " ORDER BY session DESC");
     $i = 0;
     while ($x = mysqli_fetch_array($sessqry)) {
 ?>
