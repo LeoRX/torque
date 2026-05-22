@@ -77,8 +77,11 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
                 "UPDATE " . quote_name($val_table)
                 . " SET session = " . quote_value($newsession)
                 . " WHERE session = " . quote_value($value_int));
-            if (!$r1 || !$r2) {
-                error_log('merge_sessions: DELETE/UPDATE failed for session ' . $value_int . ': ' . mysqli_error($con));
+            if (!$r1) {
+                error_log('merge_sessions: DELETE from sessions failed for session ' . $value_int . ': ' . mysqli_error($con));
+            }
+            if (!$r2) {
+                error_log('merge_sessions: raw_logs UPDATE failed for session ' . $value_int . ': ' . mysqli_error($con));
             }
         }
     }
@@ -146,7 +149,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
 <?php
     $sessqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE sessionsize >= " . quote_value((int)$min_session_size) . " ORDER BY session DESC");
     $i = 0;
-    while ($x = mysqli_fetch_array($sessqry)) {
+    while ($sessqry && $x = mysqli_fetch_array($sessqry)) {
 ?>
                   <tr>
                     <td class="text-center"><input type="checkbox" class="form-check-input" name="<?php echo (int)$x['session']; ?>" <?php if ($x['session'] == $mergesession) { echo "checked disabled"; } ?>/></td>
