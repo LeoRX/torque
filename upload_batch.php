@@ -5,7 +5,7 @@ require_once('auth_app.php');
 require_once('get_settings.php');
 
 // ── 1. Validate session_id ────────────────────────────────────────────────
-$session_id = trim($_POST['session_id'] ?? ''); // overrides any $session_id set by auth_app.php
+$session_id = trim($_POST['session_id'] ?? '');
 if (!preg_match('/^\d{10,15}$/', $session_id)) {
     echo "ERROR. Invalid session_id.";
     exit;
@@ -65,7 +65,7 @@ $hmap_res = mysqli_query($con,
     "SELECT id, csv_header FROM " . quote_name($db_keys_table) .
     " WHERE csv_header IS NOT NULL");
 if (!$hmap_res) {
-    echo "ERROR. csv_header column missing from torque_keys — run db_upgrade.php first.";
+    echo "ERROR. csv_header query failed: " . mysqli_error($con);
     exit;
 }
 while ($hrow = mysqli_fetch_assoc($hmap_res)) {
@@ -211,15 +211,17 @@ $sess_check = mysqli_query($con,
 
 if ($sess_check && mysqli_fetch_assoc($sess_check)) {
     // Session already exists — update time bounds, size, profile
-    $update_fields = "timestart = " . quote_value($time_start) .
-        ", timeend = " . quote_value($time_end) .
-        ", sessionsize = " . quote_value($row_count);
+    $update_fields = [
+        "timestart = "   . quote_value($time_start),
+        "timeend = "     . quote_value($time_end),
+        "sessionsize = " . quote_value($row_count),
+    ];
     if (!empty($profile_name)) {
-        $update_fields .= ", profileName = " . quote_value($profile_name);
+        $update_fields[] = "profileName = " . quote_value($profile_name);
     }
     mysqli_query($con,
         "UPDATE " . quote_name($db_sessions_table) .
-        " SET " . $update_fields .
+        " SET " . implode(', ', $update_fields) .
         " WHERE session = " . quote_value($session_id));
 } else {
     mysqli_query($con,

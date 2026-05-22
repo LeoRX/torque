@@ -134,7 +134,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
                     <td class="text-center"><input type="checkbox" class="form-check-input" name="<?php echo (int)$x['session']; ?>" <?php if ($x['session'] == $mergesession) { echo "checked disabled"; } ?>/></td>
                     <td><?php echo tz_date("F d, Y g:ia", (int)substr($x["timestart"], 0, -3), $display_timezone ?? 'UTC'); ?></td>
                     <td><?php echo tz_date("F d, Y g:ia", (int)substr($x["timeend"], 0, -3), $display_timezone ?? 'UTC'); ?></td>
-                    <td><?php echo gmdate("H:i:s", ($x["timeend"] - $x["timestart"])/1000); ?></td>
+                    <td><?php echo gmdate("H:i:s", (int)round(($x["timeend"] - $x["timestart"])/1000)); ?></td>
                     <td><?php echo (int)$x["sessionsize"]; ?></td>
                     <td><?php echo htmlspecialchars($x["profileName"] ?? '', ENT_QUOTES, 'UTF-8'); ?></td>
                   </tr>
