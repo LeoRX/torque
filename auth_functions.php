@@ -3,36 +3,14 @@
 //Get Username from Browser-Request
 function get_user()
 {
-    if (isset($_POST["user"])) {
-        $user = $_POST['user'];
-    }
-    elseif (isset($_GET["user"])) {
-        $user = $_GET['user'];
-    }
-	else
-    {
-        $user = "";
-    }
-
-    return $user;
+    return $_POST['user'] ?? '';
 }
 
 
 //Get Password from Browser-Request
 function get_pass()
 {
-    if (isset($_POST["pass"])) {
-        $pass = $_POST['pass'];
-    }
-    elseif (isset($_GET["pass"])) {
-        $pass = $_GET['pass'];
-    }
-	else
-    {
-        $pass = "";
-    }
-
-    return $pass;
+    return $_POST['pass'] ?? '';
 }
 
 
