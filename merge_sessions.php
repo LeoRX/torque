@@ -7,8 +7,6 @@ require_once("./get_sessions.php");
 require_once('./csrf.php');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') { csrf_verify(); }
 
-if (!isset($_SESSION)) { session_start(); }
-
 if (isset($_POST["mergesession"])) {
     $mergesession = preg_replace('/\D/', '', $_POST['mergesession']);
 }
