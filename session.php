@@ -996,7 +996,9 @@ if (isset($sids[0])) {
 
     <!-- Hidden forms for merge/delete (triggered by navbar buttons) -->
 <?php if(isset($session_id) && !empty($session_id)){ ?>
-    <form method="post" action="merge_sessions.php?mergesession=<?php echo $session_id; ?>" id="formmerge" style="display:none"></form>
+    <form method="post" action="merge_sessions.php" id="formmerge" style="display:none">
+      <input type="hidden" name="mergesession" value="<?php echo htmlspecialchars((string)$session_id, ENT_QUOTES, 'UTF-8'); ?>">
+    </form>
     <form method="post" action="session.php" id="formdelete" data-session-name="<?php echo htmlspecialchars($seshdates[$session_id] ?? ''); ?>" style="display:none">
       <input type="hidden" name="deletesession" value="<?php echo htmlspecialchars((string)$session_id, ENT_QUOTES, 'UTF-8'); ?>">
       <?php echo csrf_field(); ?>
