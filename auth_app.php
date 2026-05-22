@@ -52,6 +52,10 @@ if(!isset($auth_user_with_user_pass)) {
     $auth_user_with_user_pass = false;
 }
 
+// Note: auth_user() reads credentials from $_POST only (GET was removed as a security fix
+// — credentials in GET params appear in server logs and browser history). If you use
+// $auth_user_with_user_pass for app uploads, use Bearer token auth instead (set
+// $bearer_token in creds.php and configure the plugin to send Authorization: Bearer <token>).
 if (!$logged_in && $auth_user_with_user_pass)
 {
     if ( auth_user() ) {

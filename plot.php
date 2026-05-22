@@ -101,7 +101,7 @@ if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
     $i = 1;
     while (isset($plotVar[$i])) {
         $kcode           = $plotVar[$i];
-        $plotLabel[$i]     = '"' . $keyarr[$kcode][0] . $plotMeasurand[$i] . '"';
+        $plotLabel[$i]     = json_encode($keyarr[$kcode][0] . $plotMeasurand[$i]);
         $plotSparkData[$i] = implode(",", array_reverse($plotSpark[$i]));
         $plotMax[$i]       = round(max($plotSpark[$i]), 1);
         $plotMin[$i]       = round(min($plotSpark[$i]), 1);

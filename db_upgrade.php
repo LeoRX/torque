@@ -142,6 +142,25 @@
   }
   // ── end v2.2 ─────────────────────────────────────────────────────────────
 
+  // ── v2.3 GPS Quality Columns (2026-05-23) ────────────────────────────────
+  // Add gps_points (total GPS rows in CSV) and gps_valid_points (non-zero coords)
+  // to the sessions table so session.php can show a meaningful "no GPS" message.
+  $gps_pts_check = mysqli_query($con,
+      "SHOW COLUMNS FROM " . quote_name($db_sessions_table) . " LIKE 'gps_points'");
+  if (mysqli_num_rows($gps_pts_check) == 0) {
+      mysqli_query($con,
+          "ALTER TABLE " . quote_name($db_sessions_table) .
+          " ADD COLUMN gps_points INT NOT NULL DEFAULT 0");
+  }
+  $gps_valid_check = mysqli_query($con,
+      "SHOW COLUMNS FROM " . quote_name($db_sessions_table) . " LIKE 'gps_valid_points'");
+  if (mysqli_num_rows($gps_valid_check) == 0) {
+      mysqli_query($con,
+          "ALTER TABLE " . quote_name($db_sessions_table) .
+          " ADD COLUMN gps_valid_points INT NOT NULL DEFAULT 0");
+  }
+  // ── end v2.3 ─────────────────────────────────────────────────────────────
+
   echo "Upgrade complete.\n";
 
 # ── v2.1 HUD Widget Enhancements (2026-04-30) ────────────────────────────────

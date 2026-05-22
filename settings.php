@@ -19,7 +19,9 @@ while ($_ur = mysqli_fetch_assoc($_uq)) { $db_users[] = $_ur; }
 
 // Handle credential actions
 $cred_success = ''; $cred_error = '';
+require_once('csrf.php');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
   if (isset($_POST['add_user']) && !empty($_POST['new_username']) && !empty($_POST['new_password'])) {
     $nu = trim($_POST['new_username']); $np = $_POST['new_password'];
     if (strlen($nu) < 2)        { $cred_error = 'Username must be at least 2 characters.'; }
@@ -321,6 +323,7 @@ $mapbox_styles = [
               <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
                 <span><i class="bi bi-person-circle me-2 text-muted"></i><?php echo htmlspecialchars($dbu['username']); ?></span>
                 <form method="post" class="mb-0" onsubmit="return confirm('Remove user <?php echo htmlspecialchars($dbu['username']); ?>?')">
+                  <?php echo csrf_field(); ?>
                   <input type="hidden" name="del_username" value="<?php echo htmlspecialchars($dbu['username']); ?>">
                   <button type="submit" name="delete_user" class="btn btn-sm btn-outline-danger py-0 px-2" title="Remove"><i class="bi bi-trash3"></i></button>
                 </form>
@@ -334,6 +337,7 @@ $mapbox_styles = [
           <div class="col-md-4">
             <h6 class="fw-semibold mb-2"><i class="bi bi-person-plus me-1"></i>Add User</h6>
             <form method="post">
+              <?php echo csrf_field(); ?>
               <div class="mb-2">
                 <input type="text" class="form-control form-control-sm" name="new_username" placeholder="Username" required minlength="2" autocomplete="off">
               </div>
@@ -348,6 +352,7 @@ $mapbox_styles = [
           <div class="col-md-4">
             <h6 class="fw-semibold mb-2"><i class="bi bi-key me-1"></i>Change Password</h6>
             <form method="post">
+              <?php echo csrf_field(); ?>
               <div class="mb-2">
                 <select class="form-select form-select-sm" name="cp_username" required>
                   <option value="">— Select user —</option>
@@ -368,6 +373,7 @@ $mapbox_styles = [
   </div>
 
   <form method="post" id="settingsForm">
+    <?php echo csrf_field(); ?>
     <div class="container-fluid settings-wrapper" style="max-width:900px;">
 
       <?php if ($save_success): ?>

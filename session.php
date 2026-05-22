@@ -8,6 +8,7 @@ require_once("./db.php");
 require_once("./get_settings.php");
 require_once("./auth_user.php");
 require_once("./del_session.php");
+require_once('./csrf.php');
 //require_once("./merge_sessions.php");
 require_once("./get_sessions.php");
 require_once("./get_columns.php");
@@ -81,6 +82,22 @@ if (isset($sids[0])) {
   $setZoomManually = 0;
   // Separately track whether GPS data exists (for map behaviour)
   $mapHasGPS = (count($mapdata) > 0);
+
+  // GPS quality: query sessions table to distinguish "no GPS" from "GPS recorded but no fix"
+  $gpsQuality = 'unknown'; // fallback if column doesn't exist yet (pre-migration sessions)
+  if ($mapHasGPS) {
+      $gpsQuality = 'ok';
+  } else {
+      $_sess_gps_q = mysqli_query($con,
+          "SELECT gps_points FROM " . quote_name($db_sessions_table) .
+          " WHERE session = " . quote_value($session_id) . " LIMIT 1");
+      if ($_sess_gps_q) {
+          $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
+          if (is_array($_sgrow)) {
+              $gpsQuality = ((int)$_sgrow['gps_points'] > 0) ? 'recorded_no_fix' : 'none';
+          }
+      }
+  }
 
   // Query the list of years and months where sessions have been logged, to be used later
   // YYYY_MM with zero-padded month (via %m) sorts correctly as a plain string DESC.
@@ -184,6 +201,7 @@ if (isset($sids[0])) {
       var _maxSpeed   = <?php echo (float)$maxSpeed; ?>;
       var _noSession  = <?php echo $setZoomManually ? 'true' : 'false'; ?>;
       var _hasGPS     = <?php echo (!$setZoomManually && $mapHasGPS) ? 'true' : 'false'; ?>;
+      var _gpsQuality = <?php echo json_encode($gpsQuality ?? 'unknown'); ?>;
       var _mbToken      = <?php echo json_encode($mapbox_token); ?>;
       var _mbStyle      = <?php echo json_encode($mapbox_style); ?>;
       var _mbDarkStyle  = 'mapbox://styles/mapbox/dark-v11';
@@ -265,7 +283,10 @@ if (isset($sids[0])) {
             'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
             'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
             'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
-          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No GPS data for this session';
+          var _noGpsMsg = _gpsQuality === 'recorded_no_fix'
+            ? 'GPS recorded but no satellite fix'
+            : 'No GPS data for this session';
+          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>' + _noGpsMsg;
           mapEl.appendChild(noGpsDiv);
           return;
         }
@@ -946,7 +967,7 @@ if (isset($sids[0])) {
           <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" onchange="document.getElementById('navfilterform').submit()">
             <option value="ALL"<?php if ($filterprofile == '%' || $filterprofile == 'ALL' || empty($filterprofile)) echo ' selected'; ?>>All Profiles</option>
 <?php $i = 0; while(isset($profilearray[$i])) { ?>
-            <option value="<?php echo $profilearray[$i]; ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo $profilearray[$i]; ?></option>
+            <option value="<?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?></option>
 <?php   $i = $i + 1; } ?>
           </select>
           <button type="button" id="btn-cal" class="btn btn-sm btn-outline-light flex-shrink-0" title="Select date range by calendar"><i class="bi bi-calendar3"></i></button>
@@ -995,8 +1016,14 @@ if (isset($sids[0])) {
 
     <!-- Hidden forms for merge/delete (triggered by navbar buttons) -->
 <?php if(isset($session_id) && !empty($session_id)){ ?>
-    <form method="post" action="merge_sessions.php?mergesession=<?php echo $session_id; ?>" id="formmerge" style="display:none"></form>
-    <form method="post" action="session.php?deletesession=<?php echo $session_id; ?>" id="formdelete" data-session-name="<?php echo htmlspecialchars($seshdates[$session_id] ?? ''); ?>" style="display:none"></form>
+    <form method="post" action="merge_sessions.php" id="formmerge" style="display:none">
+      <input type="hidden" name="mergesession" value="<?php echo htmlspecialchars((string)$session_id, ENT_QUOTES, 'UTF-8'); ?>">
+      <?php echo csrf_field(); ?>
+    </form>
+    <form method="post" action="session.php" id="formdelete" data-session-name="<?php echo htmlspecialchars($seshdates[$session_id] ?? ''); ?>" style="display:none">
+      <input type="hidden" name="deletesession" value="<?php echo htmlspecialchars((string)$session_id, ENT_QUOTES, 'UTF-8'); ?>">
+      <?php echo csrf_field(); ?>
+    </form>
 <?php } ?>
 
     <!-- Calendar date range picker panel -->
