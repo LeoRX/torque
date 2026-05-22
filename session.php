@@ -93,7 +93,7 @@ if (isset($sids[0])) {
           " WHERE session = " . quote_value($session_id) . " LIMIT 1");
       if ($_sess_gps_q) {
           $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
-          if ($_sgrow !== false) {
+          if (is_array($_sgrow)) {
               $gpsQuality = ((int)$_sgrow['gps_points'] > 0) ? 'recorded_no_fix' : 'none';
           }
       }
