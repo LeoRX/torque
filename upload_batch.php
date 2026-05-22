@@ -65,7 +65,8 @@ $hmap_res = mysqli_query($con,
     "SELECT id, csv_header FROM " . quote_name($db_keys_table) .
     " WHERE csv_header IS NOT NULL");
 if (!$hmap_res) {
-    echo "ERROR. csv_header query failed: " . mysqli_error($con);
+    error_log('upload_batch: csv_header query failed: ' . mysqli_error($con));
+    echo "ERROR. csv_header query failed — check server log.";
     exit;
 }
 while ($hrow = mysqli_fetch_assoc($hmap_res)) {
