@@ -39,9 +39,14 @@ $table_exists = mysqli_query($con,
      WHERE table_schema = " . quote_value($db_name) .
     " AND table_name = " . quote_value($db_table_full));
 if (!($table_exists && mysqli_fetch_assoc($table_exists))) {
-    mysqli_query($con,
+    $create_result = mysqli_query($con,
         "CREATE TABLE " . quote_name($db_table_full) .
         " SELECT * FROM " . quote_name($newest_table) . " WHERE 1=0");
+    if (!$create_result) {
+        error_log('upload_batch: CREATE TABLE failed for ' . $db_table_full . ': ' . mysqli_error($con));
+        echo "ERROR. Could not create monthly table.";
+        exit;
+    }
 }
 
 // ── 5. Parse profile.properties.txt if present ───────────────────────────
@@ -106,6 +111,10 @@ foreach ($headers as $i => $h) {
 
 // Collect all unique k-codes that will be written
 $all_kcodes = array_values(array_filter(array_unique($col_map)));
+
+// Check GPS column presence for diagnostic reporting
+$has_gps_lat = in_array('kff1006', $col_map, true);
+$has_gps_lon = in_array('kff1005', $col_map, true);
 
 // ── 8. Ensure all needed k-code columns exist in all monthly tables ───────
 // Get current columns from the target table
@@ -220,12 +229,15 @@ if ($sess_check && mysqli_fetch_assoc($sess_check)) {
     if (!empty($profile_name)) {
         $update_fields[] = "profileName = " . quote_value($profile_name);
     }
-    mysqli_query($con,
+    $sess_result = mysqli_query($con,
         "UPDATE " . quote_name($db_sessions_table) .
         " SET " . implode(', ', $update_fields) .
         " WHERE session = " . quote_value($session_id));
+    if (!$sess_result) {
+        error_log('upload_batch: session UPDATE failed for ' . $session_id . ': ' . mysqli_error($con));
+    }
 } else {
-    mysqli_query($con,
+    $sess_result = mysqli_query($con,
         "INSERT INTO " . quote_name($db_sessions_table) .
         " (session, timestart, timeend, sessionsize, profileName, id, v) VALUES (" .
         quote_value($session_id) . ", " .
@@ -235,10 +247,16 @@ if ($sess_check && mysqli_fetch_assoc($sess_check)) {
         quote_value($profile_name) . ", " .
         "'plugin_upload', " .
         quote_value($plugin_version) . ")");
+    if (!$sess_result) {
+        error_log('upload_batch: session INSERT failed for ' . $session_id . ': ' . mysqli_error($con));
+    }
 }
 
 mysqli_close($con);
-echo "OK! $row_count rows inserted for session $session_id";
+$gps_status = ($has_gps_lat && $has_gps_lon)
+    ? 'GPS included'
+    : (($has_gps_lat || $has_gps_lon) ? 'GPS partial (one coordinate column missing)' : 'no GPS columns in CSV');
+echo "OK! $row_count rows inserted for session $session_id ($gps_status)";
 
 
 // ── Helper: bulk-insert a batch of rows ──────────────────────────────────
