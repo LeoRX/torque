@@ -225,6 +225,16 @@ if (!empty($batch)) {
 
 // ── 10. Upsert sessions table ────────────────────────────────────────────
 $plugin_version = trim($_POST['plugin_version'] ?? '1.0');
+
+// Check whether v2.3 GPS quality columns exist (added by db_upgrade.php v2.3).
+// Graceful fallback: skip GPS columns if migration hasn't run yet.
+$_gps_cols_exist = false;
+$_gps_col_q = mysqli_query($con,
+    "SHOW COLUMNS FROM " . quote_name($db_sessions_table) . " LIKE 'gps_points'");
+if ($_gps_col_q && mysqli_num_rows($_gps_col_q) > 0) {
+    $_gps_cols_exist = true;
+}
+
 $sess_check = mysqli_query($con,
     "SELECT session FROM " . quote_name($db_sessions_table) .
     " WHERE session = " . quote_value($session_id) . " LIMIT 1");
@@ -232,12 +242,14 @@ $sess_check = mysqli_query($con,
 if ($sess_check && mysqli_fetch_assoc($sess_check)) {
     // Session already exists — update time bounds, size, profile
     $update_fields = [
-        "timestart = "       . quote_value($time_start),
-        "timeend = "         . quote_value($time_end),
-        "sessionsize = "     . quote_value($row_count),
-        "gps_points = "      . quote_value($gps_points),
-        "gps_valid_points = ". quote_value($gps_valid_points),
+        "timestart = "   . quote_value($time_start),
+        "timeend = "     . quote_value($time_end),
+        "sessionsize = " . quote_value($row_count),
     ];
+    if ($_gps_cols_exist) {
+        $update_fields[] = "gps_points = "       . quote_value($gps_points);
+        $update_fields[] = "gps_valid_points = " . quote_value($gps_valid_points);
+    }
     if (!empty($profile_name)) {
         $update_fields[] = "profileName = " . quote_value($profile_name);
     }
@@ -249,18 +261,20 @@ if ($sess_check && mysqli_fetch_assoc($sess_check)) {
         error_log('upload_batch: session UPDATE failed for ' . $session_id . ': ' . mysqli_error($con));
     }
 } else {
+    $_gps_ins_cols = $_gps_cols_exist ? ", gps_points, gps_valid_points" : "";
+    $_gps_ins_vals = $_gps_cols_exist
+        ? ", " . quote_value($gps_points) . ", " . quote_value($gps_valid_points)
+        : "";
     $sess_result = mysqli_query($con,
         "INSERT INTO " . quote_name($db_sessions_table) .
-        " (session, timestart, timeend, sessionsize, profileName, id, v, gps_points, gps_valid_points) VALUES (" .
+        " (session, timestart, timeend, sessionsize, profileName, id, v{$_gps_ins_cols}) VALUES (" .
         quote_value($session_id) . ", " .
         quote_value($time_start) . ", " .
         quote_value($time_end)   . ", " .
         quote_value($row_count)  . ", " .
         quote_value($profile_name) . ", " .
         "'plugin_upload', " .
-        quote_value($plugin_version) . ", " .
-        quote_value($gps_points) . ", " .
-        quote_value($gps_valid_points) . ")");
+        quote_value($plugin_version) . "{$_gps_ins_vals})");
     if (!$sess_result) {
         error_log('upload_batch: session INSERT failed for ' . $session_id . ': ' . mysqli_error($con));
     }
