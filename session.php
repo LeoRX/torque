@@ -947,7 +947,7 @@ if (isset($sids[0])) {
           <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" onchange="document.getElementById('navfilterform').submit()">
             <option value="ALL"<?php if ($filterprofile == '%' || $filterprofile == 'ALL' || empty($filterprofile)) echo ' selected'; ?>>All Profiles</option>
 <?php $i = 0; while(isset($profilearray[$i])) { ?>
-            <option value="<?php echo $profilearray[$i]; ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo $profilearray[$i]; ?></option>
+            <option value="<?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?></option>
 <?php   $i = $i + 1; } ?>
           </select>
           <button type="button" id="btn-cal" class="btn btn-sm btn-outline-light flex-shrink-0" title="Select date range by calendar"><i class="bi bi-calendar3"></i></button>
