@@ -170,8 +170,10 @@ foreach ($all_kcodes as $kcode) {
 $overwrite_flag = trim($_POST['overwrite'] ?? '0');
 $duplicate_mode = ($overwrite_flag === '1') ? 'overwrite' : ($batch_duplicate_mode ?? 'ignore');
 
-$batch     = [];
-$row_count = 0;
+$batch          = [];
+$row_count      = 0;
+$gps_points     = 0;
+$gps_valid_points = 0;
 $time_start = (int)$session_id;
 $time_end   = (int)$session_id;
 
@@ -202,6 +204,14 @@ while (($row = fgetcsv($handle)) !== false) {
     $batch[] = ['time' => $time_ms, 'session' => $session_id, 'kvals' => $kvals];
     $row_count++;
 
+    // Count GPS rows for quality tracking
+    if (isset($kvals['kff1006']) && isset($kvals['kff1005'])) {
+        $gps_points++;
+        if ((float)$kvals['kff1006'] !== 0.0 && (float)$kvals['kff1005'] !== 0.0) {
+            $gps_valid_points++;
+        }
+    }
+
     if (count($batch) >= 200) {
         _insert_batch($con, $db_table_full, $batch, $duplicate_mode);
         $batch = [];
@@ -222,9 +232,11 @@ $sess_check = mysqli_query($con,
 if ($sess_check && mysqli_fetch_assoc($sess_check)) {
     // Session already exists — update time bounds, size, profile
     $update_fields = [
-        "timestart = "   . quote_value($time_start),
-        "timeend = "     . quote_value($time_end),
-        "sessionsize = " . quote_value($row_count),
+        "timestart = "       . quote_value($time_start),
+        "timeend = "         . quote_value($time_end),
+        "sessionsize = "     . quote_value($row_count),
+        "gps_points = "      . quote_value($gps_points),
+        "gps_valid_points = ". quote_value($gps_valid_points),
     ];
     if (!empty($profile_name)) {
         $update_fields[] = "profileName = " . quote_value($profile_name);
@@ -239,14 +251,16 @@ if ($sess_check && mysqli_fetch_assoc($sess_check)) {
 } else {
     $sess_result = mysqli_query($con,
         "INSERT INTO " . quote_name($db_sessions_table) .
-        " (session, timestart, timeend, sessionsize, profileName, id, v) VALUES (" .
+        " (session, timestart, timeend, sessionsize, profileName, id, v, gps_points, gps_valid_points) VALUES (" .
         quote_value($session_id) . ", " .
         quote_value($time_start) . ", " .
         quote_value($time_end)   . ", " .
         quote_value($row_count)  . ", " .
         quote_value($profile_name) . ", " .
         "'plugin_upload', " .
-        quote_value($plugin_version) . ")");
+        quote_value($plugin_version) . ", " .
+        quote_value($gps_points) . ", " .
+        quote_value($gps_valid_points) . ")");
     if (!$sess_result) {
         error_log('upload_batch: session INSERT failed for ' . $session_id . ': ' . mysqli_error($con));
     }

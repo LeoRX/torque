@@ -83,6 +83,22 @@ if (isset($sids[0])) {
   // Separately track whether GPS data exists (for map behaviour)
   $mapHasGPS = (count($mapdata) > 0);
 
+  // GPS quality: query sessions table to distinguish "no GPS" from "GPS recorded but no fix"
+  $gpsQuality = 'unknown'; // fallback if column doesn't exist yet (pre-migration sessions)
+  if ($mapHasGPS) {
+      $gpsQuality = 'ok';
+  } else {
+      $_sess_gps_q = mysqli_query($con,
+          "SELECT gps_points FROM " . quote_name($db_sessions_table) .
+          " WHERE session = " . quote_value($session_id) . " LIMIT 1");
+      if ($_sess_gps_q) {
+          $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
+          if ($_sgrow !== false) {
+              $gpsQuality = ((int)$_sgrow['gps_points'] > 0) ? 'recorded_no_fix' : 'none';
+          }
+      }
+  }
+
   // Query the list of years and months where sessions have been logged, to be used later
   // YYYY_MM with zero-padded month (via %m) sorts correctly as a plain string DESC.
   // Using SELECT DISTINCT + ORDER BY Suffix avoids GROUP BY / ORDER BY ambiguity in MariaDB.
@@ -185,6 +201,7 @@ if (isset($sids[0])) {
       var _maxSpeed   = <?php echo (float)$maxSpeed; ?>;
       var _noSession  = <?php echo $setZoomManually ? 'true' : 'false'; ?>;
       var _hasGPS     = <?php echo (!$setZoomManually && $mapHasGPS) ? 'true' : 'false'; ?>;
+      var _gpsQuality = <?php echo json_encode($gpsQuality ?? 'unknown'); ?>;
       var _mbToken      = <?php echo json_encode($mapbox_token); ?>;
       var _mbStyle      = <?php echo json_encode($mapbox_style); ?>;
       var _mbDarkStyle  = 'mapbox://styles/mapbox/dark-v11';
@@ -266,7 +283,10 @@ if (isset($sids[0])) {
             'background:rgba(6,9,18,0.88);padding:12px 18px;border-radius:8px;' +
             'border:1px solid rgba(0,212,255,0.2);color:#8ab;' +
             'font-size:13px;text-align:center;box-shadow:0 0 24px rgba(0,212,255,0.06),0 4px 20px rgba(0,0,0,0.6);pointer-events:none;';
-          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>No GPS data for this session';
+          var _noGpsMsg = _gpsQuality === 'recorded_no_fix'
+            ? 'GPS recorded but no satellite fix'
+            : 'No GPS data for this session';
+          noGpsDiv.innerHTML = '<i class="bi bi-geo-alt-fill" style="font-size:1.5rem;color:#00d4ff;display:block;margin-bottom:4px;"></i>' + _noGpsMsg;
           mapEl.appendChild(noGpsDiv);
           return;
         }
