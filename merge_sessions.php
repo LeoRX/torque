@@ -4,14 +4,13 @@ require_once("./db.php");
 require_once("./auth_user.php");   // auth gate — redirects to login if not authenticated
 require_once("./get_settings.php");
 require_once("./get_sessions.php");
+require_once('./csrf.php');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { csrf_verify(); }
 
 if (!isset($_SESSION)) { session_start(); }
 
 if (isset($_POST["mergesession"])) {
     $mergesession = preg_replace('/\D/', '', $_POST['mergesession']);
-}
-elseif (isset($_GET["mergesession"])) {
-    $mergesession = preg_replace('/\D/', '', $_GET['mergesession']);
 }
 
 $sessionids = array();
@@ -20,14 +19,15 @@ $sessionids = array();
 //  variable management later, specifically when choosing sessions to merge
 $i=1;
 $mergesess1 = "";
-foreach ($_GET as $key => $value) {
-    if ($key != "mergesession") {
-        ${'mergesess' . $i} = $key;
-        array_push($sessionids, $key);
-        $i = $i + 1;
-    } else {
-        array_push($sessionids, $value);
-    }
+foreach ($_POST as $key => $value) {
+    if ($key === 'mergesession' || $key === 'csrf_token') continue;
+    if (!preg_match('/^\d{10,15}$/', $key)) continue;
+    ${'mergesess' . $i} = $key;
+    array_push($sessionids, $key);
+    $i = $i + 1;
+}
+if (isset($mergesession)) {
+    array_push($sessionids, $mergesession);
 }
 
 //if (isset($mergesession) && !empty($mergesession) && isset($mergesessionwith) && !empty($mergesessionwith) ) {
@@ -104,8 +104,9 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
       </div>
     </nav>
     <div class="container-fluid pid-editor-wrapper">
-      <form action="merge_sessions.php" method="get" id="formmerge">
+      <form action="merge_sessions.php" method="post" id="formmerge">
         <input type="hidden" name="mergesession" value="<?php echo htmlspecialchars($mergesession, ENT_QUOTES, 'UTF-8'); ?>" />
+        <?php echo csrf_field(); ?>
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h6 class="mb-0">Merge Sessions</h6>

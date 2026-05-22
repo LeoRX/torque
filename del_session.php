@@ -1,22 +1,25 @@
 <?php
-//echo "<!-- Begin del_session.php at ".date("H:i:s", microtime(true))." -->\r\n";
-// this page relies on being included from another page that has already connected to db
+// Included by session.php — db connection and auth already done by caller.
 
-if (!isset($_SESSION)) { session_start(); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['deletesession'])) {
+    return;
+}
+require_once __DIR__ . '/csrf.php';
+csrf_verify();
 
-if (isset($_POST["deletesession"])) {
-    $deletesession = preg_replace('/\D/', '', $_POST['deletesession']);
-}
-elseif (isset($_GET["deletesession"])) {
-    $deletesession = preg_replace('/\D/', '', $_GET['deletesession']);
-}
+$deletesession = preg_replace('/\D/', '', $_POST['deletesession']);
+if (empty($deletesession)) { return; }
 
-if (isset($deletesession) && !empty($deletesession)) {
-    $tableYear = date( "Y", intdiv((int)$deletesession, 1000) );
-    $tableMonth = date( "m", intdiv((int)$deletesession, 1000) );
-    $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
-    $delresult = mysqli_query($con, "DELETE FROM $db_table_full WHERE session=".quote_value($deletesession)) ;
-    $delresult = mysqli_query($con, "DELETE FROM $db_sessions_table WHERE session=".quote_value($deletesession)) ;
+$tableYear     = date('Y', intdiv((int)$deletesession, 1000));
+$tableMonth    = date('m', intdiv((int)$deletesession, 1000));
+$db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
+
+$r1 = mysqli_query($con, "DELETE FROM " . quote_name($db_table_full)
+    . " WHERE session = " . quote_value($deletesession));
+$r2 = mysqli_query($con, "DELETE FROM " . quote_name($db_sessions_table)
+    . " WHERE session = " . quote_value($deletesession));
+if (!$r1 || !$r2) {
+    error_log('del_session: DELETE failed for session '
+        . $deletesession . ': ' . mysqli_error($con));
 }
-//echo "<!-- End del_session.php at ".date("H:i:s", microtime(true))." -->\r\n";
 ?>

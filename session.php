@@ -8,6 +8,7 @@ require_once("./db.php");
 require_once("./get_settings.php");
 require_once("./auth_user.php");
 require_once("./del_session.php");
+require_once('./csrf.php');
 //require_once("./merge_sessions.php");
 require_once("./get_sessions.php");
 require_once("./get_columns.php");
@@ -996,7 +997,10 @@ if (isset($sids[0])) {
     <!-- Hidden forms for merge/delete (triggered by navbar buttons) -->
 <?php if(isset($session_id) && !empty($session_id)){ ?>
     <form method="post" action="merge_sessions.php?mergesession=<?php echo $session_id; ?>" id="formmerge" style="display:none"></form>
-    <form method="post" action="session.php?deletesession=<?php echo $session_id; ?>" id="formdelete" data-session-name="<?php echo htmlspecialchars($seshdates[$session_id] ?? ''); ?>" style="display:none"></form>
+    <form method="post" action="session.php" id="formdelete" data-session-name="<?php echo htmlspecialchars($seshdates[$session_id] ?? ''); ?>" style="display:none">
+      <input type="hidden" name="deletesession" value="<?php echo htmlspecialchars((string)$session_id, ENT_QUOTES, 'UTF-8'); ?>">
+      <?php echo csrf_field(); ?>
+    </form>
 <?php } ?>
 
     <!-- Calendar date range picker panel -->
