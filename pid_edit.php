@@ -2,9 +2,11 @@
 
 require_once ("./db.php");
 require_once ("./auth_user.php");
+require_once ("./csrf.php");
 
 // Fetch all k* keys ordered by description
-$keyqry = mysqli_query($con, "SELECT id,description,units,type,min,max,populated,favorite FROM ".$db_name.".".$db_keys_table." ORDER BY description") ;
+$keyqry = mysqli_query($con, "SELECT id,description,units,type,min,max,populated,favorite FROM "
+    . quote_name($db_name) . "." . quote_name($db_keys_table) . " ORDER BY description");
 $i = 0;
 while ($x = mysqli_fetch_array($keyqry)) {
 	if ((substr($x[0], 0, 1) == "k") ) {
@@ -23,6 +25,7 @@ mysqli_close($con);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Open Torque Viewer – PID Editor</title>
     <meta name="description" content="Open Torque Viewer – PID Editor">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
     <!-- Apply saved theme before render to avoid flash -->
     <script>(function(){var t=localStorage.getItem('torque-theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
@@ -245,6 +248,7 @@ mysqli_close($con);
       $(function() {
         var $toast = $('#status-toast');
         var _timer = null;
+        var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
         function showStatus(data, isError) {
           if (!data) return;
@@ -257,11 +261,17 @@ mysqli_close($con);
           _timer = setTimeout(function() { $toast.fadeOut(400); }, 2800);
         }
 
+        function pidPost(fieldPid, value) {
+          var data = { csrf_token: csrfToken };
+          data[fieldPid] = value;
+          return $.post('pid_commit.php', data);
+        }
+
         // Contenteditable <td> — save on blur
         $('td[contenteditable=true]').on('blur', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).text().trim();
-          $.post('pid_commit.php', field_pid + '=' + encodeURIComponent(value))
+          pidPost(field_pid, value)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });
@@ -278,7 +288,7 @@ mysqli_close($con);
         $('input[contenteditable=true]').on('change', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).is(':checked');
-          $.post('pid_commit.php', field_pid + '=' + value)
+          pidPost(field_pid, value)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });
@@ -287,7 +297,7 @@ mysqli_close($con);
         $('select[contenteditable=true]').on('change', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).val();
-          $.post('pid_commit.php', field_pid + '=' + encodeURIComponent(value))
+          pidPost(field_pid, value)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });
