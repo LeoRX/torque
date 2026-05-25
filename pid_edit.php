@@ -2,6 +2,7 @@
 
 require_once ("./db.php");
 require_once ("./auth_user.php");
+require_once ("./csrf.php");
 
 // Fetch all k* keys ordered by description
 $keyqry = mysqli_query($con, "SELECT id,description,units,type,min,max,populated,favorite FROM ".$db_name.".".$db_keys_table." ORDER BY description") ;
@@ -242,6 +243,8 @@ mysqli_close($con);
           : '<i class="bi bi-moon-stars"></i>';
       })();
 
+      var _csrfToken = <?php echo json_encode(csrf_token()); ?>;
+
       $(function() {
         var $toast = $('#status-toast');
         var _timer = null;
@@ -261,7 +264,8 @@ mysqli_close($con);
         $('td[contenteditable=true]').on('blur', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).text().trim();
-          $.post('pid_commit.php', field_pid + '=' + encodeURIComponent(value))
+          var d = { csrf_token: _csrfToken }; d[field_pid] = value;
+          $.post('pid_commit.php', d)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });
@@ -278,7 +282,8 @@ mysqli_close($con);
         $('input[contenteditable=true]').on('change', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).is(':checked');
-          $.post('pid_commit.php', field_pid + '=' + value)
+          var d = { csrf_token: _csrfToken }; d[field_pid] = value;
+          $.post('pid_commit.php', d)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });
@@ -287,7 +292,8 @@ mysqli_close($con);
         $('select[contenteditable=true]').on('change', function() {
           var field_pid = $(this).attr('id');
           var value = $(this).val();
-          $.post('pid_commit.php', field_pid + '=' + encodeURIComponent(value))
+          var d = { csrf_token: _csrfToken }; d[field_pid] = value;
+          $.post('pid_commit.php', d)
             .done(function(data) { showStatus(data, data !== 'Updated'); })
             .fail(function()     { showStatus('Save failed', true); });
         });

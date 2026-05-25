@@ -2,13 +2,16 @@
 
 require_once ("./db.php");
 require_once ("./auth_user.php");
+require_once ("./csrf.php");
 
 // Whitelist of editable fields and allowed SQL column types
 $allowed_fields = ['description', 'units', 'type', 'min', 'max', 'populated', 'favorite'];
 $allowed_types  = ['double', 'float', 'varchar(255)'];
 
 if(!empty($_POST)) {
+  csrf_verify();
   foreach($_POST as $field_name => $val) {
+    if ($field_name === 'csrf_token') continue;
     $field_id = strip_tags(trim($field_name));
     $val = strip_tags(trim($val));
 
@@ -45,14 +48,20 @@ if(!empty($_POST)) {
         $val = substr($val, 0, 255);
       }
 
-      $query = "UPDATE $db_name.$db_keys_table SET ".quote_name($field_name)." = ".quote_value($val)." WHERE id = ".quote_value($id);
+      $query = "UPDATE " . quote_name($db_name) . "." . quote_name($db_keys_table)
+             . " SET " . quote_name($field_name) . " = " . quote_value($val)
+             . " WHERE id = " . quote_value($id);
       mysqli_query($con, $query);
       if($field_name == 'type') {
-        $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' AND table_name LIKE '$db_table%' ORDER BY table_name DESC");
+        $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables"
+            . " WHERE table_schema = " . quote_value($db_name)
+            . " AND table_name LIKE " . quote_value($db_table . '%')
+            . " ORDER BY table_name DESC");
         while($row = mysqli_fetch_assoc($table_list)) {
           $db_table_name = $row["table_name"];
           // $val already validated against $allowed_types above — safe to use directly
-          $query = "ALTER TABLE $db_name.`$db_table_name` MODIFY ".quote_name($id)." $val NOT NULL DEFAULT '0'";
+          $query = "ALTER TABLE " . quote_name($db_name) . "." . quote_name($db_table_name)
+                 . " MODIFY " . quote_name($id) . " $val NOT NULL DEFAULT '0'";
           mysqli_query($con, $query);
         }
       }
