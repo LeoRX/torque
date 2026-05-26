@@ -29,9 +29,9 @@ $startMs = $startSec * 1000;
 $endMs   = $endSec   * 1000;
 
 $sql = "SELECT timestart, timeend, session, profileName, sessionsize
-        FROM $db_sessions_table
-        WHERE session >= $startMs AND session <= $endMs
-          AND sessionsize >= $min_session_size
+        FROM " . quote_name($db_sessions_table) . "
+        WHERE session >= " . (int)$startMs . " AND session <= " . (int)$endMs . "
+          AND sessionsize >= " . (int)$min_session_size . "
         GROUP BY session, profileName, timestart, timeend, sessionsize
         ORDER BY session DESC
         LIMIT 200";

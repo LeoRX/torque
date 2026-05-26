@@ -3,11 +3,16 @@ require_once ('creds.php');
 require_once ('auth_functions.php');
 
 //session.cookie_path = "/torque/";
+// Mark session cookie secure when the request arrived over HTTPS
+// (covers direct TLS and reverse-proxy forwarded connections).
+$_sess_secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+             || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 session_set_cookie_params([
     'lifetime' => 0,
     'path'     => dirname($_SERVER['SCRIPT_NAME']),
     'httponly' => true,
     'samesite' => 'Lax',
+    'secure'   => $_sess_secure,
 ]);
 if (!isset($_SESSION)) { session_start(); }
 

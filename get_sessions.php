@@ -36,7 +36,7 @@ if ( $filterprofile == "ALL" || $filterprofile === '' ) {
 
 
 // Build the MySQL select string based on the inputs (year_month or session id)
-$sessionqrystring = "SELECT timestart, timeend, session, profileName, sessionsize FROM $db_sessions_table ";
+$sessionqrystring = "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " ";
 
 // Build year/month filter (supports comma-separated list for multi-select)
 $ymValues = array_filter(array_map('trim', explode(',', $filteryearmonth)));
@@ -73,7 +73,7 @@ $sessionqry = mysqli_query($con, $sessionqrystring);
 
 // If you get no results (or query failed), just pull the last 20
 if (!$sessionqry || mysqli_num_rows( $sessionqry ) == 0 ) {
-	$sessionqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM $db_sessions_table GROUP BY session, profileName, timestart, timeend, sessionsize ORDER BY session DESC LIMIT 20");
+	$sessionqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " GROUP BY session, profileName, timestart, timeend, sessionsize ORDER BY session DESC LIMIT 20");
 }
 
 // Create an array mapping session IDs to date strings
