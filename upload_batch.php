@@ -318,10 +318,10 @@ function _insert_batch($con, $table, $batch, $mode) {
         $update_parts = [];
         foreach ($all_cols as $c) {
             $qc = quote_name($c);
-            $update_parts[] = "$qc = VALUES($qc)";
+            $update_parts[] = "$qc = new.$qc";
         }
         $sql = "INSERT INTO " . quote_name($table) .
-               " ($col_list) VALUES $values_sql" .
+               " ($col_list) VALUES $values_sql AS new" .
                " ON DUPLICATE KEY UPDATE " . implode(', ', $update_parts);
     } else {
         $sql = "INSERT IGNORE INTO " . quote_name($table) .

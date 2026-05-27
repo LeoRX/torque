@@ -54,7 +54,7 @@ $plotPcnt75   = [];
 
 // Grab the session number
 if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
-    $session_id = mysqli_real_escape_string($con, $_GET['id']);
+    $session_id = $_GET['id'];
     // Get the torque key->val mappings
     $keyquery = mysqli_query($con, "SELECT id,description,units FROM " . quote_name($db_name) . "." . quote_name($db_keys_table));
     $keyarr = [];

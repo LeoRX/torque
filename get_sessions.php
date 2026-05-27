@@ -41,7 +41,7 @@ $sessionqrystring = "SELECT timestart, timeend, session, profileName, sessionsiz
 // Build year/month filter (supports comma-separated list for multi-select)
 $ymValues = array_filter(array_map('trim', explode(',', $filteryearmonth)));
 if (count($ymValues) > 1) {
-	$ymEscaped = array_map(function($v) use ($con) { return "'".mysqli_real_escape_string($con, $v)."'"; }, $ymValues);
+	$ymEscaped = array_map(function($v) { return quote_value($v); }, $ymValues);
 	$sqlqryyearmonth = "CONCAT(YEAR(FROM_UNIXTIME(session/1000)), '_', DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) IN (" . implode(',', $ymEscaped) . ") ";
 } elseif (count($ymValues) === 1) {
 	$sqlqryyearmonth = "CONCAT(YEAR(FROM_UNIXTIME(session/1000)), '_', DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) LIKE " . quote_value(reset($ymValues)) . " ";
