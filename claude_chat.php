@@ -226,30 +226,40 @@ if ($recent_sessions) {
 }
 
 // ── 4. LT fuel trim trend (monthly, last 12 months) ─────────────────────────
-$lt_trend_q = mysqli_query($con, "SELECT DISTINCT
-    CONCAT(YEAR(FROM_UNIXTIME(session/1000)),'_',DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) AS ym
-    FROM $q_sess_tbl ORDER BY ym DESC LIMIT 12");
+// Query 1: discover which monthly raw_logs tables exist (avoids per-month queries)
+$tbl_q = mysqli_query($con, "SELECT table_name
+    FROM INFORMATION_SCHEMA.tables
+    WHERE table_schema = " . quote_value($db_name) . "
+      AND table_name LIKE " . quote_value($db_table . '_%') . "
+    ORDER BY table_name DESC LIMIT 12");
 $trend_rows = [];
-if ($lt_trend_q) {
-    while ($r = mysqli_fetch_assoc($lt_trend_q)) {
-        list($y,$m) = explode('_', $r['ym']);
-        $tbl = "{$db_table}_{$y}_{$m}";
-        $tr  = mysqli_query($con, "SELECT
-            AVG(CAST(NULLIF(k9,'') AS DECIMAL(10,2))) AS lt_b2,
-            AVG(CAST(NULLIF(k7,'') AS DECIMAL(10,2))) AS lt_b1
-            FROM " . quote_name($tbl) . "
-            WHERE k5 IS NOT NULL AND k5 != ''
-              AND CAST(k5 AS DECIMAL(10,2)) > 40");
-        if ($tr && ($row = mysqli_fetch_assoc($tr)) && ($row['lt_b2'] !== null || $row['lt_b1'] !== null)) {
-            $entry = str_replace('_','/',$r['ym']);
-            if ($row['lt_b2'] !== null) $entry .= ' B2:' . round((float)$row['lt_b2'],1) . '%';
-            if ($row['lt_b1'] !== null) $entry .= ' B1:' . round((float)$row['lt_b1'],1) . '%';
+if ($tbl_q && mysqli_num_rows($tbl_q) > 0) {
+    // Query 2: UNION ALL across all discovered monthly tables — one round-trip
+    $union_parts = [];
+    while ($tr = mysqli_fetch_assoc($tbl_q)) {
+        $t = $tr['table_name'];
+        // Extract YYYY_MM suffix from table name for grouping label
+        $suffix = substr($t, strlen($db_table) + 1);
+        $union_parts[] = "SELECT " . quote_value($suffix) . " AS ym,"
+            . " AVG(CAST(NULLIF(k9,'') AS DECIMAL(10,2))) AS lt_b2,"
+            . " AVG(CAST(NULLIF(k7,'') AS DECIMAL(10,2))) AS lt_b1"
+            . " FROM " . quote_name($t)
+            . " WHERE k5 IS NOT NULL AND k5 != '' AND CAST(k5 AS DECIMAL(10,2)) > 40";
+    }
+    $union_sql = implode(' UNION ALL ', $union_parts);
+    $tr2 = mysqli_query($con, $union_sql);
+    if ($tr2) {
+        while ($row = mysqli_fetch_assoc($tr2)) {
+            if ($row['lt_b2'] === null && $row['lt_b1'] === null) continue;
+            $entry = str_replace('_', '/', $row['ym']);
+            if ($row['lt_b2'] !== null) $entry .= ' B2:' . round((float)$row['lt_b2'], 1) . '%';
+            if ($row['lt_b1'] !== null) $entry .= ' B1:' . round((float)$row['lt_b1'], 1) . '%';
             $trend_rows[] = $entry;
         }
     }
 }
 if ($trend_rows) {
-    $ctx[] = "LT FUEL TRIM TREND (monthly avg, newest first): " . implode(', ', array_slice($trend_rows, 0, 12));
+    $ctx[] = "LT FUEL TRIM TREND (monthly avg, newest first): " . implode(', ', $trend_rows);
 }
 
 // ── 5. Database stats ────────────────────────────────────────────────────────
