@@ -105,7 +105,7 @@ if (isset($sids[0])) {
   $yearmonthquery = mysqli_query($con, "SELECT DISTINCT
     CONCAT(YEAR(FROM_UNIXTIME(session/1000)), '_', DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) as Suffix,
     CONCAT(MONTHNAME(FROM_UNIXTIME(session/1000)), ' ', YEAR(FROM_UNIXTIME(session/1000))) as Description
-    FROM $db_sessions_table
+    FROM " . quote_name($db_sessions_table) . "
     ORDER BY Suffix DESC");
   if (!$yearmonthquery) { $yearmonthquery = null; }
   $yearmonthsuffixarray = array();
@@ -118,7 +118,7 @@ if (isset($sids[0])) {
   }
 
   // Query the list of profiles where sessions have been logged, to be used later
-  $profilequery = mysqli_query($con, "SELECT distinct profileName FROM $db_sessions_table ORDER BY profileName asc");
+  $profilequery = mysqli_query($con, "SELECT distinct profileName FROM " . quote_name($db_sessions_table) . " ORDER BY profileName asc");
   if (!$profilequery) { $profilequery = null; }
   $profilearray = array();
   $i = 0;
@@ -146,7 +146,7 @@ if (isset($sids[0])) {
   $_fcol   = quote_name($hud_stat_fuel_pid);
   $_avg_sql = "SELECT AVG($_g1col) AS g1, AVG($_g2col) AS g2,
                       AVG($_g3col) AS g3, AVG($_fcol) AS fuel
-               FROM $db_table_full WHERE session=$session_id";
+               FROM " . quote_name($db_table_full) . " WHERE session=" . quote_value($session_id);
   $_avg_res = mysqli_query($con, $_avg_sql);
   if ($_avg_res) {
     $_avg_row = mysqli_fetch_assoc($_avg_res);
