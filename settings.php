@@ -58,6 +58,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
+$claude_models = [
+  'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (fast, economical)',
+  'claude-sonnet-4-6'         => 'Claude Sonnet 4.6 (balanced)',
+  'claude-opus-4-7'           => 'Claude Opus 4.7 (most capable)',
+];
+
 // Handle form save
 $save_success = false;
 $save_error   = '';
@@ -85,6 +91,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                    'claude_enabled'];
   foreach ($boolean_keys as $bk) {
     if (!isset($_POST[$bk])) $_POST[$bk] = '0';
+  }
+  // Server-side coercion for values with known valid ranges
+  if (isset($_POST['claude_max_tokens'])) {
+    $_POST['claude_max_tokens'] = (string)max(256, min(4096, (int)$_POST['claude_max_tokens']));
+  }
+  if (isset($_POST['claude_model']) && !array_key_exists($_POST['claude_model'], $claude_models)) {
+    unset($_POST['claude_model']); // reject unknown model IDs
+  }
+  if (isset($_POST['batch_duplicate_mode']) && !in_array($_POST['batch_duplicate_mode'], ['ignore', 'overwrite'], true)) {
+    $_POST['batch_duplicate_mode'] = 'ignore';
+  }
+  if (isset($_POST['map_line_opacity'])) {
+    $_POST['map_line_opacity'] = (string)max(0.0, min(1.0, (float)$_POST['map_line_opacity']));
+  }
+  if (isset($_POST['map_line_weight'])) {
+    $_POST['map_line_weight'] = (string)max(1, min(20, (int)$_POST['map_line_weight']));
+  }
+  if (isset($_POST['min_session_size'])) {
+    $_POST['min_session_size'] = (string)max(1, min(10000, (int)$_POST['min_session_size']));
   }
   foreach ($allowed_keys as $key) {
     if (array_key_exists($key, $_POST)) {
@@ -116,12 +141,6 @@ $group_labels = [
   'ai'       => ['label' => 'AI Assistant',   'icon' => 'bi-robot'],
   'hud'      => ['label' => 'HUD Widget',     'icon' => 'bi-speedometer2'],
   'plugin'   => ['label' => 'Plugin Upload',    'icon' => 'bi-cloud-upload'],
-];
-
-$claude_models = [
-  'claude-haiku-4-5-20251001' => 'Claude Haiku 4.5 (fast, economical)',
-  'claude-sonnet-4-6'         => 'Claude Sonnet 4.6 (balanced)',
-  'claude-opus-4-6'           => 'Claude Opus 4.6 (most capable)',
 ];
 
 $themes = [

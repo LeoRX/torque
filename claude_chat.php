@@ -150,6 +150,8 @@ $ctx           = [];
 $tz_str        = $display_timezone ?? 'UTC';
 $q_sess_tbl    = quote_name($db_sessions_table);
 
+$ctx[] = "TODAY: " . tz_date('l, F j, Y', time(), $tz_str) . " (local time: " . tz_date('g:ia T', time(), $tz_str) . ")";
+
 // ── 1. Current session info + OBD averages ───────────────────────────────────
 if ($session_id) {
     $sid_esc = (int)$session_id;
