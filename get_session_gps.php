@@ -17,12 +17,8 @@ $tableYear  = date('Y', intdiv($sid, 1000));
 $tableMonth = date('m', intdiv($sid, 1000));
 $table      = "{$db_table}_{$tableYear}_{$tableMonth}";
 
-// Try with kff1001 (GPS speed), fall back if column missing in older tables
-$sql_full  = "SELECT kff1005, kff1006 FROM `$table` WHERE session=$sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
-$sql_basic = "SELECT kff1005, kff1006 FROM `$table` WHERE session=$sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
-
-$result = mysqli_query($con, $sql_full);
-if (!$result) $result = mysqli_query($con, $sql_basic);
+$result = mysqli_query($con, "SELECT kff1005, kff1006 FROM " . quote_name($table) .
+    " WHERE session=" . quote_value($sid) . " AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC");
 
 $points = [];
 if ($result) {

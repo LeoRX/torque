@@ -29,9 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (strlen($np) < 6)    { $cred_error = 'Password must be at least 6 characters.'; }
     else {
       $hash = password_hash($np, PASSWORD_BCRYPT);
-      $esc  = mysqli_real_escape_string($con, $nu);
-      $eh   = mysqli_real_escape_string($con, $hash);
-      if (mysqli_query($con, "INSERT INTO torque_users (username, password_hash) VALUES ('$esc','$eh')")) {
+      if (mysqli_query($con, "INSERT INTO " . quote_name('torque_users') . " (username, password_hash) VALUES (" . quote_value($nu) . "," . quote_value($hash) . ")")) {
         $cred_success = "User '$nu' added successfully.";
       } else { $cred_error = 'Username already exists.'; }
     }
@@ -44,9 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($cp) < 6) { $cred_error = 'New password must be at least 6 characters.'; }
     else {
       $hash = password_hash($cp, PASSWORD_BCRYPT);
-      $esc  = mysqli_real_escape_string($con, $cu);
-      $eh   = mysqli_real_escape_string($con, $hash);
-      if (mysqli_query($con, "UPDATE torque_users SET password_hash='$eh' WHERE username='$esc'")) {
+      if (mysqli_query($con, "UPDATE " . quote_name('torque_users') . " SET password_hash=" . quote_value($hash) . " WHERE username=" . quote_value($cu))) {
         if (mysqli_affected_rows($con) > 0) { $cred_success = "Password updated for '$cu'."; }
         else { $cred_error = "User '$cu' not found in database."; }
       }
@@ -54,8 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
   if (isset($_POST['delete_user']) && !empty($_POST['del_username'])) {
     $du  = trim($_POST['del_username']);
-    $esc = mysqli_real_escape_string($con, $du);
-    mysqli_query($con, "DELETE FROM torque_users WHERE username='$esc'");
+    mysqli_query($con, "DELETE FROM " . quote_name('torque_users') . " WHERE username=" . quote_value($du));
     $cred_success = "User '$du' removed.";
     $db_users = [];
     $_uq3 = mysqli_query($con, "SELECT id, username FROM torque_users ORDER BY username");
@@ -93,9 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
   }
   foreach ($allowed_keys as $key) {
     if (array_key_exists($key, $_POST)) {
-      $k = mysqli_real_escape_string($con, $key);
-      $v = mysqli_real_escape_string($con, trim($_POST[$key]));
-      mysqli_query($con, "UPDATE torque_settings SET setting_value='$v' WHERE setting_key='$k'");
+      mysqli_query($con, "UPDATE " . quote_name('torque_settings') . " SET setting_value=" . quote_value(trim($_POST[$key])) . " WHERE setting_key=" . quote_value($key));
     }
   }
   $save_success = true;
