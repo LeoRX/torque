@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (isset($_POST['add_user']) && !empty($_POST['new_username']) && !empty($_POST['new_password'])) {
     $nu = trim($_POST['new_username']); $np = $_POST['new_password'];
     if (strlen($nu) < 2)        { $cred_error = 'Username must be at least 2 characters.'; }
+    elseif (!preg_match('/^[\w.\-@]+$/', $nu)) { $cred_error = 'Username may only contain letters, numbers, underscores, hyphens, dots, and @.'; }
     elseif (strlen($np) < 6)    { $cred_error = 'Password must be at least 6 characters.'; }
     else {
       $hash = password_hash($np, PASSWORD_BCRYPT);
@@ -322,7 +323,7 @@ $mapbox_styles = [
               <?php foreach ($db_users as $dbu): ?>
               <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
                 <span><i class="bi bi-person-circle me-2 text-muted"></i><?php echo htmlspecialchars($dbu['username']); ?></span>
-                <form method="post" class="mb-0" onsubmit="return confirm('Remove user <?php echo htmlspecialchars($dbu['username']); ?>?')">
+                <form method="post" class="mb-0" onsubmit="return confirm(<?php echo htmlspecialchars(json_encode('Remove user ' . $dbu['username'] . '?'), ENT_QUOTES, 'UTF-8'); ?>)">
                   <?php echo csrf_field(); ?>
                   <input type="hidden" name="del_username" value="<?php echo htmlspecialchars($dbu['username']); ?>">
                   <button type="submit" name="delete_user" class="btn btn-sm btn-outline-danger py-0 px-2" title="Remove"><i class="bi bi-trash3"></i></button>

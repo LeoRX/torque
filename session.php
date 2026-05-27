@@ -601,7 +601,7 @@ if (isset($sids[0])) {
 <?php   while ( isset($plotVar[$i]) && !empty($plotVar[$i]) ) { ?>
         {
           label: <?php echo $plotLabel[$i]; ?>,
-          kcode: '<?php echo htmlspecialchars($plotVar[$i]); ?>',
+          kcode: <?php echo json_encode($plotVar[$i]); ?>,
           data: s<?php echo $i; ?>.map(function(p){ return {x: p[0], y: p[1]}; }),
           borderWidth: 1.5,
           pointRadius: 0,
