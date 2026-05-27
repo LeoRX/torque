@@ -179,9 +179,9 @@ if ($date_range) {
 
     $dq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize, profileName
                                FROM $q_sess_tbl
-                               WHERE CAST(timestart AS UNSIGNED) >= $ms_start
-                                 AND CAST(timestart AS UNSIGNED) <= $ms_end
-                               ORDER BY CAST(timestart AS UNSIGNED) ASC
+                               WHERE timestart + 0 >= $ms_start
+                                 AND timestart + 0 <= $ms_end
+                               ORDER BY timestart + 0 ASC
                                LIMIT 30");
     $date_sessions = [];
     if ($dq) while ($dr = mysqli_fetch_assoc($dq)) $date_sessions[] = $dr;
@@ -208,9 +208,9 @@ if ($date_range) {
 $recent_cutoff = (time() - 14 * 86400) * 1000;
 $rq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize
                            FROM $q_sess_tbl
-                           WHERE CAST(timestart AS UNSIGNED) >= $recent_cutoff
+                           WHERE timestart + 0 >= $recent_cutoff
                              AND sessionsize >= $min_session_size
-                           ORDER BY CAST(timestart AS UNSIGNED) DESC
+                           ORDER BY timestart + 0 DESC
                            LIMIT 40");
 $recent_sessions = [];
 if ($rq) {
@@ -228,7 +228,7 @@ if ($recent_sessions) {
 // ── 4. LT fuel trim trend (monthly, last 12 months) ─────────────────────────
 $lt_trend_q = mysqli_query($con, "SELECT DISTINCT
     CONCAT(YEAR(FROM_UNIXTIME(session/1000)),'_',DATE_FORMAT(FROM_UNIXTIME(session/1000),'%m')) AS ym
-    FROM $q_sess_tbl ORDER BY ym DESC LIMIT 24");
+    FROM $q_sess_tbl ORDER BY ym DESC LIMIT 12");
 $trend_rows = [];
 if ($lt_trend_q) {
     while ($r = mysqli_fetch_assoc($lt_trend_q)) {
