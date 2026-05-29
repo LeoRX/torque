@@ -54,7 +54,7 @@ if ($filetype === 'csv') {
         $cells = array_map(function($v) {
             $v = (string)$v;
             // Neutralise spreadsheet formula injection (=, +, -, @, |, %)
-            if ($v !== '' && strspn($v, '=+-@|%') === 1) {
+            if ($v !== '' && strspn($v, '=+-@|%') > 0) {
                 $v = "'" . $v;
             }
             return '"' . str_replace('"', '""', $v) . '"';
