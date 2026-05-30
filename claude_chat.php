@@ -15,6 +15,16 @@ if (!$claude_enabled || empty($claude_api_key)) {
     exit;
 }
 
+// Rate limiting: max 1 request per 5 seconds per session
+$_rate_key = 'claude_last_request';
+$_now = time();
+if (isset($_SESSION[$_rate_key]) && ($_now - $_SESSION[$_rate_key]) < 5) {
+    http_response_code(429);
+    echo json_encode(['error' => 'Please wait a moment before sending another message.']);
+    exit;
+}
+$_SESSION[$_rate_key] = $_now;
+
 // Parse request body
 $raw  = file_get_contents('php://input');
 $body = json_decode($raw, true);
