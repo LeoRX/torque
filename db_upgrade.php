@@ -4,19 +4,19 @@
 
   // Add indexes to sessions table for faster lookups
   // session is used in WHERE/JOIN on nearly every page
-  $result = mysqli_query($con, "SHOW INDEX FROM $db_sessions_table WHERE Key_name = 'idx_session'");
+  $result = mysqli_query($con, "SHOW INDEX FROM " . quote_name($db_sessions_table) . " WHERE Key_name = 'idx_session'");
   if (mysqli_num_rows($result) == 0) {
-    mysqli_query($con, "ALTER TABLE $db_sessions_table ADD INDEX idx_session (session)");
+    mysqli_query($con, "ALTER TABLE " . quote_name($db_sessions_table) . " ADD INDEX idx_session (session)");
   }
 
   // Add indexes to all raw_logs monthly tables
   // These tables are queried by session and ordered by time on every page load
-  $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = '$db_name' AND table_name LIKE '{$db_table}_%' ORDER BY table_name DESC;");
+  $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = " . quote_value($db_name) . " AND table_name LIKE " . quote_value($db_table . '_%') . " ORDER BY table_name DESC;");
   while ($row = mysqli_fetch_assoc($table_list)) {
     $tbl = $row["table_name"];
-    $idx_check = mysqli_query($con, "SHOW INDEX FROM `$tbl` WHERE Key_name = 'idx_session_time'");
+    $idx_check = mysqli_query($con, "SHOW INDEX FROM " . quote_name($tbl) . " WHERE Key_name = 'idx_session_time'");
     if (mysqli_num_rows($idx_check) == 0) {
-      mysqli_query($con, "ALTER TABLE `$tbl` ADD INDEX idx_session_time (session, time)");
+      mysqli_query($con, "ALTER TABLE " . quote_name($tbl) . " ADD INDEX idx_session_time (session, time)");
     }
   }
 

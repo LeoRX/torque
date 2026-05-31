@@ -65,14 +65,9 @@ $_setting_defaults = [
 mysqli_query($con, "DELETE FROM torque_settings WHERE setting_key IN ('map_default_type','gmaps_api_key')");
 
 foreach ($_setting_defaults as $key => [$val, $type, $label, $desc, $group]) {
-  $k = mysqli_real_escape_string($con, $key);
-  $v = mysqli_real_escape_string($con, $val);
-  $l = mysqli_real_escape_string($con, $label);
-  $d = mysqli_real_escape_string($con, $desc);
-  $g = mysqli_real_escape_string($con, $group);
-  mysqli_query($con, "INSERT IGNORE INTO torque_settings
+  mysqli_query($con, "INSERT IGNORE INTO " . quote_name('torque_settings') . "
     (setting_key, setting_value, setting_type, setting_label, setting_description, setting_group)
-    VALUES ('$k','$v','$type','$l','$d','$g')");
+    VALUES (" . quote_value($key) . "," . quote_value($val) . "," . quote_value($type) . "," . quote_value($label) . "," . quote_value($desc) . "," . quote_value($group) . ")");
 }
 
 // Load all settings into $settings array
