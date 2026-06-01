@@ -23,12 +23,34 @@ $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
 
 $tbl  = quote_name($db_table_full);
 $stbl = quote_name($db_sessions_table);
+
+// Raw columns are preserved intact; corrected GPS is appended as extra columns
+// (gps_corrected_lon/lat) plus a gps_source flag ('torque' or the provider name).
+$rtbl = quote_value($db_table_full);
 $sql = mysqli_query($con,
-    "SELECT * FROM $tbl
+    "SELECT $tbl.*, $stbl.*,
+            gc.corrected_lon AS gps_corrected_lon,
+            gc.corrected_lat AS gps_corrected_lat,
+            IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
+     FROM $tbl
      JOIN $stbl ON $tbl.session = $stbl.session
+     LEFT JOIN gps_corrections gc
+            ON gc.raw_table = $rtbl
+           AND gc.session   = $tbl.session
+           AND gc.torque_time_ms = $tbl.time
      WHERE $tbl.session = " . quote_value($session_id) . "
      ORDER BY $tbl.time DESC"
 );
+
+// Fallback for deployments without the gps_corrections table (pre-migration v25)
+if (!$sql) {
+    $sql = mysqli_query($con,
+        "SELECT * FROM $tbl
+         JOIN $stbl ON $tbl.session = $stbl.session
+         WHERE $tbl.session = " . quote_value($session_id) . "
+         ORDER BY $tbl.time DESC"
+    );
+}
 
 if (!$sql) {
     http_response_code(500);
