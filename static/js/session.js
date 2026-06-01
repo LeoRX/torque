@@ -272,9 +272,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window._torqueDrawRoute = function() {
     try {
-      if (map.getLayer('route'))         { map.removeLayer('route'); }
-      if (map.getLayer('route-outline')) { map.removeLayer('route-outline'); }
-      if (map.getSource('route'))        { map.removeSource('route'); }
+      if (map.getLayer('route'))          { map.removeLayer('route'); }
+      if (map.getLayer('route-outline'))  { map.removeLayer('route-outline'); }
+      if (map.getLayer('route-repaired')) { map.removeLayer('route-repaired'); }
+      if (map.getSource('route'))         { map.removeSource('route'); }
+      if (map.getSource('route-repaired')){ map.removeSource('route-repaired'); }
 
       var gradientStops = [];
       var fn = fractions.length;
@@ -316,6 +318,37 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       map.fitBounds(bounds, { padding: 50, maxZoom: 17, duration: 0 });
 
+      // Mark GPS points repaired from an external source (e.g. Home Assistant).
+      // _routeData[i][4] carries the source: 'torque' (raw) or 'home_assistant'.
+      var repairedFeatures = [];
+      for (var ri = 0; ri < _routeData.length; ri++) {
+        var rp = _routeData[ri];
+        if (rp.length >= 5 && rp[4] && rp[4] !== 'torque') {
+          repairedFeatures.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [rp[0], rp[1]] },
+            properties: { source: rp[4] }
+          });
+        }
+      }
+      window._routeRepairedCount = repairedFeatures.length;
+      if (repairedFeatures.length) {
+        map.addSource('route-repaired', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: repairedFeatures }
+        });
+        map.addLayer({
+          id: 'route-repaired', type: 'circle', source: 'route-repaired',
+          paint: {
+            'circle-radius': Math.max(3, _lineWeight),
+            'circle-color': '#ff9500',
+            'circle-opacity': 0.9,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#fff'
+          }
+        });
+      }
+
       var _oldLegend = mapEl.querySelector('.torque-speed-legend');
       if (_oldLegend) { _oldLegend.remove(); }
       var legend = document.createElement('div');
@@ -326,7 +359,13 @@ document.addEventListener('DOMContentLoaded', function() {
         'display:block;width:110px;height:8px;border-radius:4px;margin:3px 0;"></span>' +
         '<div style="display:flex;justify-content:space-between;width:110px;">' +
         '<span>0</span><span>' + Math.round(_maxSpeed / 2) + '</span>' +
-        '<span>' + Math.round(_maxSpeed) + ' km/h</span></div>';
+        '<span>' + Math.round(_maxSpeed) + ' km/h</span></div>' +
+        (window._routeRepairedCount
+          ? '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;' +
+            'background:#ff9500;border:1.5px solid #fff;flex-shrink:0;"></span>' +
+            '<span>Repaired GPS (' + window._routeRepairedCount + ')</span></div>'
+          : '');
       mapEl.appendChild(legend);
     } catch(e) { console.error('Route draw error:', e); }
   };
@@ -548,11 +587,19 @@ if (!_noSession && _hasGPS) {
     return best;
   }
 
-  function _buildMapPopupHTML(tsMs) {
+  function _buildMapPopupHTML(tsMs, source) {
     var d       = new Date(tsMs);
     var timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     var html    = '<div style="line-height:1.6;min-width:160px;">';
     html += '<div class="tcp-time">' + timeStr + '</div>';
+    if (source && source !== 'torque') {
+      var srcLabel = (source === 'home_assistant') ? 'Home Assistant' : source;
+      html += '<div class="tcp-repaired" style="display:flex;align-items:center;gap:5px;' +
+              'margin:2px 0 4px;color:#ff9500;font-size:11px;font-weight:600;">' +
+              '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;' +
+              'background:#ff9500;border:1px solid #fff;flex-shrink:0;"></span>' +
+              'GPS repaired · ' + srcLabel + '</div>';
+    }
     if (window.torqueChart) {
       var datasets = window.torqueChart.data.datasets;
       for (var i = 0; i < datasets.length; i++) {
@@ -658,7 +705,7 @@ if (!_noSession && _hasGPS) {
         map.getCanvas().style.cursor = 'crosshair';
         var pt = _nearestGpsPoint(e.lngLat.lng, e.lngLat.lat);
         if (!pt) { popup.remove(); return; }
-        popup.setLngLat([pt[0], pt[1]]).setHTML(_buildMapPopupHTML(pt[3])).addTo(map);
+        popup.setLngLat([pt[0], pt[1]]).setHTML(_buildMapPopupHTML(pt[3], pt[4])).addTo(map);
         _applyPopupTheme();
         window._mapHoverTs = pt[3];
         if (window.torqueChart) window.torqueChart.draw();
