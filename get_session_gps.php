@@ -17,14 +17,27 @@ $tableYear  = date('Y', intdiv($sid, 1000));
 $tableMonth = date('m', intdiv($sid, 1000));
 $table      = "{$db_table}_{$tableYear}_{$tableMonth}";
 
-$result = mysqli_query($con, "SELECT kff1005, kff1006 FROM " . quote_name($table) .
-    " WHERE session=" . quote_value($sid) . " AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC");
+// Prefer corrected GPS from gps_corrections; fall back to raw kff1005/kff1006.
+$_valid_raw = "r.kff1005 IS NOT NULL AND r.kff1006 IS NOT NULL AND r.kff1005 != 0 AND r.kff1006 != 0";
+$result = mysqli_query($con, "
+    SELECT
+        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+        COALESCE(gc.corrected_lat, r.kff1006) AS lat
+    FROM " . quote_name($table) . " r
+    LEFT JOIN gps_corrections gc
+           ON gc.raw_table = " . quote_value($table) . "
+          AND gc.session   = " . quote_value($sid) . "
+          AND gc.torque_time_ms = r.time
+    WHERE r.session = " . quote_value($sid) . "
+      AND (gc.id IS NOT NULL OR ($_valid_raw))
+    ORDER BY r.time ASC
+");
 
 $points = [];
 if ($result) {
-    while ($row = mysqli_fetch_row($result)) {
-        $lon = (float)$row[0];
-        $lat = (float)$row[1];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $lon = (float)$row['lon'];
+        $lat = (float)$row['lat'];
         // Filter out invalid / zero-island coordinates
         if ($lon < -180 || $lon > 180 || $lat < -90 || $lat > 90) continue;
         if ($lon === 0.0 && $lat === 0.0) continue;
