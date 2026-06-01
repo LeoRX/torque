@@ -7,6 +7,16 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header("Content-Security-Policy: default-src 'self'; " .
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://api.mapbox.com; " .
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://api.mapbox.com; " .
+        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; " .
+        "img-src 'self' data: blob: https://*.mapbox.com; " .
+        "connect-src 'self' https://*.mapbox.com https://events.mapbox.com; " .
+        "worker-src blob:; " .
+        "object-src 'none'; " .
+        "frame-ancestors 'self'; " .
+        "base-uri 'self'");
 }
 
 // load database credentials
