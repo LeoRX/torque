@@ -262,7 +262,9 @@ from Home Assistant location history — **without ever overwriting raw uploaded
 Both `session.php` (main map query) and `get_session_gps.php` (multi-session overlay) `LEFT JOIN gps_corrections`
 and prefer `corrected_lat/lon` over raw `kff1006/kff1005`. Each has a **raw-only fallback query** so the page
 never crashes if the table is missing (pre-migration). `session.php` exposes the GPS source as the 5th element
-of each `_routeData` entry (`'torque'` or `'home_assistant'`).
+of each `_routeData` entry (`'torque'` or `'home_assistant'`). `static/js/session.js` reads `_routeData[i][4]`
+to render an amber `route-repaired` circle layer over repaired points, a legend entry with the repaired count,
+and a "GPS repaired · Home Assistant" badge in the route hover popup.
 
 ### Settings (group `gps_repair`, seeded in `get_settings.php`, editable in `settings.php`)
 `ha_enabled`, `ha_base_url`, `ha_token`, `ha_entity_id`, `gps_repair_lookback_days` (14),
