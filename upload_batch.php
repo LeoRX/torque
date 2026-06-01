@@ -167,8 +167,7 @@ foreach ($all_kcodes as $kcode) {
 }
 
 // ── 9. Read rows into batches and bulk-insert ─────────────────────────────
-$overwrite_flag = trim($_POST['overwrite'] ?? '0');
-$duplicate_mode = ($overwrite_flag === '1') ? 'overwrite' : ($batch_duplicate_mode ?? 'ignore');
+$duplicate_mode = $batch_duplicate_mode ?? 'ignore';
 
 $batch          = [];
 $row_count      = 0;

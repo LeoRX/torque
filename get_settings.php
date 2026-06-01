@@ -16,7 +16,6 @@ mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_settings (
 $_setting_defaults = [
   'min_session_size'      => ['20',      'integer', 'Min Session Size',           'Sessions with fewer datapoints than this are hidden from the session list.',                 'sessions'],
   'show_session_length'   => ['1',       'boolean', 'Show Session Duration',      'Show drive duration next to each session in the dropdown.',                                  'sessions'],
-  'session_gap_threshold' => ['10',      'integer', 'Session Gap Threshold (min)','Reserved for future use. Sessions separated by less than this many minutes may be considered the same trip.',           'sessions'],
   'source_is_fahrenheit'  => ['0',       'boolean', 'Source Data in Fahrenheit',  'The Torque app is uploading temperature data in Fahrenheit.',                               'units'],
   'use_fahrenheit'        => ['0',       'boolean', 'Display in Fahrenheit',      'Show temperature values in Fahrenheit on screen.',                                          'units'],
   'source_is_miles'       => ['0',       'boolean', 'Source Data in Miles',       'The Torque app is uploading speed/distance in miles.',                                      'units'],
@@ -61,13 +60,22 @@ $_setting_defaults = [
     'plugin'],
 ];
 
-// Remove obsolete Google Maps settings from DB (one-time cleanup)
-mysqli_query($con, "DELETE FROM torque_settings WHERE setting_key IN ('map_default_type','gmaps_api_key')");
+// Remove obsolete settings (one-time cleanup); only run DELETE if rows exist
+$_obs = mysqli_query($con, "SELECT COUNT(*) FROM torque_settings WHERE setting_key IN ('map_default_type','gmaps_api_key','session_gap_threshold')");
+if ($_obs && (int)mysqli_fetch_row($_obs)[0] > 0) {
+  mysqli_query($con, "DELETE FROM torque_settings WHERE setting_key IN ('map_default_type','gmaps_api_key','session_gap_threshold')");
+}
 
-foreach ($_setting_defaults as $key => [$val, $type, $label, $desc, $group]) {
-  mysqli_query($con, "INSERT IGNORE INTO " . quote_name('torque_settings') . "
-    (setting_key, setting_value, setting_type, setting_label, setting_description, setting_group)
-    VALUES (" . quote_value($key) . "," . quote_value($val) . "," . quote_value($type) . "," . quote_value($label) . "," . quote_value($desc) . "," . quote_value($group) . ")");
+// Seed defaults only when the row count is below what we expect — avoids 40+ INSERT IGNORE
+// queries on every page load once all settings are seeded.
+$_expected_count = count($_setting_defaults);
+$_count_row = mysqli_fetch_row(mysqli_query($con, "SELECT COUNT(*) FROM torque_settings"));
+if ((int)$_count_row[0] < $_expected_count) {
+  foreach ($_setting_defaults as $key => [$val, $type, $label, $desc, $group]) {
+    mysqli_query($con, "INSERT IGNORE INTO " . quote_name('torque_settings') . "
+      (setting_key, setting_value, setting_type, setting_label, setting_description, setting_group)
+      VALUES (" . quote_value($key) . "," . quote_value($val) . "," . quote_value($type) . "," . quote_value($label) . "," . quote_value($desc) . "," . quote_value($group) . ")");
+  }
 }
 
 // Load all settings into $settings array
