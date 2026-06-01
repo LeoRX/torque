@@ -99,13 +99,23 @@ if (isset($sids[0])) {
       WHERE r.session = $_gps_sid
         AND (gc.id IS NOT NULL OR ($_valid_raw))
       ORDER BY r.time ASC";
+  // Raw-only fallback: used when gps_corrections does not exist yet (pre-migration)
+  // or kff1001 is missing. Never references the corrections table so it always works.
+  $_gps_sql_raw = "SELECT r.kff1005 AS lon, r.kff1006 AS lat,
+        COALESCE(NULLIF(r.kd,0), 0) AS speed, r.time, 'torque' AS gps_source
+      FROM $_gps_tbl r
+      WHERE r.session = $_gps_sid AND ($_valid_raw)
+      ORDER BY r.time ASC";
   $sessionqry = mysqli_query($con, $_gps_sql_full);
   if (!$sessionqry) {
     $sessionqry = mysqli_query($con, $_gps_sql_basic);
   }
+  if (!$sessionqry) {
+    $sessionqry = mysqli_query($con, $_gps_sql_raw);
+  }
   $mapdata  = array();
   $maxSpeed = 0;
-  while ($geo = mysqli_fetch_assoc($sessionqry)) {
+  while ($sessionqry && $geo = mysqli_fetch_assoc($sessionqry)) {
     $lon = floatval($geo['lon']);
     $lat = floatval($geo['lat']);
     $spd = floatval($geo['speed']);

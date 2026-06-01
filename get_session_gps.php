@@ -32,6 +32,13 @@ $result = mysqli_query($con, "
       AND (gc.id IS NOT NULL OR ($_valid_raw))
     ORDER BY r.time ASC
 ");
+// Raw-only fallback if gps_corrections does not exist yet (pre-migration)
+if (!$result) {
+    $result = mysqli_query($con, "SELECT r.kff1005 AS lon, r.kff1006 AS lat
+        FROM " . quote_name($table) . " r
+        WHERE r.session = " . quote_value($sid) . " AND ($_valid_raw)
+        ORDER BY r.time ASC");
+}
 
 $points = [];
 if ($result) {
