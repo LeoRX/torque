@@ -302,9 +302,10 @@ docker exec p_torque php /var/www/html/gps/repair.php --stats                   
 docker exec p_torque php /var/www/html/gps/repair.php                               # full lookback, live
 ```
 - **In-container scheduler (default):** `docker/entrypoint.sh` starts a background loop that runs
-  `gps/repair.php` every `GPS_REPAIR_INTERVAL` seconds (default 300). Disable with env `GPS_REPAIR_CRON=0`.
-  Output is prefixed `[gps-repair]` in `docker logs`. No host cron required.
-- **On-demand:** the in-map "Repair GPS" button (per session) via `gps_repair_run.php`.
+  `gps/repair.php` every `GPS_REPAIR_INTERVAL` seconds (default 604800 = 1 week). Disable with env
+  `GPS_REPAIR_CRON=0`. Output is prefixed `[gps-repair]` in `docker logs`. No host cron required.
+- **On-demand:** the in-map "Repair GPS" button (per session) via `gps_repair_run.php`. The button is
+  hidden for drives older than `gps_repair_lookback_days` (default 14d) since HA Recorder history has expired.
 - **Host cron (alternative):** `*/5 * * * * docker exec p_torque php /var/www/html/gps/repair.php`
 
 ### Adding another provider

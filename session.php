@@ -161,8 +161,13 @@ if (isset($sids[0])) {
 
   // Offer an on-demand repair button when HA repair is enabled and this session
   // shows a GPS problem (invalid points, or recorded-but-no-fix / no fix at all).
-  $ha_enabled     = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
-  $gpsRepairOffer = $ha_enabled
+  // Hide it for drives older than the lookback window (default 14d) — HA Recorder
+  // retention has expired, so there is no history left to repair from.
+  $ha_enabled       = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
+  $_lookbackDays    = (int)($settings['gps_repair_lookback_days'] ?? 14);
+  $_sessionAgeDays  = (time() - intdiv((int)$session_id, 1000)) / 86400.0;
+  $gpsRepairOffer   = $ha_enabled
+      && ($_sessionAgeDays <= $_lookbackDays)
       && ($gpsHasIssue || $gpsQuality === 'recorded_no_fix' || $gpsQuality === 'none');
 
   // Query the list of years and months where sessions have been logged, to be used later
