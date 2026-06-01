@@ -14,11 +14,13 @@ class HomeAssistantProvider implements GpsLocationProvider {
         $start = gmdate('Y-m-d\TH:i:s\Z', intdiv($start_ms, 1000));
         $end   = gmdate('Y-m-d\TH:i:s\Z', intdiv($end_ms,   1000));
 
+        // NOTE: do NOT send minimal_response — it makes HA drop attributes (and thus
+        // latitude/longitude) for every state except the first and last in the window.
+        // We need coordinates on every fix to match per-timestamp.
         $url = rtrim($this->base_url, '/')
              . '/api/history/period/' . rawurlencode($start)
              . '?end_time='          . rawurlencode($end)
-             . '&filter_entity_id='  . rawurlencode($this->entity_id)
-             . '&minimal_response=true';
+             . '&filter_entity_id='  . rawurlencode($this->entity_id);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
