@@ -156,6 +156,55 @@ foreach ($header_seeds as [$kid, $kdesc, $kheader]) {
 }
 echo "CSV header seeds refreshed.\n";
 
+// ── v25: GPS correction tables (2026-06-01) ───────────────────────────────────
+// gps_corrections stores corrected coordinates from external providers (e.g. Home
+// Assistant history). gps_repair_queue tracks which rows were found invalid and
+// their repair status. Both use torque_time_ms BIGINT to match raw_logs.time.
+if (!migration_applied($con, 25)) {
+  $r = mysqli_query($con, "SHOW TABLES LIKE 'gps_corrections'");
+  if ($r && mysqli_num_rows($r) == 0) {
+    mysqli_query($con, "CREATE TABLE gps_corrections (
+      id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
+      session              VARCHAR(64) NOT NULL,
+      raw_table            VARCHAR(64) NOT NULL,
+      torque_time_ms       BIGINT NOT NULL,
+      raw_lat              DOUBLE NULL,
+      raw_lon              DOUBLE NULL,
+      corrected_lat        DOUBLE NOT NULL,
+      corrected_lon        DOUBLE NOT NULL,
+      accuracy             DOUBLE NULL,
+      source               VARCHAR(64) NOT NULL,
+      source_entity        VARCHAR(128) NULL,
+      source_updated_at_ms BIGINT NULL,
+      reason               VARCHAR(64) NOT NULL,
+      confidence           VARCHAR(32) NOT NULL DEFAULT 'high',
+      created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_raw_point (raw_table, session, torque_time_ms),
+      KEY idx_session_time (session, torque_time_ms)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  }
+  $r = mysqli_query($con, "SHOW TABLES LIKE 'gps_repair_queue'");
+  if ($r && mysqli_num_rows($r) == 0) {
+    mysqli_query($con, "CREATE TABLE gps_repair_queue (
+      id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+      session        VARCHAR(64) NOT NULL,
+      raw_table      VARCHAR(64) NOT NULL,
+      torque_time_ms BIGINT NOT NULL,
+      reason         VARCHAR(64) NOT NULL,
+      created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      processed_at   DATETIME NULL,
+      last_error     TEXT NULL,
+      UNIQUE KEY uniq_raw_repair (raw_table, session, torque_time_ms),
+      KEY idx_pending (processed_at, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  }
+  record_migration($con, 25, 'Add gps_corrections and gps_repair_queue tables');
+  echo "Migration 25: GPS correction tables — done.\n";
+} else {
+  echo "Migration 25: already applied.\n";
+}
+
 mysqli_close($con);
 echo "Upgrade complete.\n";
 ?>
