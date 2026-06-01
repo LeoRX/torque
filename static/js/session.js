@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var params = new URLSearchParams(window.location.search);
     var mp     = params.get('multi');
     if (!mp) return;
-    var sids = mp.split(',').filter(function(s) { return /^\d+$/.test(s); });
+    var sids = mp.split(',').map(Number).filter(function(n) { return Number.isFinite(n) && n > 0; });
     if (!sids.length) return;
 
     var COLORS = ['#e63946','#2a9d8f','#f4a261','#9b5de5','#00b4d8','#fb8500','#8ecae6'];
@@ -380,12 +380,14 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       _legendRow('linear-gradient(90deg,hsl(240,100%,45%),hsl(0,100%,45%))', primaryLabel);
-      sids.forEach(function(sid2, idx2) {
-        var d2  = new Date(parseInt(sid2, 10));
+      var colorIdx = 0;
+      sids.forEach(function(sid2) {
+        var ci  = colorIdx++;
+        var d2  = new Date(sid2);
         var lbl = !isNaN(d2)
           ? d2.toLocaleDateString() + ' ' + d2.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-          : 'Session ' + (idx2 + 1);
-        _legendRow(COLORS[idx2 % COLORS.length], lbl);
+          : 'Session ' + (ci + 1);
+        _legendRow(COLORS[ci % COLORS.length], lbl);
       });
     }
 
