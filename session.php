@@ -128,6 +128,12 @@ if (isset($sids[0])) {
   $imapdata = json_encode($mapdata);
   if ($maxSpeed < 10) $maxSpeed = 120; // sensible default if no speed data
 
+  // Count repaired points among the rendered route (source != 'torque').
+  $repairedCount = 0;
+  foreach ($mapdata as $_md) {
+    if (($_md[4] ?? 'torque') !== 'torque') $repairedCount++;
+  }
+
   // Session exists — always show chart/variable sections
   $setZoomManually = 0;
   // Separately track whether GPS data exists (for map behaviour)
@@ -539,6 +545,11 @@ if (isset($sids[0])) {
         <button class="torque-panel-close" onclick="torqueToggle('summary-section', document.getElementById('btn-summary'))">×</button>
       </div>
       <div class="torque-panel-body">
+<?php   if (($repairedCount ?? 0) > 0) { ?>
+        <div class="px-3 pt-2 small" style="color:#ff9500;">
+          <i class="bi bi-geo-alt-fill me-1"></i><?php echo (int)$repairedCount; ?> GPS point<?php echo $repairedCount === 1 ? '' : 's'; ?> repaired from Home Assistant
+        </div>
+<?php   } ?>
 <?php   if ( $var1 !== "" ) { ?>
         <div class="table-responsive">
           <table class="table table-striped table-hover table-sm mb-0">

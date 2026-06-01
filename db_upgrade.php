@@ -209,6 +209,21 @@ if (!migration_applied($con, 25)) {
   echo "Migration 25: already applied.\n";
 }
 
+// ── v26: gps_repaired_points on sessions (2026-06-01) ─────────────────────────
+// Cache of how many GPS points the repair worker corrected for each session, so
+// the UI can show a repaired count without aggregating gps_corrections per page.
+if (!migration_applied($con, 26)) {
+  $r = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($db_sessions_table) . " LIKE 'gps_repaired_points'");
+  if ($r && mysqli_num_rows($r) == 0) {
+    mysqli_query($con, "ALTER TABLE " . quote_name($db_sessions_table)
+      . " ADD COLUMN gps_repaired_points INT NOT NULL DEFAULT 0");
+  }
+  record_migration($con, 26, 'Add gps_repaired_points column to sessions');
+  echo "Migration 26: gps_repaired_points column — done.\n";
+} else {
+  echo "Migration 26: already applied.\n";
+}
+
 mysqli_close($con);
 echo "Upgrade complete.\n";
 ?>
