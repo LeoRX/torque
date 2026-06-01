@@ -83,12 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     'hud_stat_dur_label','hud_stat_dist_label','hud_stat_fuel_pid','hud_stat_fuel_label',
     // Plugin Upload
     'batch_duplicate_mode',
+    // GPS Repair
+    'ha_enabled','ha_base_url','ha_token','ha_entity_id',
+    'gps_repair_lookback_days','gps_repair_min_age_minutes',
+    'gps_ha_tolerance_seconds','gps_stale_window_seconds',
+    'gps_stale_min_speed_kmh','gps_stale_max_movement_m',
     // (map_default_type and gmaps_api_key removed)
   ];
   // Boolean fields — unchecked checkboxes send nothing, so default to 0
   $boolean_keys = ['show_session_length','source_is_fahrenheit','use_fahrenheit',
                    'source_is_miles','use_miles','hide_empty_variables','show_render_time',
-                   'claude_enabled'];
+                   'claude_enabled','ha_enabled'];
   foreach ($boolean_keys as $bk) {
     if (!isset($_POST[$bk])) $_POST[$bk] = '0';
   }
@@ -111,6 +116,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
   if (isset($_POST['min_session_size'])) {
     $_POST['min_session_size'] = (string)max(1, min(10000, (int)$_POST['min_session_size']));
   }
+  // GPS repair settings — clamp integers/floats to sane ranges
+  if (array_key_exists('gps_repair_lookback_days', $_POST))
+    $_POST['gps_repair_lookback_days'] = (string)max(1, min(90, (int)$_POST['gps_repair_lookback_days']));
+  if (array_key_exists('gps_repair_min_age_minutes', $_POST))
+    $_POST['gps_repair_min_age_minutes'] = (string)max(1, min(60, (int)$_POST['gps_repair_min_age_minutes']));
+  if (array_key_exists('gps_ha_tolerance_seconds', $_POST))
+    $_POST['gps_ha_tolerance_seconds'] = (string)max(10, min(600, (int)$_POST['gps_ha_tolerance_seconds']));
+  if (array_key_exists('gps_stale_window_seconds', $_POST))
+    $_POST['gps_stale_window_seconds'] = (string)max(10, min(300, (int)$_POST['gps_stale_window_seconds']));
+  if (array_key_exists('gps_stale_min_speed_kmh', $_POST))
+    $_POST['gps_stale_min_speed_kmh'] = (string)max(1.0, min(50.0, (float)$_POST['gps_stale_min_speed_kmh']));
+  if (array_key_exists('gps_stale_max_movement_m', $_POST))
+    $_POST['gps_stale_max_movement_m'] = (string)max(1.0, min(100.0, (float)$_POST['gps_stale_max_movement_m']));
   foreach ($allowed_keys as $key) {
     if (array_key_exists($key, $_POST)) {
       mysqli_query($con, "UPDATE " . quote_name('torque_settings') . " SET setting_value=" . quote_value(trim($_POST[$key])) . " WHERE setting_key=" . quote_value($key));
@@ -140,7 +158,8 @@ $group_labels = [
   'map'      => ['label' => 'Map',            'icon' => 'bi-map'],
   'ai'       => ['label' => 'AI Assistant',   'icon' => 'bi-robot'],
   'hud'      => ['label' => 'HUD Widget',     'icon' => 'bi-speedometer2'],
-  'plugin'   => ['label' => 'Plugin Upload',    'icon' => 'bi-cloud-upload'],
+  'plugin'     => ['label' => 'Plugin Upload', 'icon' => 'bi-cloud-upload'],
+  'gps_repair' => ['label' => 'GPS Repair',    'icon' => 'bi-geo-alt-fill'],
 ];
 
 $themes = [
@@ -402,7 +421,7 @@ $mapbox_styles = [
 
       <?php foreach ($group_labels as $group_key => $group_meta): ?>
         <?php if (empty($all_settings[$group_key])) continue; ?>
-        <?php if ($group_key === 'plugin') continue; // rendered as custom card after this loop ?>
+        <?php if ($group_key === 'plugin' || $group_key === 'gps_repair') continue; // rendered as custom cards after this loop ?>
 
         <div class="card mb-4">
           <div class="card-header d-flex align-items-center">
@@ -708,6 +727,96 @@ $mapbox_styles = [
                 <option value="overwrite" <?php if (($settings['batch_duplicate_mode'] ?? 'ignore') === 'overwrite') echo 'selected'; ?>>Overwrite (replace existing)</option>
               </select>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <?php // ── GPS Repair section ──────────────────────────────────────────────── ?>
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#section-gps-repair" style="cursor:pointer">
+          <i class="bi bi-geo-alt-fill section-icon"></i>
+          <span class="fw-semibold">GPS Repair</span>
+          <i class="bi bi-chevron-down ms-auto"></i>
+        </div>
+        <div class="collapse" id="section-gps-repair">
+          <div class="card-body">
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Enable GPS Repair</div>
+              <div class="setting-desc mb-2">Use Home Assistant history to patch missing or stale GPS coordinates. The repair worker must be run separately via CLI or cron.</div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="ha_enabled" value="1" id="ha_enabled"
+                  <?php echo (!empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0') ? 'checked' : ''; ?>>
+                <label class="form-check-label" for="ha_enabled">Enabled</label>
+              </div>
+            </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Home Assistant URL</div>
+              <div class="setting-desc mb-2">Base URL of your HA instance. No trailing slash.</div>
+              <input type="url" class="form-control form-control-sm" name="ha_base_url"
+                value="<?php echo htmlspecialchars($settings['ha_base_url'] ?? ''); ?>"
+                placeholder="https://ha.example.com" style="max-width:400px;">
+            </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">HA Access Token</div>
+              <div class="setting-desc mb-2">Long-lived access token from your HA profile page (Profile → Long-Lived Access Tokens).</div>
+              <div class="input-group input-group-sm" style="max-width:400px;">
+                <input type="password" class="form-control form-control-sm" name="ha_token" id="ha_token"
+                  value="<?php echo htmlspecialchars($settings['ha_token'] ?? ''); ?>"
+                  autocomplete="new-password">
+                <button class="btn btn-outline-secondary" type="button"
+                  onclick="var f=document.getElementById('ha_token');f.type=f.type==='password'?'text':'password';">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">HA Entity ID</div>
+              <div class="setting-desc mb-2">Entity to query for location history (e.g. <code>device_tracker.sm_s938b</code> or <code>person.leor</code>).</div>
+              <input type="text" class="form-control form-control-sm" name="ha_entity_id"
+                value="<?php echo htmlspecialchars($settings['ha_entity_id'] ?? 'device_tracker.sm_s938b'); ?>"
+                style="max-width:320px;">
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">Repair Lookback Days</div>
+                <input type="number" class="form-control form-control-sm" name="gps_repair_lookback_days"
+                  min="1" max="90" value="<?php echo (int)($settings['gps_repair_lookback_days'] ?? 14); ?>">
+              </div>
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">Min Row Age (minutes)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_repair_min_age_minutes"
+                  min="1" max="60" value="<?php echo (int)($settings['gps_repair_min_age_minutes'] ?? 5); ?>">
+              </div>
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">HA Match Tolerance (sec)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_ha_tolerance_seconds"
+                  min="10" max="600" value="<?php echo (int)($settings['gps_ha_tolerance_seconds'] ?? 120); ?>">
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">Stale GPS Window (sec)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_stale_window_seconds"
+                  min="10" max="300" value="<?php echo (int)($settings['gps_stale_window_seconds'] ?? 60); ?>">
+              </div>
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">Stale GPS Min Speed (km/h)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_stale_min_speed_kmh"
+                  min="1" max="50" step="0.5" value="<?php echo (float)($settings['gps_stale_min_speed_kmh'] ?? 10); ?>">
+              </div>
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">Stale GPS Max Movement (m)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_stale_max_movement_m"
+                  min="1" max="100" step="0.5" value="<?php echo (float)($settings['gps_stale_max_movement_m'] ?? 10); ?>">
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

@@ -58,6 +58,17 @@ $_setting_defaults = [
   'batch_duplicate_mode'  => ['ignore', 'select',  'Duplicate Data Handling',
     'Controls what happens when the plugin uploads a session that was already received via real-time upload. "ignore" keeps existing rows; "overwrite" replaces them.',
     'plugin'],
+  // GPS Repair / Home Assistant enrichment
+  'ha_enabled'                 => ['0',                        'boolean', 'Enable GPS Repair',           'Use Home Assistant history to repair missing or stale GPS coordinates.', 'gps_repair'],
+  'ha_base_url'                => ['',                         'string',  'Home Assistant URL',          'Base URL of your HA instance (e.g. https://ha.example.com). No trailing slash.', 'gps_repair'],
+  'ha_token'                   => ['',                         'string',  'HA Access Token',             'Long-lived access token from your HA profile. Stored in DB; never logged.', 'gps_repair'],
+  'ha_entity_id'               => ['device_tracker.sm_s938b', 'string',  'HA Entity ID',                'Entity to query for location history (device_tracker or person).', 'gps_repair'],
+  'gps_repair_lookback_days'   => ['14',                       'integer', 'Repair Lookback Days',        'How many days back to scan for bad GPS rows (max = HA Recorder retention).', 'gps_repair'],
+  'gps_repair_min_age_minutes' => ['5',                        'integer', 'Min Row Age (minutes)',       'Only repair rows older than this — lets in-flight uploads settle before repair.', 'gps_repair'],
+  'gps_ha_tolerance_seconds'   => ['120',                      'integer', 'HA Match Tolerance (sec)',    'Reject HA location points further than this from the Torque row timestamp.', 'gps_repair'],
+  'gps_stale_window_seconds'   => ['60',                       'integer', 'Stale GPS Window (sec)',      'Time window used to detect frozen GPS coordinates.', 'gps_repair'],
+  'gps_stale_min_speed_kmh'    => ['10',                       'float',   'Stale GPS Min Speed (km/h)', 'Average OBD speed (kd) needed within the window to flag GPS as stale.', 'gps_repair'],
+  'gps_stale_max_movement_m'   => ['10',                       'float',   'Stale GPS Max Movement (m)', 'If GPS moves less than this within the window (while speed > threshold), flag as stale.', 'gps_repair'],
 ];
 
 // Remove obsolete settings (one-time cleanup); only run DELETE if rows exist
