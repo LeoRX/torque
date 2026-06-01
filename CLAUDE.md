@@ -236,6 +236,65 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 
 ---
 
+## GPS Repair / Enrichment (Home Assistant)
+
+Torque Pro occasionally uploads bad GPS (frozen at one point, `0,0`, or null) while OBD data
+keeps changing. The GPS repair subsystem detects these rows and backfills corrected coordinates
+from Home Assistant location history — **without ever overwriting raw uploaded data**.
+
+### Components (`gps/` directory)
+| File | Responsibility |
+|---|---|
+| `gps/GpsFunctions.php` | Pure detection logic: `is_valid_point()`, `haversine_m()`, `find_stale_windows()` |
+| `gps/LocationPoint.php` | `GpsLocationPoint` immutable value object |
+| `gps/LocationProvider.php` | `GpsLocationProvider` interface — implement to add Dawarich / direct Recorder / interpolation |
+| `gps/HomeAssistantProvider.php` | HA REST History API provider; `parse_states()` is static + unit-testable |
+| `gps/GpsRepairWorker.php` | Orchestration: scan sessions → detect bad rows → batch HA query → upsert corrections |
+| `gps/repair.php` | CLI entry point (`--dry-run`, `--session=<id>`, `--lookback-days=N`, `--help`) |
+| `tests/test_gps.php` | Standalone PHP unit tests (no framework) — `php tests/test_gps.php` |
+
+### Data model (migration v25 in `db_upgrade.php`)
+- **`gps_corrections`** — corrected points. Unique key `(raw_table, session, torque_time_ms)` → upserts are idempotent. Stores `source` (`home_assistant`), `source_entity`, `reason` (`zero_gps`/`missing_gps`/`stale_gps`), `confidence`, and the original `raw_lat`/`raw_lon`.
+- **`gps_repair_queue`** — tracks which rows were flagged and their processing status/last_error.
+- `torque_time_ms` is BIGINT to join directly against `raw_logs_*.time` (ms epoch).
+
+### Read path
+Both `session.php` (main map query) and `get_session_gps.php` (multi-session overlay) `LEFT JOIN gps_corrections`
+and prefer `corrected_lat/lon` over raw `kff1006/kff1005`. Each has a **raw-only fallback query** so the page
+never crashes if the table is missing (pre-migration). `session.php` exposes the GPS source as the 5th element
+of each `_routeData` entry (`'torque'` or `'home_assistant'`).
+
+### Settings (group `gps_repair`, seeded in `get_settings.php`, editable in `settings.php`)
+`ha_enabled`, `ha_base_url`, `ha_token`, `ha_entity_id`, `gps_repair_lookback_days` (14),
+`gps_repair_min_age_minutes` (5), `gps_ha_tolerance_seconds` (120), `gps_stale_window_seconds` (60),
+`gps_stale_min_speed_kmh` (10), `gps_stale_max_movement_m` (10). HA token lives in the DB, never in code.
+
+### Detection heuristics
+- **Invalid**: lat/lon null, `(0,0)`, or out of range → `missing_gps` / `zero_gps`.
+- **Stale**: within a sliding window (default 60s), if avg OBD speed (`kd`) ≥ threshold (10 km/h) but total GPS movement < threshold (10 m), all rows in the window are flagged `stale_gps`. Stationary/low-speed rows are never flagged (avoids traffic-light/driveway false positives).
+
+### Operational requirements & gotchas
+- **HA recorder must be recording the tracker entity.** History returns `[]` for any window before recording started. Verify the entity is included in HA `recorder:` config and **restart HA** after changing it.
+- **Forward-only.** Only sessions driven *after* HA began recording the entity can be repaired. Earlier sessions are unrecoverable (HA Recorder retention is also ~14 days).
+- **Never send `minimal_response=true`** to the HA history API — it strips `attributes` (lat/lon) from all but the first/last state. The provider requests full state history.
+- **`db_upgrade.php` runs from CLI** (`docker exec p_torque php /var/www/html/db_upgrade.php`); it skips the web-auth gate under `PHP_SAPI === 'cli'`. From a browser it still requires login.
+- The worker **never blocks uploads** and **never writes to HA**. If HA is down, `get_history()` returns `[]` and the row is left uncorrected (logged), to retry next run.
+- Queries by **Torque row timestamp**, never "current HA location".
+
+### Running
+```bash
+docker exec p_torque php /var/www/html/gps/repair.php --dry-run --lookback-days=1   # preview
+docker exec p_torque php /var/www/html/gps/repair.php --session=<id>                # one session
+docker exec p_torque php /var/www/html/gps/repair.php                               # full lookback, live
+```
+Schedule via cron (every 1–5 min): `*/5 * * * * docker exec p_torque php /var/www/html/gps/repair.php`
+
+### Adding another provider
+Implement `GpsLocationProvider` (`get_history()` + `name()`), then instantiate it in `gps/repair.php`.
+`GpsRepairWorker` depends only on the interface — no other changes needed.
+
+---
+
 ## CI/CD
 
 - **Trigger**: push to `main` branch
