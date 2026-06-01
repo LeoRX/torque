@@ -354,23 +354,39 @@ document.addEventListener('DOMContentLoaded', function() {
     if (legend) {
       var primarySid = new URLSearchParams(window.location.search).get('id') || '';
       var d = primarySid ? new Date(parseInt(primarySid, 10)) : null;
-      var primaryLabel = d
+      var primaryLabel = (d && !isNaN(d))
         ? d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
         : 'Primary session';
-      var legendHtml = '<div style="font-weight:700;margin-bottom:4px;color:#333;">Sessions</div>';
-      legendHtml += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
-      legendHtml += '<span style="display:inline-block;width:22px;height:4px;border-radius:2px;background:linear-gradient(90deg,hsl(240,100%,45%),hsl(0,100%,45%));flex-shrink:0;"></span>';
-      legendHtml += '<span style="color:#333;">' + primaryLabel + '</span></div>';
+
+      // Build with DOM APIs so no user-supplied value reaches innerHTML
+      while (legend.firstChild) legend.removeChild(legend.firstChild);
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'font-weight:700;margin-bottom:4px;color:#333;';
+      hdr.textContent = 'Sessions';
+      legend.appendChild(hdr);
+
+      function _legendRow(bg, label) {
+        var row    = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:3px;';
+        var swatch = document.createElement('span');
+        swatch.style.cssText = 'display:inline-block;width:22px;height:4px;border-radius:2px;flex-shrink:0;';
+        swatch.style.background = bg;
+        var lbl    = document.createElement('span');
+        lbl.style.color = '#333';
+        lbl.textContent = label;
+        row.appendChild(swatch);
+        row.appendChild(lbl);
+        legend.appendChild(row);
+      }
+
+      _legendRow('linear-gradient(90deg,hsl(240,100%,45%),hsl(0,100%,45%))', primaryLabel);
       sids.forEach(function(sid2, idx2) {
         var d2  = new Date(parseInt(sid2, 10));
-        var lbl = d2
+        var lbl = !isNaN(d2)
           ? d2.toLocaleDateString() + ' ' + d2.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-          : sid2;
-        legendHtml += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">';
-        legendHtml += '<span style="display:inline-block;width:22px;height:4px;border-radius:2px;background:' + COLORS[idx2 % COLORS.length] + ';flex-shrink:0;"></span>';
-        legendHtml += '<span style="color:#333;">' + lbl + '</span></div>';
+          : 'Session ' + (idx2 + 1);
+        _legendRow(COLORS[idx2 % COLORS.length], lbl);
       });
-      legend.innerHTML = legendHtml;
     }
 
     sids.forEach(function(sid, idx) {
