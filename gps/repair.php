@@ -25,7 +25,7 @@ require_once 'gps/LocationProvider.php';
 require_once 'gps/HomeAssistantProvider.php';
 require_once 'gps/GpsRepairWorker.php';
 
-$opts = getopt('', ['dry-run', 'session:', 'lookback-days:', 'help']);
+$opts = getopt('', ['dry-run', 'session:', 'lookback-days:', 'stats', 'help']);
 
 if (isset($opts['help'])) {
     echo "GPS Repair Worker — repair bad/stale Torque GPS from Home Assistant history\n\n";
@@ -33,20 +33,43 @@ if (isset($opts['help'])) {
     echo "  --dry-run          Preview repairs without writing to the database\n";
     echo "  --session=<id>     Repair a single session ID only\n";
     echo "  --lookback-days=N  Override the configured lookback period (default: 14)\n";
+    echo "  --stats            Print correction/queue statistics and exit (read-only)\n";
     echo "  --help             Show this message\n\n";
     echo "Configure HA URL, token, and entity in Settings → GPS Repair.\n";
     exit(0);
 }
 
 $dry_run = isset($opts['dry-run']);
-if ($dry_run) echo "[DRY-RUN] No writes will occur.\n";
+$stats   = isset($opts['stats']);
 
-// Load settings (seeded by get_settings.php include above)
-$ha_enabled  = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
+$cfg = [
+    'db_table'              => $db_table,
+    'db_sessions_table'     => $db_sessions_table,
+    'lookback_days'         => (int)  ($settings['gps_repair_lookback_days']   ?? 14),
+    'min_age_minutes'       => (int)  ($settings['gps_repair_min_age_minutes'] ?? 5),
+    'ha_tolerance_seconds'  => (int)  ($settings['gps_ha_tolerance_seconds']   ?? 120),
+    'ha_max_accuracy_m'     => (float)($settings['gps_ha_max_accuracy_m']      ?? 50),
+    'stale_window_seconds'  => (float)($settings['gps_stale_window_seconds']   ?? 60),
+    'stale_min_speed_kmh'   => (float)($settings['gps_stale_min_speed_kmh']    ?? 10),
+    'stale_max_movement_m'  => (float)($settings['gps_stale_max_movement_m']   ?? 10),
+];
+
 $ha_base_url = trim($settings['ha_base_url'] ?? '');
 $ha_token    = trim($settings['ha_token']    ?? '');
 $ha_entity   = trim($settings['ha_entity_id'] ?? '');
+$provider    = new HomeAssistantProvider($ha_base_url, $ha_token, $ha_entity);
 
+// --stats is read-only and needs no HA connectivity.
+if ($stats) {
+    $lookback = isset($opts['lookback-days']) ? (int)$opts['lookback-days'] : (int)$cfg['lookback_days'];
+    (new GpsRepairWorker($con, $provider, $cfg, true))->stats($lookback);
+    mysqli_close($con);
+    exit(0);
+}
+
+if ($dry_run) echo "[DRY-RUN] No writes will occur.\n";
+
+$ha_enabled = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
 if (!$ha_enabled && !$dry_run) {
     echo "GPS repair is disabled. Enable it in Settings → GPS Repair, or pass --dry-run to preview.\n";
     exit(0);
@@ -55,19 +78,6 @@ if (!$ha_base_url || !$ha_token || !$ha_entity) {
     echo "Error: ha_base_url, ha_token, and ha_entity_id must be configured in Settings → GPS Repair.\n";
     exit(1);
 }
-
-$provider = new HomeAssistantProvider($ha_base_url, $ha_token, $ha_entity);
-
-$cfg = [
-    'db_table'              => $db_table,
-    'db_sessions_table'     => $db_sessions_table,
-    'lookback_days'         => (int)  ($settings['gps_repair_lookback_days']   ?? 14),
-    'min_age_minutes'       => (int)  ($settings['gps_repair_min_age_minutes'] ?? 5),
-    'ha_tolerance_seconds'  => (int)  ($settings['gps_ha_tolerance_seconds']   ?? 120),
-    'stale_window_seconds'  => (float)($settings['gps_stale_window_seconds']   ?? 60),
-    'stale_min_speed_kmh'   => (float)($settings['gps_stale_min_speed_kmh']    ?? 10),
-    'stale_max_movement_m'  => (float)($settings['gps_stale_max_movement_m']   ?? 10),
-];
 
 $worker = new GpsRepairWorker($con, $provider, $cfg, $dry_run);
 

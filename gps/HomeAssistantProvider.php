@@ -58,7 +58,11 @@ class HomeAssistantProvider implements GpsLocationProvider {
         $points = [];
         foreach ($data as $entity_states) {
             if (!is_array($entity_states)) continue;
+            // HA groups states per entity in each sub-array and labels entity_id on
+            // (at least) the first state; carry it forward for points that omit it.
+            $sublist_entity = null;
             foreach ($entity_states as $state) {
+                if (isset($state['entity_id'])) $sublist_entity = $state['entity_id'];
                 $attrs = $state['attributes'] ?? [];
                 $lat   = $attrs['latitude']  ?? null;
                 $lon   = $attrs['longitude'] ?? null;
@@ -74,7 +78,7 @@ class HomeAssistantProvider implements GpsLocationProvider {
                     lat:      (float)$lat,
                     lon:      (float)$lon,
                     accuracy: isset($attrs['gps_accuracy']) ? (float)$attrs['gps_accuracy'] : null,
-                    entity:   $attrs['source'] ?? $entity_id
+                    entity:   $state['entity_id'] ?? $sublist_entity ?? ($attrs['source'] ?? $entity_id)
                 );
             }
         }

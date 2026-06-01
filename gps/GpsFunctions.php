@@ -18,6 +18,27 @@ class GpsFunctions {
     }
 
     /**
+     * Map a timestamp delta (between the Torque row and the matched HA point) to a
+     * confidence label. The closer in time, the more we trust the substitution.
+     */
+    public static function confidence_for_delta(int $delta_ms): string {
+        $delta_ms = abs($delta_ms);
+        if ($delta_ms <= 30000) return 'high';     // within 30s
+        if ($delta_ms <= 90000) return 'medium';   // within 90s
+        return 'low';
+    }
+
+    /**
+     * Whether a provider point's GPS accuracy is acceptable.
+     * $max_m <= 0 disables the gate; null accuracy (unknown) is accepted.
+     */
+    public static function accuracy_ok(?float $accuracy_m, float $max_m): bool {
+        if ($max_m <= 0)          return true;
+        if ($accuracy_m === null) return true;
+        return $accuracy_m <= $max_m;
+    }
+
+    /**
      * Great-circle distance in metres between two WGS84 points (Haversine formula).
      */
     public static function haversine_m(float $lat1, float $lon1, float $lat2, float $lon2): float {

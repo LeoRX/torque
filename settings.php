@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     // GPS Repair
     'ha_enabled','ha_base_url','ha_token','ha_entity_id',
     'gps_repair_lookback_days','gps_repair_min_age_minutes',
-    'gps_ha_tolerance_seconds','gps_stale_window_seconds',
+    'gps_ha_tolerance_seconds','gps_ha_max_accuracy_m','gps_stale_window_seconds',
     'gps_stale_min_speed_kmh','gps_stale_max_movement_m',
     // (map_default_type and gmaps_api_key removed)
   ];
@@ -123,6 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     $_POST['gps_repair_min_age_minutes'] = (string)max(1, min(60, (int)$_POST['gps_repair_min_age_minutes']));
   if (array_key_exists('gps_ha_tolerance_seconds', $_POST))
     $_POST['gps_ha_tolerance_seconds'] = (string)max(10, min(600, (int)$_POST['gps_ha_tolerance_seconds']));
+  if (array_key_exists('gps_ha_max_accuracy_m', $_POST))
+    $_POST['gps_ha_max_accuracy_m'] = (string)max(0.0, min(1000.0, (float)$_POST['gps_ha_max_accuracy_m']));
   if (array_key_exists('gps_stale_window_seconds', $_POST))
     $_POST['gps_stale_window_seconds'] = (string)max(10, min(300, (int)$_POST['gps_stale_window_seconds']));
   if (array_key_exists('gps_stale_min_speed_kmh', $_POST))
@@ -775,12 +777,28 @@ $mapbox_styles = [
 
             <div class="setting-row mb-3">
               <div class="setting-label mb-1">HA Entity ID</div>
-              <div class="setting-desc mb-2">Entity to query for location history (e.g. <code>device_tracker.your_phone</code> or <code>person.your_name</code>).</div>
+              <div class="setting-desc mb-2">Entity to query for location history (e.g. <code>device_tracker.your_phone</code> or <code>person.your_name</code>). Multiple entities may be comma-separated.</div>
               <input type="text" class="form-control form-control-sm" name="ha_entity_id"
                 placeholder="device_tracker.your_phone"
                 value="<?php echo htmlspecialchars($settings['ha_entity_id'] ?? ''); ?>"
-                style="max-width:320px;">
+                style="max-width:380px;">
             </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Test Connection</div>
+              <div class="setting-desc mb-2">Verify the URL, token, and entity reach Home Assistant and return recent location points. Save settings first.</div>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="haTestBtn" onclick="testHaConnection()">
+                <i class="bi bi-geo me-1"></i>Test Home Assistant
+              </button>
+              <span id="haTestResult" class="ms-3 small"></span>
+            </div>
+
+            <?php if (!empty($settings['gps_repair_last_run'])): ?>
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Last Repair Run</div>
+              <div class="setting-desc"><code><?php echo htmlspecialchars($settings['gps_repair_last_run']); ?></code></div>
+            </div>
+            <?php endif; ?>
 
             <div class="row g-2 mb-3">
               <div class="col-sm-4">
@@ -797,6 +815,14 @@ $mapbox_styles = [
                 <div class="setting-label mb-1">HA Match Tolerance (sec)</div>
                 <input type="number" class="form-control form-control-sm" name="gps_ha_tolerance_seconds"
                   min="10" max="600" value="<?php echo (int)($settings['gps_ha_tolerance_seconds'] ?? 120); ?>">
+              </div>
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-sm-4">
+                <div class="setting-label mb-1">HA Max GPS Accuracy (m)</div>
+                <input type="number" class="form-control form-control-sm" name="gps_ha_max_accuracy_m"
+                  min="0" max="1000" step="5" value="<?php echo (float)($settings['gps_ha_max_accuracy_m'] ?? 50); ?>">
               </div>
             </div>
 
@@ -877,6 +903,31 @@ $mapbox_styles = [
         } else {
           res.textContent = 'Connected! Response: ' + (d.response || '').substring(0, 80);
           res.className = 'ms-3 small text-success';
+        }
+      })
+      .catch(function(e) {
+        res.textContent = 'Network error: ' + e.message;
+        res.className = 'ms-3 small text-danger';
+      })
+      .finally(function() { btn.disabled = false; });
+    }
+
+    function testHaConnection() {
+      var btn = document.getElementById('haTestBtn');
+      var res = document.getElementById('haTestResult');
+      btn.disabled = true;
+      res.textContent = 'Testing…';
+      res.className = 'ms-3 small text-muted';
+      fetch('ha_test.php', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.error) {
+          res.textContent = 'Error: ' + d.error;
+          res.className = 'ms-3 small text-danger';
+        } else {
+          res.textContent = 'Connected! HTTP ' + d.http + ', ' + d.points +
+            ' point(s) in the last 30 min.' + (d.points === 0 ? ' (entity may not be recorded yet)' : '');
+          res.className = 'ms-3 small ' + (d.points > 0 ? 'text-success' : 'text-warning');
         }
       })
       .catch(function(e) {

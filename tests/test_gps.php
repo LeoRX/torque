@@ -39,6 +39,21 @@ ok('~111m per 0.001° lat', $d > 100 && $d < 130);
 $d = GpsFunctions::haversine_m(-37.888, 145.339, -37.888, 145.340);
 ok('~89m per 0.001° lon at -38°', $d > 70 && $d < 110);
 
+// ── confidence_for_delta ─────────────────────────────────────────────────────
+ok('conf 0s = high',        GpsFunctions::confidence_for_delta(0)       === 'high');
+ok('conf 30s = high',       GpsFunctions::confidence_for_delta(30000)   === 'high');
+ok('conf 31s = medium',     GpsFunctions::confidence_for_delta(31000)   === 'medium');
+ok('conf 90s = medium',     GpsFunctions::confidence_for_delta(90000)   === 'medium');
+ok('conf 91s = low',        GpsFunctions::confidence_for_delta(91000)   === 'low');
+ok('conf negative abs',     GpsFunctions::confidence_for_delta(-20000)  === 'high');
+
+// ── accuracy_ok ──────────────────────────────────────────────────────────────
+ok('acc gate disabled (0)', GpsFunctions::accuracy_ok(500.0, 0));
+ok('acc null accepted',     GpsFunctions::accuracy_ok(null, 50));
+ok('acc within limit',      GpsFunctions::accuracy_ok(16.0, 50));
+ok('acc at limit',          GpsFunctions::accuracy_ok(50.0, 50));
+ok('acc over limit',       !GpsFunctions::accuracy_ok(80.0, 50));
+
 // ── find_stale_windows ───────────────────────────────────────────────────────
 
 // Stationary (speed=0): never stale regardless of frozen GPS
@@ -133,6 +148,24 @@ ok('HA parse: ordered by time ascending',  $pts[0]->time_ms < $pts[1]->time_ms);
 ok('HA parse: empty input',     count(HomeAssistantProvider::parse_states([], 'x')) === 0);
 ok('HA parse: non-array entry', count(HomeAssistantProvider::parse_states([null], 'x')) === 0);
 ok('HA parse: bad timestamp',   count(HomeAssistantProvider::parse_states([[['last_updated'=>'not-a-date','attributes'=>['latitude'=>1.0,'longitude'=>1.0]]]], 'x')) === 0);
+
+// Multi-entity: each sub-array is one entity; entity_id labels the first state and
+// is carried forward to later states in the same sub-array.
+$raw_multi = json_decode('[
+  [
+    {"entity_id":"device_tracker.phone_a","last_updated":"2026-06-01T10:00:00+00:00","attributes":{"latitude":-37.1,"longitude":145.1}},
+    {"last_updated":"2026-06-01T10:01:00+00:00","attributes":{"latitude":-37.2,"longitude":145.2}}
+  ],
+  [
+    {"entity_id":"person.someone","last_updated":"2026-06-01T10:00:30+00:00","attributes":{"latitude":-37.3,"longitude":145.3}}
+  ]
+]', true);
+$mp = HomeAssistantProvider::parse_states($raw_multi, 'fallback.entity');
+ok('HA multi: all 3 points parsed',      count($mp) === 3);
+// sorted ascending by time: phone_a@10:00, person@10:00:30, phone_a@10:01
+ok('HA multi: entity_id on first',       $mp[0]->entity === 'device_tracker.phone_a');
+ok('HA multi: second entity attributed', $mp[1]->entity === 'person.someone');
+ok('HA multi: entity_id carried forward',$mp[2]->entity === 'device_tracker.phone_a');
 
 // ── find_nearest_point (inline mirror of GpsRepairWorker private method) ─────
 function find_nearest_test(array $points, int $time_ms): ?GpsLocationPoint {

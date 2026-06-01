@@ -66,6 +66,7 @@ $_setting_defaults = [
   'gps_repair_lookback_days'   => ['14',                       'integer', 'Repair Lookback Days',        'How many days back to scan for bad GPS rows (max = HA Recorder retention).', 'gps_repair'],
   'gps_repair_min_age_minutes' => ['5',                        'integer', 'Min Row Age (minutes)',       'Only repair rows older than this — lets in-flight uploads settle before repair.', 'gps_repair'],
   'gps_ha_tolerance_seconds'   => ['120',                      'integer', 'HA Match Tolerance (sec)',    'Reject HA location points further than this from the Torque row timestamp.', 'gps_repair'],
+  'gps_ha_max_accuracy_m'      => ['50',                       'float',   'HA Max GPS Accuracy (m)',     'Reject HA points whose reported gps_accuracy is worse than this (metres). 0 = no limit.', 'gps_repair'],
   'gps_stale_window_seconds'   => ['60',                       'integer', 'Stale GPS Window (sec)',      'Time window used to detect frozen GPS coordinates.', 'gps_repair'],
   'gps_stale_min_speed_kmh'    => ['10',                       'float',   'Stale GPS Min Speed (km/h)', 'Average OBD speed (kd) needed within the window to flag GPS as stale.', 'gps_repair'],
   'gps_stale_max_movement_m'   => ['10',                       'float',   'Stale GPS Max Movement (m)', 'If GPS moves less than this within the window (while speed > threshold), flag as stale.', 'gps_repair'],

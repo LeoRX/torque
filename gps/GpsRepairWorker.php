@@ -20,25 +20,34 @@ class GpsRepairWorker {
      *   'lookback_days' => int     — override configured lookback period
      */
     public function run(array $options = []): void {
+        $totC = 0; $totU = 0; $nSessions = 0;
+
         if (isset($options['session'])) {
             $sid = $options['session'];
             $y   = date('Y', intdiv((int)$sid, 1000));
             $m   = date('m', intdiv((int)$sid, 1000));
-            $this->repair_session($sid, "{$this->cfg['db_table']}_{$y}_{$m}");
-            return;
+            [$c, $u] = $this->repair_session($sid, "{$this->cfg['db_table']}_{$y}_{$m}");
+            $totC += $c; $totU += $u; $nSessions = 1;
+        } else {
+            $lookback_days = (int)($options['lookback_days'] ?? $this->cfg['lookback_days']);
+            $now_ms        = (int)(microtime(true) * 1000);
+            $cutoff_ms     = $now_ms - $lookback_days * 86400 * 1000;
+            $max_ms        = $now_ms - (int)$this->cfg['min_age_minutes'] * 60 * 1000;
+
+            $sessions = $this->get_sessions_in_range($cutoff_ms, $max_ms);
+            $nSessions = count($sessions);
+            $this->log("Found $nSessions sessions to scan (lookback={$lookback_days}d)");
+
+            foreach ($sessions as $item) {
+                [$c, $u] = $this->repair_session($item['session'], $item['table']);
+                $totC += $c; $totU += $u;
+            }
         }
 
-        $lookback_days = (int)($options['lookback_days'] ?? $this->cfg['lookback_days']);
-        $now_ms        = (int)(microtime(true) * 1000);
-        $cutoff_ms     = $now_ms - $lookback_days * 86400 * 1000;
-        $max_ms        = $now_ms - (int)$this->cfg['min_age_minutes'] * 60 * 1000;
-
-        $sessions = $this->get_sessions_in_range($cutoff_ms, $max_ms);
-        $this->log("Found " . count($sessions) . " sessions to scan (lookback={$lookback_days}d)");
-
-        foreach ($sessions as $item) {
-            $this->repair_session($item['session'], $item['table']);
-        }
+        $summary = "scanned $nSessions sessions, corrected $totC, unresolved $totU"
+                 . ($this->dry_run ? ' (dry-run)' : '');
+        $this->log("Done — $summary");
+        if (!$this->dry_run) $this->record_heartbeat($summary);
     }
 
     // ── session scanning ─────────────────────────────────────────────────────
@@ -63,12 +72,13 @@ class GpsRepairWorker {
 
     // ── per-session repair ───────────────────────────────────────────────────
 
-    public function repair_session(string $sid, string $table): void {
+    /** @return array{0:int,1:int} [corrected, unresolved] */
+    public function repair_session(string $sid, string $table): array {
         // Guard: table must exist
         $chk = mysqli_query($this->con, "SHOW TABLES LIKE " . quote_value($table));
         if (!$chk || mysqli_num_rows($chk) === 0) {
             $this->log("Skipping session $sid — table $table not found");
-            return;
+            return [0, 0];
         }
 
         // Fetch GPS + OBD speed for every row in the session
@@ -79,7 +89,7 @@ class GpsRepairWorker {
         $res = mysqli_query($this->con, $sql);
         if (!$res) {
             $this->log("Query failed for session $sid: " . mysqli_error($this->con));
-            return;
+            return [0, 0];
         }
 
         $rows = [];
@@ -92,7 +102,7 @@ class GpsRepairWorker {
             ];
         }
         mysqli_free_result($res);
-        if (empty($rows)) return;
+        if (empty($rows)) return [0, 0];
 
         // Classify invalid rows
         $needs_repair = [];   // time_ms => reason string
@@ -120,14 +130,14 @@ class GpsRepairWorker {
             }
         }
 
-        if (empty($needs_repair)) return;
+        if (empty($needs_repair)) return [0, 0];
 
         // Skip rows already corrected (idempotency)
         $already = $this->get_already_corrected($table, $sid, array_keys($needs_repair));
         foreach ($already as $t) unset($needs_repair[$t]);
         if (empty($needs_repair)) {
             $this->log("Session $sid: all bad rows already corrected");
-            return;
+            return [0, 0];
         }
 
         $this->log("Session $sid: " . count($needs_repair) . " rows need repair");
@@ -148,11 +158,22 @@ class GpsRepairWorker {
         $rows_by_time = [];
         foreach ($rows as $r) $rows_by_time[$r['time_ms']] = $r;
 
+        // Accuracy gate: drop provider points whose reported GPS accuracy is worse
+        // than the configured maximum before matching (null accuracy is allowed).
+        $max_acc   = (float)($this->cfg['ha_max_accuracy_m'] ?? 0);
+        $ha_usable = array_values(array_filter(
+            $ha_pts, fn($p) => GpsFunctions::accuracy_ok($p->accuracy, $max_acc)
+        ));
+        if (count($ha_usable) !== count($ha_pts)) {
+            $this->log("  accuracy gate dropped " . (count($ha_pts) - count($ha_usable))
+                . " of " . count($ha_pts) . " HA points (>{$max_acc}m)");
+        }
+
+        $tol_ms     = (int)$this->cfg['ha_tolerance_seconds'] * 1000;
         $corrected  = 0;
         $unresolved = 0;
         foreach ($needs_repair as $time_ms => $reason) {
-            $nearest = $this->find_nearest_point($ha_pts, $time_ms);
-            $tol_ms  = (int)$this->cfg['ha_tolerance_seconds'] * 1000;
+            $nearest = $this->find_nearest_point($ha_usable, $time_ms);
 
             if ($nearest === null || abs($nearest->time_ms - $time_ms) > $tol_ms) {
                 if (!$this->dry_run) $this->mark_queue_error($table, $sid, $time_ms, 'no_ha_point');
@@ -160,25 +181,32 @@ class GpsRepairWorker {
                 continue;
             }
 
-            $raw = $rows_by_time[$time_ms] ?? null;
+            $delta_ms   = abs($nearest->time_ms - $time_ms);
+            $confidence = GpsFunctions::confidence_for_delta($delta_ms);
+            $raw        = $rows_by_time[$time_ms] ?? null;
             if ($this->dry_run) {
-                $delta_s = round(abs($nearest->time_ms - $time_ms) / 1000);
                 $this->log("  [DRY-RUN] $time_ms → lat={$nearest->lat} lon={$nearest->lon}"
-                    . " src={$nearest->entity} reason=$reason delta={$delta_s}s");
+                    . " src={$nearest->entity} reason=$reason conf=$confidence"
+                    . " delta=" . round($delta_ms / 1000) . "s");
             } else {
                 $this->upsert_correction(
                     $sid, $table, $time_ms,
                     $raw['lat'] ?? null, $raw['lon'] ?? null,
                     $nearest->lat, $nearest->lon, $nearest->accuracy,
                     $this->provider->name(), $nearest->entity, $nearest->time_ms,
-                    $reason, 'high'
+                    $reason, $confidence
                 );
                 $this->mark_queue_done($table, $sid, $time_ms);
             }
             $corrected++;
         }
 
+        if (!$this->dry_run && $corrected > 0) {
+            $this->update_session_repaired_count($sid);
+        }
+
         $this->log("  corrected=$corrected unresolved=$unresolved");
+        return [$corrected, $unresolved];
     }
 
     // ── DB helpers ───────────────────────────────────────────────────────────
@@ -258,6 +286,73 @@ class GpsRepairWorker {
             . "   AND session   = " . quote_value($sid)
             . "   AND torque_time_ms = " . quote_value((string)$time_ms)
         );
+    }
+
+    /**
+     * Cache the corrected-point count back onto the sessions row so the UI can show it.
+     * No-op (silently) if the gps_repaired_points column doesn't exist yet (pre-v26).
+     */
+    private function update_session_repaired_count(string $sid): void {
+        $cnt = "(SELECT COUNT(*) FROM gps_corrections WHERE session = " . quote_value($sid) . ")";
+        @mysqli_query($this->con,
+            "UPDATE " . quote_name($this->cfg['db_sessions_table'])
+            . " SET gps_repaired_points = $cnt WHERE session = " . quote_value($sid));
+    }
+
+    // ── stats / observability ──────────────────────────────────────────────────
+
+    /**
+     * Read-only summary of correction + queue state over the lookback window.
+     * Used by `repair.php --stats`. Performs no writes.
+     */
+    public function stats(int $lookback_days): void {
+        $now_ms    = (int)(microtime(true) * 1000);
+        $cutoff_ms = $now_ms - $lookback_days * 86400 * 1000;
+
+        $totC = $this->scalar("SELECT COUNT(*) FROM gps_corrections");
+        $totQ = $this->scalar("SELECT COUNT(*) FROM gps_repair_queue");
+        $pend = $this->scalar("SELECT COUNT(*) FROM gps_repair_queue WHERE processed_at IS NULL");
+        $unres= $this->scalar("SELECT COUNT(*) FROM gps_repair_queue WHERE last_error IS NOT NULL");
+        $this->log("Totals: corrections=$totC  queue=$totQ  pending=$pend  unresolved=$unres");
+
+        $this->log("By source:");
+        $res = mysqli_query($this->con,
+            "SELECT source, confidence, COUNT(*) c FROM gps_corrections GROUP BY source, confidence ORDER BY source, confidence");
+        if ($res) {
+            while ($r = mysqli_fetch_assoc($res)) {
+                $this->log("  {$r['source']} / {$r['confidence']}: {$r['c']}");
+            }
+            mysqli_free_result($res);
+        }
+
+        $this->log("Recent sessions (corrections in last {$lookback_days}d):");
+        $res = mysqli_query($this->con,
+            "SELECT session, COUNT(*) c, MIN(reason) reason FROM gps_corrections"
+            . " WHERE torque_time_ms >= " . quote_value((string)$cutoff_ms)
+            . " GROUP BY session ORDER BY session DESC LIMIT 20");
+        if ($res) {
+            while ($r = mysqli_fetch_assoc($res)) {
+                $this->log("  session {$r['session']}: {$r['c']} corrected");
+            }
+            mysqli_free_result($res);
+        }
+    }
+
+    /** Record a one-line heartbeat of the last run into torque_settings (upsert). */
+    public function record_heartbeat(string $summary): void {
+        $val = date('Y-m-d H:i:s') . ' — ' . $summary;
+        mysqli_query($this->con,
+            "INSERT INTO torque_settings (setting_key, setting_value, setting_type, setting_label, setting_group)"
+            . " VALUES ('gps_repair_last_run', " . quote_value($val) . ", 'string', 'GPS Repair Last Run', 'gps_repair')"
+            . " ON DUPLICATE KEY UPDATE setting_value = " . quote_value($val));
+    }
+
+    private function scalar(string $sql): int {
+        $res = mysqli_query($this->con, $sql);
+        if (!$res) return 0;
+        $row = mysqli_fetch_row($res);
+        mysqli_free_result($res);
+        return (int)($row[0] ?? 0);
     }
 
     // ── utilities ────────────────────────────────────────────────────────────
