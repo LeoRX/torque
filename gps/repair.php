@@ -45,14 +45,14 @@ if ($dry_run) echo "[DRY-RUN] No writes will occur.\n";
 $ha_enabled  = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
 $ha_base_url = trim($settings['ha_base_url'] ?? '');
 $ha_token    = trim($settings['ha_token']    ?? '');
-$ha_entity   = trim($settings['ha_entity_id'] ?? 'device_tracker.sm_s938b');
+$ha_entity   = trim($settings['ha_entity_id'] ?? '');
 
 if (!$ha_enabled && !$dry_run) {
     echo "GPS repair is disabled. Enable it in Settings → GPS Repair, or pass --dry-run to preview.\n";
     exit(0);
 }
-if (!$ha_base_url || !$ha_token) {
-    echo "Error: ha_base_url and ha_token must be configured in Settings → GPS Repair.\n";
+if (!$ha_base_url || !$ha_token || !$ha_entity) {
+    echo "Error: ha_base_url, ha_token, and ha_entity_id must be configured in Settings → GPS Repair.\n";
     exit(1);
 }
 

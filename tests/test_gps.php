@@ -106,7 +106,7 @@ $raw_ha = json_decode('[
   [
     {
       "last_updated": "2026-06-01T10:00:00+00:00",
-      "attributes": {"latitude": -37.888, "longitude": 145.339, "gps_accuracy": 16.0, "source": "device_tracker.sm_s938b"}
+      "attributes": {"latitude": -37.888, "longitude": 145.339, "gps_accuracy": 16.0, "source": "device_tracker.test_phone"}
     },
     {
       "last_updated": "2026-06-01T10:01:00+00:00",
@@ -119,14 +119,14 @@ $raw_ha = json_decode('[
   ]
 ]', true);
 
-$pts = HomeAssistantProvider::parse_states($raw_ha, 'device_tracker.sm_s938b');
+$pts = HomeAssistantProvider::parse_states($raw_ha, 'device_tracker.test_phone');
 ok('HA parse: filters no-lat/lon state',   count($pts) === 2);
 ok('HA parse: lat correct',                abs($pts[0]->lat  - (-37.888)) < 0.0001);
 ok('HA parse: lon correct',                abs($pts[0]->lon  - 145.339)   < 0.0001);
 ok('HA parse: accuracy parsed',            $pts[0]->accuracy === 16.0);
 ok('HA parse: accuracy null when absent',  $pts[1]->accuracy === null);
-ok('HA parse: entity from source attr',    $pts[0]->entity === 'device_tracker.sm_s938b');
-ok('HA parse: entity fallback used',       $pts[1]->entity === 'device_tracker.sm_s938b');
+ok('HA parse: entity from source attr',    $pts[0]->entity === 'device_tracker.test_phone');
+ok('HA parse: entity fallback used',       $pts[1]->entity === 'device_tracker.test_phone');
 ok('HA parse: ordered by time ascending',  $pts[0]->time_ms < $pts[1]->time_ms);
 
 // Edge cases

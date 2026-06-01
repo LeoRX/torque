@@ -7,7 +7,7 @@ class HomeAssistantProvider implements GpsLocationProvider {
     public function __construct(
         private readonly string $base_url,
         private readonly string $token,
-        private readonly string $entity_id = 'device_tracker.sm_s938b'
+        private readonly string $entity_id
     ) {}
 
     public function get_history(int $start_ms, int $end_ms): array {

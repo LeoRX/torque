@@ -62,7 +62,7 @@ $_setting_defaults = [
   'ha_enabled'                 => ['0',                        'boolean', 'Enable GPS Repair',           'Use Home Assistant history to repair missing or stale GPS coordinates.', 'gps_repair'],
   'ha_base_url'                => ['',                         'string',  'Home Assistant URL',          'Base URL of your HA instance (e.g. https://ha.example.com). No trailing slash.', 'gps_repair'],
   'ha_token'                   => ['',                         'string',  'HA Access Token',             'Long-lived access token from your HA profile. Stored in DB; never logged.', 'gps_repair'],
-  'ha_entity_id'               => ['device_tracker.sm_s938b', 'string',  'HA Entity ID',                'Entity to query for location history (device_tracker or person).', 'gps_repair'],
+  'ha_entity_id'               => ['',                         'string',  'HA Entity ID',                'Entity to query for location history (a device_tracker or person entity).', 'gps_repair'],
   'gps_repair_lookback_days'   => ['14',                       'integer', 'Repair Lookback Days',        'How many days back to scan for bad GPS rows (max = HA Recorder retention).', 'gps_repair'],
   'gps_repair_min_age_minutes' => ['5',                        'integer', 'Min Row Age (minutes)',       'Only repair rows older than this — lets in-flight uploads settle before repair.', 'gps_repair'],
   'gps_ha_tolerance_seconds'   => ['120',                      'integer', 'HA Match Tolerance (sec)',    'Reject HA location points further than this from the Torque row timestamp.', 'gps_repair'],

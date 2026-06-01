@@ -775,9 +775,10 @@ $mapbox_styles = [
 
             <div class="setting-row mb-3">
               <div class="setting-label mb-1">HA Entity ID</div>
-              <div class="setting-desc mb-2">Entity to query for location history (e.g. <code>device_tracker.sm_s938b</code> or <code>person.leor</code>).</div>
+              <div class="setting-desc mb-2">Entity to query for location history (e.g. <code>device_tracker.your_phone</code> or <code>person.your_name</code>).</div>
               <input type="text" class="form-control form-control-sm" name="ha_entity_id"
-                value="<?php echo htmlspecialchars($settings['ha_entity_id'] ?? 'device_tracker.sm_s938b'); ?>"
+                placeholder="device_tracker.your_phone"
+                value="<?php echo htmlspecialchars($settings['ha_entity_id'] ?? ''); ?>"
                 style="max-width:320px;">
             </div>
 
