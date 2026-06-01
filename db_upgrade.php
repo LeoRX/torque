@@ -1,6 +1,10 @@
 <?php
 require_once('db.php');
-require_once('auth_user.php');
+// Web requests must be authenticated; CLI runs (docker exec / cron) are trusted
+// because shell access to the container is already a higher privilege than login.
+if (PHP_SAPI !== 'cli') {
+  require_once('auth_user.php');
+}
 
 // ── Version tracking table ────────────────────────────────────────────────────
 mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_schema_version (
