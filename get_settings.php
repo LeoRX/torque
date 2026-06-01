@@ -16,7 +16,7 @@ mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_settings (
 $_setting_defaults = [
   'min_session_size'      => ['20',      'integer', 'Min Session Size',           'Sessions with fewer datapoints than this are hidden from the session list.',                 'sessions'],
   'show_session_length'   => ['1',       'boolean', 'Show Session Duration',      'Show drive duration next to each session in the dropdown.',                                  'sessions'],
-  'session_gap_threshold' => ['10',      'integer', 'Session Gap Threshold (min)','Sessions separated by less than this many minutes are considered the same trip.',           'sessions'],
+  'session_gap_threshold' => ['10',      'integer', 'Session Gap Threshold (min)','Reserved for future use. Sessions separated by less than this many minutes may be considered the same trip.',           'sessions'],
   'source_is_fahrenheit'  => ['0',       'boolean', 'Source Data in Fahrenheit',  'The Torque app is uploading temperature data in Fahrenheit.',                               'units'],
   'use_fahrenheit'        => ['0',       'boolean', 'Display in Fahrenheit',      'Show temperature values in Fahrenheit on screen.',                                          'units'],
   'source_is_miles'       => ['0',       'boolean', 'Source Data in Miles',       'The Torque app is uploading speed/distance in miles.',                                      'units'],

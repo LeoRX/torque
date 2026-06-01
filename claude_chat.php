@@ -36,7 +36,7 @@ if (empty($user_message)) {
 $history = array_slice($history, -20);
 
 // ── Helper: query per-session OBD averages from the correct raw_logs table ──
-function session_obd_summary($con, $db_table, $session_id_str) {
+function session_obd_summary($con, $db_table, $session_id_str, $dur_seconds = 0) {
     $sid   = (int)$session_id_str;
     $ts    = intdiv($sid, 1000);
     $tbl   = $db_table . '_' . date('Y', $ts) . '_' . date('m', $ts);
@@ -54,7 +54,8 @@ function session_obd_summary($con, $db_table, $session_id_str) {
         MAX(CAST(NULLIF(kd,'')   AS DECIMAL(10,4))) AS max_speed,
         AVG(CAST(NULLIF(k2182,'') AS DECIMAL(10,4))) AS atf_temp,
         AVG(CAST(NULLIF(kb,'')   AS DECIMAL(10,4))) AS map_kpa,
-        AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km
+        AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km,
+        AVG(CAST(NULLIF(kff1001,'') AS DECIMAL(10,4))) AS gps_speed
         FROM " . quote_name($tbl) . " WHERE session=$sid");
     if (!$q) return [];
     $r = mysqli_fetch_assoc($q);
@@ -73,6 +74,14 @@ function session_obd_summary($con, $db_table, $session_id_str) {
     if ($r['speed']    !== null) $out[] = "Avg spd: "      . round((float)$r['speed'],1)    . "km/h";
     if ($r['max_speed'] !== null) $out[] = "Max spd: "     . round((float)$r['max_speed'],1). "km/h";
     if ($r['l100km']   !== null) $out[] = "L/100km: "      . round((float)$r['l100km'],1);
+    // Estimate trip distance from GPS speed (falls back to OBD speed) × duration
+    if ($dur_seconds > 0) {
+        $spd = $r['gps_speed'] ?? $r['speed'];
+        if ($spd !== null) {
+            $dist_km = round((float)$spd * $dur_seconds / 3600, 1);
+            if ($dist_km > 0) $out[] = "~{$dist_km} km";
+        }
+    }
     return $out;
 }
 
@@ -164,7 +173,7 @@ if ($session_id) {
                . " | Duration: " . gmdate('H:i:s', $dur)
                . " | Points: " . $sr['sessionsize']
                . " | Profile: " . ($sr['profileName'] ?: 'unknown');
-        $obd = session_obd_summary($con, $db_table, $sr['session']);
+        $obd = session_obd_summary($con, $db_table, $sr['session'], $dur);
         if ($obd) $ctx[] = "CURRENT SESSION OBD AVERAGES: " . implode(' | ', $obd);
     }
 }
@@ -197,7 +206,7 @@ if ($date_range) {
                   . " | " . tz_date('g:ia', $ts2, $tz_str)
                   . " | " . gmdate('H:i:s', $dur2) . " duration"
                   . " | " . $ds['sessionsize'] . " pts";
-            $obd2 = session_obd_summary($con, $db_table, $ds['session']);
+            $obd2 = session_obd_summary($con, $db_table, $ds['session'], $dur2);
             if ($obd2) $line .= " | " . implode(', ', $obd2);
             $ctx[] = $line;
         }
@@ -288,6 +297,10 @@ DATA ACCESS: You have access to:
 When the user asks about a specific date or period, look for the \"SESSIONS FOR ...\" block in the context below — it contains per-session summaries for that date. If no sessions are found for a requested date, say so clearly.
 
 Fuel trim interpretation: negative LTFT/STFT = ECU removing fuel = running rich. Positive = running lean. Normal range ±5%. Bank 2 LTFT beyond -8% is significant; beyond -12% approaches P0175 (System Too Rich B2). Bank 1 equivalents: P0172.
+
+ATF temperature (k2182, Toyota A750F/A750E): normal operating 70–100°C; acceptable up to 110°C; caution 110–120°C (consider a drain-and-fill if sustained); high risk above 120°C (potential varnish/seal damage); cold start below 40°C is normal. The Toyota FJ Cruiser uses a sealed gearbox with a dipstick-less pan — ATF condition matters more than level.
+
+Trip distance in the context is estimated from average GPS speed × duration — accurate to within ~5% for normal driving but may under-read on very stop-and-go sessions.
 
 Be concise and practical. Use metric units (°C, km/h, g/s) unless asked otherwise.
 If asked about service history, infer ECU resets from step changes in the fuel trim trend toward 0.
