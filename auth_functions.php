@@ -48,8 +48,7 @@ function auth_user()
     if (isset($con)) {
         $tbl_check = mysqli_query($con, "SHOW TABLES LIKE 'torque_users'");
         if ($tbl_check && mysqli_num_rows($tbl_check) > 0) {
-            $u = mysqli_real_escape_string($con, $user);
-            $qry = mysqli_query($con, "SELECT username, password_hash FROM torque_users WHERE username='$u' LIMIT 1");
+            $qry = mysqli_query($con, "SELECT username, password_hash FROM torque_users WHERE username=" . quote_value($user) . " LIMIT 1");
             if ($qry && $row = mysqli_fetch_assoc($qry)) {
                 if (password_verify($pass, $row['password_hash'])) {
                     session_regenerate_id(true); // prevent session fixation
