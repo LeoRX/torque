@@ -99,6 +99,72 @@ $rows = [['time_ms' => 1000, 'lat' => -37.888, 'lon' => 145.339, 'speed_kmh' => 
 ok('single row not stale',
     count(GpsFunctions::find_stale_windows($rows, 60, 10, 10)) === 0);
 
+// ── HomeAssistantProvider::parse_states ──────────────────────────────────────
+require_once __DIR__ . '/../gps/HomeAssistantProvider.php';
+
+$raw_ha = json_decode('[
+  [
+    {
+      "last_updated": "2026-06-01T10:00:00+00:00",
+      "attributes": {"latitude": -37.888, "longitude": 145.339, "gps_accuracy": 16.0, "source": "device_tracker.sm_s938b"}
+    },
+    {
+      "last_updated": "2026-06-01T10:01:00+00:00",
+      "attributes": {"latitude": -37.889, "longitude": 145.340}
+    },
+    {
+      "last_updated": "2026-06-01T10:02:00+00:00",
+      "attributes": {}
+    }
+  ]
+]', true);
+
+$pts = HomeAssistantProvider::parse_states($raw_ha, 'device_tracker.sm_s938b');
+ok('HA parse: filters no-lat/lon state',   count($pts) === 2);
+ok('HA parse: lat correct',                abs($pts[0]->lat  - (-37.888)) < 0.0001);
+ok('HA parse: lon correct',                abs($pts[0]->lon  - 145.339)   < 0.0001);
+ok('HA parse: accuracy parsed',            $pts[0]->accuracy === 16.0);
+ok('HA parse: accuracy null when absent',  $pts[1]->accuracy === null);
+ok('HA parse: entity from source attr',    $pts[0]->entity === 'device_tracker.sm_s938b');
+ok('HA parse: entity fallback used',       $pts[1]->entity === 'device_tracker.sm_s938b');
+ok('HA parse: ordered by time ascending',  $pts[0]->time_ms < $pts[1]->time_ms);
+
+// Edge cases
+ok('HA parse: empty input',     count(HomeAssistantProvider::parse_states([], 'x')) === 0);
+ok('HA parse: non-array entry', count(HomeAssistantProvider::parse_states([null], 'x')) === 0);
+ok('HA parse: bad timestamp',   count(HomeAssistantProvider::parse_states([[['last_updated'=>'not-a-date','attributes'=>['latitude'=>1.0,'longitude'=>1.0]]]], 'x')) === 0);
+
+// ── find_nearest_point (inline mirror of GpsRepairWorker private method) ─────
+function find_nearest_test(array $points, int $time_ms): ?GpsLocationPoint {
+    $best = null; $best_d = PHP_INT_MAX;
+    foreach ($points as $p) {
+        $d = abs($p->time_ms - $time_ms);
+        if ($d < $best_d) { $best_d = $d; $best = $p; }
+    }
+    return $best;
+}
+
+$pts_m = [
+    new GpsLocationPoint(1000,  -37.888, 145.339, 10.0, 'x'),
+    new GpsLocationPoint(3000,  -37.889, 145.340, 12.0, 'x'),
+    new GpsLocationPoint(5000,  -37.890, 145.341, null, 'x'),
+];
+
+$n = find_nearest_test($pts_m, 2800);
+ok('nearest: picks closest by time',    $n !== null && $n->time_ms === 3000);
+$n = find_nearest_test($pts_m, 500);
+ok('nearest: picks start for early ts', $n !== null && $n->time_ms === 1000);
+$n = find_nearest_test($pts_m, 9999);
+ok('nearest: picks end for late ts',    $n !== null && $n->time_ms === 5000);
+ok('nearest: empty array = null',       find_nearest_test([], 1000) === null);
+
+// Tolerance boundary check
+$tol_ms  = 120 * 1000;
+$pt_near = new GpsLocationPoint(50 * 1000, -37.0, 145.0, null, 'x');
+$pt_far  = new GpsLocationPoint(999 * 1000, -37.0, 145.0, null, 'x');
+ok('within tolerance accepted', abs($pt_near->time_ms - 1000) <= $tol_ms);
+ok('beyond tolerance rejected', abs($pt_far->time_ms  - 1000) >  $tol_ms);
+
 // ── results ──────────────────────────────────────────────────────────────────
-echo "\n--- GpsFunctions: $pass passed, $fail failed ---\n";
+echo "\n--- All tests: $pass passed, $fail failed ---\n";
 exit($fail > 0 ? 1 : 0);
