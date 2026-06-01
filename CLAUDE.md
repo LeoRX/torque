@@ -252,6 +252,7 @@ from Home Assistant location history — **without ever overwriting raw uploaded
 | `gps/GpsRepairWorker.php` | Orchestration: scan sessions → detect bad rows → batch HA query → accuracy-gate → upsert corrections; `stats()` + `record_heartbeat()` |
 | `gps/repair.php` | CLI entry point (`--dry-run`, `--session=<id>`, `--lookback-days=N`, `--stats`, `--help`) |
 | `ha_test.php` | Login-gated AJAX endpoint behind the Settings "Test Home Assistant" button; reports HTTP status + recent point count, never logs the token |
+| `gps_repair_run.php` | Login-gated + CSRF AJAX endpoint; runs the worker for a single session on demand (the in-map "Repair GPS" button) |
 | `tests/test_gps.php` | Standalone PHP unit tests (no framework) — `php tests/test_gps.php` |
 
 ### Data model (migrations v25 + v26 in `db_upgrade.php`)
@@ -269,6 +270,8 @@ of each `_routeData` entry (`'torque'` or `'home_assistant'`) and shows a repair
 `static/js/session.js` reads `_routeData[i][4]` to render an amber `route-repaired` circle layer over repaired
 points, a legend entry with the repaired count, and a "GPS repaired · Home Assistant" badge in the route hover popup.
 `export.php` appends `gps_corrected_lon`, `gps_corrected_lat`, and `gps_source` columns to CSV/JSON (raw columns untouched).
+When a session has a GPS problem and HA repair is enabled, `session.php` shows an in-map **"Repair GPS"** button
+(`$gpsRepairOffer`) that POSTs to `gps_repair_run.php` to repair just that session on demand, then reloads.
 
 ### Settings (group `gps_repair`, seeded in `get_settings.php`, editable in `settings.php`)
 `ha_enabled`, `ha_base_url`, `ha_token`, `ha_entity_id` (comma-separated entities allowed),
@@ -291,14 +294,18 @@ points, a legend entry with the repaired count, and a "GPS repaired · Home Assi
 - The worker **never blocks uploads** and **never writes to HA**. If HA is down, `get_history()` returns `[]` and the row is left uncorrected (logged), to retry next run.
 - Queries by **Torque row timestamp**, never "current HA location".
 
-### Running
+### Running & scheduling
 ```bash
 docker exec p_torque php /var/www/html/gps/repair.php --dry-run --lookback-days=1   # preview
 docker exec p_torque php /var/www/html/gps/repair.php --session=<id>                # one session
 docker exec p_torque php /var/www/html/gps/repair.php --stats                       # read-only summary
 docker exec p_torque php /var/www/html/gps/repair.php                               # full lookback, live
 ```
-Schedule via cron (every 1–5 min): `*/5 * * * * docker exec p_torque php /var/www/html/gps/repair.php`
+- **In-container scheduler (default):** `docker/entrypoint.sh` starts a background loop that runs
+  `gps/repair.php` every `GPS_REPAIR_INTERVAL` seconds (default 300). Disable with env `GPS_REPAIR_CRON=0`.
+  Output is prefixed `[gps-repair]` in `docker logs`. No host cron required.
+- **On-demand:** the in-map "Repair GPS" button (per session) via `gps_repair_run.php`.
+- **Host cron (alternative):** `*/5 * * * * docker exec p_torque php /var/www/html/gps/repair.php`
 
 ### Adding another provider
 Implement `GpsLocationProvider` (`get_history()` + `name()`), then instantiate it in `gps/repair.php`.

@@ -39,4 +39,24 @@ chmod 600 /var/www/html/creds.php
 
 echo "entrypoint: creds.php generated from environment variables."
 
+# ── In-container GPS repair scheduler ─────────────────────────────────────────
+# Runs gps/repair.php on an interval inside this container (no host cron needed).
+# Disable with GPS_REPAIR_CRON=0; tune cadence with GPS_REPAIR_INTERVAL (seconds).
+# repair.php is a no-op when GPS repair is disabled in Settings, so this is safe
+# to leave on. Output is prefixed and goes to container stdout (docker logs).
+if [ "${GPS_REPAIR_CRON:-1}" != "0" ]; then
+    GPS_REPAIR_INTERVAL="${GPS_REPAIR_INTERVAL:-300}"
+    echo "entrypoint: in-container GPS repair scheduler enabled (every ${GPS_REPAIR_INTERVAL}s)."
+    (
+        # Let Apache and the DB settle before the first run
+        sleep 60
+        while true; do
+            php /var/www/html/gps/repair.php 2>&1 | sed 's/^/[gps-repair] /' || true
+            sleep "${GPS_REPAIR_INTERVAL}"
+        done
+    ) &
+else
+    echo "entrypoint: in-container GPS repair scheduler disabled (GPS_REPAIR_CRON=0)."
+fi
+
 exec "$@"

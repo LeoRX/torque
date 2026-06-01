@@ -139,21 +139,31 @@ if (isset($sids[0])) {
   // Separately track whether GPS data exists (for map behaviour)
   $mapHasGPS = (count($mapdata) > 0);
 
-  // GPS quality: query sessions table to distinguish "no GPS" from "GPS recorded but no fix"
-  $gpsQuality = 'unknown'; // fallback if column doesn't exist yet (pre-migration sessions)
-  if ($mapHasGPS) {
-      $gpsQuality = 'ok';
-  } else {
-      $_sess_gps_q = mysqli_query($con,
-          "SELECT gps_points FROM " . quote_name($db_sessions_table) .
-          " WHERE session = " . quote_value($session_id) . " LIMIT 1");
-      if ($_sess_gps_q) {
-          $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
-          if (is_array($_sgrow)) {
-              $gpsQuality = ((int)$_sgrow['gps_points'] > 0) ? 'recorded_no_fix' : 'none';
+  // GPS quality: query sessions table to distinguish "no GPS" from "GPS recorded but no fix".
+  // Also detect whether the session has invalid/missing GPS points that could be repaired.
+  $gpsQuality  = 'unknown'; // fallback if column doesn't exist yet (pre-migration sessions)
+  $gpsHasIssue = false;     // some recorded GPS points are invalid (gps_points > gps_valid_points)
+  $_sess_gps_q = mysqli_query($con,
+      "SELECT gps_points, gps_valid_points FROM " . quote_name($db_sessions_table) .
+      " WHERE session = " . quote_value($session_id) . " LIMIT 1");
+  if ($_sess_gps_q) {
+      $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
+      if (is_array($_sgrow)) {
+          $_gp = (int)($_sgrow['gps_points'] ?? 0);
+          $_gv = (int)($_sgrow['gps_valid_points'] ?? 0);
+          $gpsHasIssue = ($_gp > $_gv);
+          if (!$mapHasGPS) {
+              $gpsQuality = ($_gp > 0) ? 'recorded_no_fix' : 'none';
           }
       }
   }
+  if ($mapHasGPS) { $gpsQuality = 'ok'; }
+
+  // Offer an on-demand repair button when HA repair is enabled and this session
+  // shows a GPS problem (invalid points, or recorded-but-no-fix / no fix at all).
+  $ha_enabled     = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
+  $gpsRepairOffer = $ha_enabled
+      && ($gpsHasIssue || $gpsQuality === 'recorded_no_fix' || $gpsQuality === 'none');
 
   // Query the list of years and months where sessions have been logged, to be used later
   // YYYY_MM with zero-padded month (via %m) sorts correctly as a plain string DESC.
@@ -418,6 +428,48 @@ if (isset($sids[0])) {
 
     <!-- Full-screen map canvas (sized by CSS) -->
     <div id="map-canvas"></div>
+
+<?php if (!empty($gpsRepairOffer)): ?>
+    <!-- On-demand GPS repair (shown when a GPS issue is detected and HA repair is enabled) -->
+    <div id="gps-repair-overlay"
+         style="position:absolute;top:calc(var(--navbar-height,46px) + 10px);left:50%;
+                transform:translateX(-50%);z-index:6;display:flex;align-items:center;gap:8px;
+                background:rgba(6,9,18,0.88);border:1px solid rgba(255,149,0,0.4);
+                border-radius:20px;padding:5px 12px;box-shadow:0 2px 10px rgba(0,0,0,0.35);">
+      <button id="gps-repair-btn" class="btn btn-sm btn-warning py-0 px-2"
+              style="font-size:12px;font-weight:600;" onclick="torqueRepairGps()">
+        <i class="bi bi-geo-alt-fill me-1"></i>Repair GPS
+      </button>
+      <span id="gps-repair-status" class="small" style="color:#ffb84d;">GPS issue detected</span>
+    </div>
+    <script>
+      window._gpsRepairSid  = <?php echo json_encode((string)$session_id); ?>;
+      window._gpsRepairCsrf = <?php echo json_encode(csrf_token()); ?>;
+      function torqueRepairGps() {
+        var btn = document.getElementById('gps-repair-btn');
+        var st  = document.getElementById('gps-repair-status');
+        btn.disabled = true;
+        st.textContent = 'Repairing from Home Assistant…';
+        var body = new URLSearchParams();
+        body.set('sid', window._gpsRepairSid);
+        body.set('csrf_token', window._gpsRepairCsrf);
+        fetch('gps_repair_run.php', { method:'POST', body: body })
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if (d.error) { st.textContent = 'Error: ' + d.error; btn.disabled = false; return; }
+            if (d.corrected > 0) {
+              st.textContent = 'Repaired ' + d.corrected + ' point(s) — reloading…';
+              setTimeout(function(){ location.reload(); }, 900);
+            } else {
+              st.textContent = 'No points could be repaired'
+                + (d.unresolved ? ' (' + d.unresolved + ' had no HA match)' : '') + '.';
+              btn.disabled = false;
+            }
+          })
+          .catch(function(e){ st.textContent = 'Network error: ' + e.message; btn.disabled = false; });
+      }
+    </script>
+<?php endif; ?>
 
 <?php if ($setZoomManually === 0): ?>
     <!-- ── HUD Widget — live arc gauges pinned to map ── -->
