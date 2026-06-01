@@ -60,12 +60,45 @@ if (isset($sids[0])) {
   $tableYear = date( "Y", intdiv((int)$session_id, 1000) );
   $tableMonth = date( "m", intdiv((int)$session_id, 1000) );
   $db_table_full = "{$db_table}_{$tableYear}_{$tableMonth}";
-  // Get GPS data + speed for the selected session (used by Leaflet heatmap)
-  // Try with kff1001 (GPS speed sensor) first; fall back if column doesn't exist in older tables
-  $_gps_tbl       = quote_name($db_table_full);
-  $_gps_sid       = quote_value($session_id);
-  $_gps_sql_full  = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), NULLIF(kff1001,0), 0) AS speed, time FROM $_gps_tbl WHERE session=$_gps_sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
-  $_gps_sql_basic = "SELECT kff1005, kff1006, COALESCE(NULLIF(kd,0), 0) AS speed, time FROM $_gps_tbl WHERE session=$_gps_sid AND kff1005 != 0 AND kff1006 != 0 ORDER BY time ASC";
+  // Get GPS data + speed for the selected session (used by map route + chart crosshair).
+  // Prefers corrected coordinates from gps_corrections where available; falls back to raw GPS.
+  // Fifth element of each _routeData entry is the GPS source ('torque' or 'home_assistant').
+  $_gps_tbl    = quote_name($db_table_full);
+  $_gps_ctbl   = quote_name('gps_corrections');
+  $_gps_sid    = quote_value($session_id);
+  $_gps_rtbl   = quote_value($db_table_full);
+  $_valid_raw  = "r.kff1005 IS NOT NULL AND r.kff1006 IS NOT NULL
+                  AND r.kff1005 != 0 AND r.kff1006 != 0
+                  AND r.kff1005 BETWEEN -180 AND 180
+                  AND r.kff1006 BETWEEN -90 AND 90";
+  $_gps_sql_full  = "SELECT
+        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+        COALESCE(gc.corrected_lat, r.kff1006) AS lat,
+        COALESCE(NULLIF(r.kd,0), NULLIF(r.kff1001,0), 0) AS speed,
+        r.time,
+        IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
+      FROM $_gps_tbl r
+      LEFT JOIN $_gps_ctbl gc
+             ON gc.raw_table = $_gps_rtbl
+            AND gc.session   = $_gps_sid
+            AND gc.torque_time_ms = r.time
+      WHERE r.session = $_gps_sid
+        AND (gc.id IS NOT NULL OR ($_valid_raw))
+      ORDER BY r.time ASC";
+  $_gps_sql_basic = "SELECT
+        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+        COALESCE(gc.corrected_lat, r.kff1006) AS lat,
+        COALESCE(NULLIF(r.kd,0), 0) AS speed,
+        r.time,
+        IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
+      FROM $_gps_tbl r
+      LEFT JOIN $_gps_ctbl gc
+             ON gc.raw_table = $_gps_rtbl
+            AND gc.session   = $_gps_sid
+            AND gc.torque_time_ms = r.time
+      WHERE r.session = $_gps_sid
+        AND (gc.id IS NOT NULL OR ($_valid_raw))
+      ORDER BY r.time ASC";
   $sessionqry = mysqli_query($con, $_gps_sql_full);
   if (!$sessionqry) {
     $sessionqry = mysqli_query($con, $_gps_sql_basic);
@@ -73,8 +106,13 @@ if (isset($sids[0])) {
   $mapdata  = array();
   $maxSpeed = 0;
   while ($geo = mysqli_fetch_assoc($sessionqry)) {
+    $lon = floatval($geo['lon']);
+    $lat = floatval($geo['lat']);
     $spd = floatval($geo['speed']);
-    $mapdata[] = array(floatval($geo['kff1005']), floatval($geo['kff1006']), $spd, (int)$geo['time']);
+    // Final validity guard in case a correction contains unusual coordinates
+    if ($lon < -180 || $lon > 180 || $lat < -90 || $lat > 90) continue;
+    if ($lon === 0.0 && $lat === 0.0) continue;
+    $mapdata[] = [$lon, $lat, $spd, (int)$geo['time'], $geo['gps_source']];
     if ($spd > $maxSpeed) $maxSpeed = $spd;
   }
   $imapdata = json_encode($mapdata);
