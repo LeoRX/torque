@@ -22,4 +22,9 @@ if (!$r1 || !$r2) {
     error_log('del_session: DELETE failed for session '
         . $deletesession . ': ' . mysqli_error($con));
 }
+
+// Remove any GPS corrections / repair-queue rows for this session so they don't
+// orphan. Suppressed (@) so a missing gps_corrections table (pre-migration) is harmless.
+@mysqli_query($con, "DELETE FROM gps_corrections WHERE session = " . quote_value($deletesession));
+@mysqli_query($con, "DELETE FROM gps_repair_queue WHERE session = " . quote_value($deletesession));
 ?>
