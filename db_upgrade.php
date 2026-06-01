@@ -11,7 +11,9 @@
 
   // Add indexes to all raw_logs monthly tables
   // These tables are queried by session and ordered by time on every page load
+
   $table_list = mysqli_query($con, "SELECT table_name FROM INFORMATION_SCHEMA.tables WHERE table_schema = " . quote_value($db_name) . " AND table_name LIKE " . quote_value($db_table . '_%') . " ORDER BY table_name DESC;");
+
   while ($row = mysqli_fetch_assoc($table_list)) {
     $tbl = $row["table_name"];
     $idx_check = mysqli_query($con, "SHOW INDEX FROM " . quote_name($tbl) . " WHERE Key_name = 'idx_session_time'");
