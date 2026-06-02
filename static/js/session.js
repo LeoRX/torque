@@ -288,11 +288,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window._torqueDrawRoute = function() {
     try {
-      if (map.getLayer('route'))          { map.removeLayer('route'); }
-      if (map.getLayer('route-outline'))  { map.removeLayer('route-outline'); }
-      if (map.getLayer('route-repaired')) { map.removeLayer('route-repaired'); }
-      if (map.getSource('route'))         { map.removeSource('route'); }
-      if (map.getSource('route-repaired')){ map.removeSource('route-repaired'); }
+      if (map.getLayer('route'))           { map.removeLayer('route'); }
+      if (map.getLayer('route-outline'))   { map.removeLayer('route-outline'); }
+      if (map.getLayer('route-repaired'))  { map.removeLayer('route-repaired'); }
+      if (map.getLayer('route-endpoints')) { map.removeLayer('route-endpoints'); }
+      if (map.getSource('route'))          { map.removeSource('route'); }
+      if (map.getSource('route-repaired')) { map.removeSource('route-repaired'); }
+      if (map.getSource('route-endpoints')){ map.removeSource('route-endpoints'); }
 
       // Build per-segment coloured lines, skipping gaps so no fake straight
       // connectors are drawn. Each kept span is its own 2-point LineString.
@@ -357,6 +359,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       }
 
+      // Start (green) and Finish (red) markers at the first/last route points.
+      var _first = _routeData[0], _last = _routeData[_routeData.length - 1];
+      if (_first && _last) {
+        map.addSource('route-endpoints', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [
+            { type: 'Feature', properties: { kind: 'start' }, geometry: { type: 'Point', coordinates: [_first[0], _first[1]] } },
+            { type: 'Feature', properties: { kind: 'end'   }, geometry: { type: 'Point', coordinates: [_last[0],  _last[1]]  } }
+          ] }
+        });
+        map.addLayer({
+          id: 'route-endpoints', type: 'circle', source: 'route-endpoints',
+          paint: {
+            'circle-radius': Math.max(6, _lineWeight + 3),
+            'circle-color': ['match', ['get', 'kind'], 'start', '#22c55e', 'end', '#ef4444', '#888'],
+            'circle-stroke-width': 2.5,
+            'circle-stroke-color': '#fff'
+          }
+        });
+      }
+
       var _oldLegend = mapEl.querySelector('.torque-speed-legend');
       if (_oldLegend) { _oldLegend.remove(); }
       var legend = document.createElement('div');
@@ -373,7 +396,12 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;' +
             'background:#ff9500;border:1.5px solid #fff;flex-shrink:0;"></span>' +
             '<span>Repaired GPS (' + window._routeRepairedCount + ')</span></div>'
-          : '');
+          : '') +
+        '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;' +
+        'background:#22c55e;border:1.5px solid #fff;flex-shrink:0;"></span><span>Start</span>' +
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:8px;' +
+        'background:#ef4444;border:1.5px solid #fff;flex-shrink:0;"></span><span>Finish</span></div>';
       mapEl.appendChild(legend);
     } catch(e) { console.error('Route draw error:', e); }
   };
