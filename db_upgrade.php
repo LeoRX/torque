@@ -165,9 +165,10 @@ echo "CSV header seeds refreshed.\n";
 // Assistant history). gps_repair_queue tracks which rows were found invalid and
 // their repair status. Both use torque_time_ms BIGINT to match raw_logs.time.
 if (!migration_applied($con, 25)) {
+  $ok = true;
   $r = mysqli_query($con, "SHOW TABLES LIKE 'gps_corrections'");
   if ($r && mysqli_num_rows($r) == 0) {
-    mysqli_query($con, "CREATE TABLE gps_corrections (
+    if (!mysqli_query($con, "CREATE TABLE gps_corrections (
       id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
       session              VARCHAR(64) NOT NULL,
       raw_table            VARCHAR(64) NOT NULL,
@@ -186,11 +187,14 @@ if (!migration_applied($con, 25)) {
       updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uniq_raw_point (raw_table, session, torque_time_ms),
       KEY idx_session_time (session, torque_time_ms)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+      echo "Migration 25: ERROR creating gps_corrections — " . mysqli_error($con) . "\n";
+      $ok = false;
+    }
   }
   $r = mysqli_query($con, "SHOW TABLES LIKE 'gps_repair_queue'");
   if ($r && mysqli_num_rows($r) == 0) {
-    mysqli_query($con, "CREATE TABLE gps_repair_queue (
+    if (!mysqli_query($con, "CREATE TABLE gps_repair_queue (
       id             BIGINT AUTO_INCREMENT PRIMARY KEY,
       session        VARCHAR(64) NOT NULL,
       raw_table      VARCHAR(64) NOT NULL,
@@ -201,10 +205,17 @@ if (!migration_applied($con, 25)) {
       last_error     TEXT NULL,
       UNIQUE KEY uniq_raw_repair (raw_table, session, torque_time_ms),
       KEY idx_pending (processed_at, created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")) {
+      echo "Migration 25: ERROR creating gps_repair_queue — " . mysqli_error($con) . "\n";
+      $ok = false;
+    }
   }
-  record_migration($con, 25, 'Add gps_corrections and gps_repair_queue tables');
-  echo "Migration 25: GPS correction tables — done.\n";
+  if ($ok) {
+    record_migration($con, 25, 'Add gps_corrections and gps_repair_queue tables');
+    echo "Migration 25: GPS correction tables — done.\n";
+  } else {
+    echo "Migration 25: failed — will retry on next run.\n";
+  }
 } else {
   echo "Migration 25: already applied.\n";
 }
@@ -213,15 +224,74 @@ if (!migration_applied($con, 25)) {
 // Cache of how many GPS points the repair worker corrected for each session, so
 // the UI can show a repaired count without aggregating gps_corrections per page.
 if (!migration_applied($con, 26)) {
+  $ok = true;
   $r = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($db_sessions_table) . " LIKE 'gps_repaired_points'");
   if ($r && mysqli_num_rows($r) == 0) {
-    mysqli_query($con, "ALTER TABLE " . quote_name($db_sessions_table)
-      . " ADD COLUMN gps_repaired_points INT NOT NULL DEFAULT 0");
+    if (!mysqli_query($con, "ALTER TABLE " . quote_name($db_sessions_table)
+      . " ADD COLUMN gps_repaired_points INT NOT NULL DEFAULT 0")) {
+      echo "Migration 26: ERROR adding gps_repaired_points — " . mysqli_error($con) . "\n";
+      $ok = false;
+    }
   }
-  record_migration($con, 26, 'Add gps_repaired_points column to sessions');
-  echo "Migration 26: gps_repaired_points column — done.\n";
+  if ($ok) {
+    record_migration($con, 26, 'Add gps_repaired_points column to sessions');
+    echo "Migration 26: gps_repaired_points column — done.\n";
+  } else {
+    echo "Migration 26: failed — will retry on next run.\n";
+  }
 } else {
   echo "Migration 26: already applied.\n";
+}
+
+// ── v27: unique key on raw_logs monthly tables (2026-06-03) ──────────────────
+// Without a UNIQUE key on (session, time), INSERT IGNORE and ON DUPLICATE KEY
+// UPDATE in upload_batch.php have no effect — repeated batch uploads accumulate
+// duplicate rows silently. This migration adds the key to all existing tables;
+// new tables inherit it via CREATE TABLE … LIKE (upload_batch.php).
+// Tables that still have duplicate rows are reported but left untouched (no data
+// loss). The redundant non-unique idx_session_time is dropped where replaced.
+if (!migration_applied($con, 27)) {
+  $table_list = mysqli_query($con,
+    "SELECT table_name FROM INFORMATION_SCHEMA.tables
+     WHERE table_schema = " . quote_value($db_name) .
+    " AND table_name LIKE " . quote_value($db_table . '_%') .
+    " ORDER BY table_name");
+  $skipped = [];
+  while ($row = mysqli_fetch_assoc($table_list)) {
+    $tbl = $row['table_name'];
+    // Skip if a unique key on (session, time) already exists
+    $ukey = mysqli_query($con, "SHOW INDEX FROM " . quote_name($tbl) .
+      " WHERE Key_name = 'uniq_session_time' AND Non_unique = 0");
+    if ($ukey && mysqli_num_rows($ukey) > 0) continue;
+    // Check for duplicate (session, time) pairs — non-destructive scan
+    $dup_res = mysqli_query($con,
+      "SELECT COUNT(*) cnt, COUNT(DISTINCT session, `time`) ucnt FROM " . quote_name($tbl));
+    $dup_row = mysqli_fetch_assoc($dup_res);
+    if ((int)$dup_row['cnt'] !== (int)$dup_row['ucnt']) {
+      $ndups = (int)$dup_row['cnt'] - (int)$dup_row['ucnt'];
+      echo "Migration 27: WARNING — " . $tbl . " has " . $ndups .
+        " duplicate row(s); unique key skipped (manual dedup required)\n";
+      $skipped[] = $tbl;
+      continue;
+    }
+    // Add unique key; drop the now-redundant non-unique index if present
+    mysqli_query($con, "ALTER TABLE " . quote_name($tbl) .
+      " ADD UNIQUE KEY uniq_session_time (session, `time`)");
+    $old_idx = mysqli_query($con, "SHOW INDEX FROM " . quote_name($tbl) .
+      " WHERE Key_name = 'idx_session_time' AND Non_unique = 1");
+    if ($old_idx && mysqli_num_rows($old_idx) > 0) {
+      mysqli_query($con, "ALTER TABLE " . quote_name($tbl) . " DROP INDEX idx_session_time");
+    }
+  }
+  record_migration($con, 27, 'Add uniq_session_time to raw_logs monthly tables');
+  if (!empty($skipped)) {
+    echo "Migration 27: done (skipped " . count($skipped) .
+      " table(s) with duplicates — see warnings above)\n";
+  } else {
+    echo "Migration 27: raw_logs unique keys — done.\n";
+  }
+} else {
+  echo "Migration 27: already applied.\n";
 }
 
 mysqli_close($con);

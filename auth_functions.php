@@ -64,7 +64,7 @@ function auth_user()
 
     // 2. Fallback: plain-text $users from creds.php
     if ( !isset($users) || empty($users) ) {
-        return true; // no credentials defined → open access
+        return false; // no credentials defined → deny (fail closed)
     }
     foreach ($users as $key => $value) {
         if ($user == $users[$key]['user'] && $pass == $users[$key]['pass']) {
@@ -114,10 +114,13 @@ function auth_id()
             return true;
         }
     }
-    //No IDs/HASHEs defined: Allow everything
+    // No IDs/HASHes defined. Fail closed by default; set $allow_open_upload_auth = true
+    // in creds.php to re-enable unrestricted uploads (e.g. dev/LAN-only setups without
+    // bearer token or device ID restrictions). Production should use bearer token instead.
     else
     {
-        return true;
+        global $allow_open_upload_auth;
+        return !empty($allow_open_upload_auth);
     }
     return false;
 }

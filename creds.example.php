@@ -35,3 +35,9 @@ $users = [];
 $users[] = ['user' => 'torque', 'pass' => 'your_login_password_here'];
 // Add more users as needed:
 // $users[] = ['user' => 'second', 'pass' => 'anotherpassword'];
+
+// ── Optional: allow uploads without device ID restriction ─────────────────────
+// By default, if no $torque_id / $torque_id_hash is configured above, upload auth
+// fails closed. Set to true ONLY for dev/LAN-only deployments where you want any
+// Torque Pro device to upload without restriction. Production should use bearer token.
+// $allow_open_upload_auth = true;

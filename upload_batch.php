@@ -41,7 +41,7 @@ $table_exists = mysqli_query($con,
 if (!($table_exists && mysqli_fetch_assoc($table_exists))) {
     $create_result = mysqli_query($con,
         "CREATE TABLE " . quote_name($db_table_full) .
-        " SELECT * FROM " . quote_name($newest_table) . " WHERE 1=0");
+        " LIKE " . quote_name($newest_table));
     if (!$create_result) {
         error_log('upload_batch: CREATE TABLE failed for ' . $db_table_full . ': ' . mysqli_error($con));
         echo "ERROR. Could not create monthly table.";
