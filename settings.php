@@ -89,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     'gps_ha_tolerance_seconds','gps_ha_max_accuracy_m','gps_stale_window_seconds',
     'gps_stale_min_speed_kmh','gps_stale_max_movement_m',
     'gps_repair_cron','gps_repair_interval',
+    'gps_route_gap_seconds','gps_route_gap_meters',
     // (map_default_type and gmaps_api_key removed)
   ];
   // Boolean fields — unchecked checkboxes send nothing, so default to 0
@@ -129,6 +130,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
   if (array_key_exists('gps_repair_interval', $_POST)
       && !in_array($_POST['gps_repair_interval'], ['3600','21600','86400','259200','604800'], true))
     $_POST['gps_repair_interval'] = '604800';
+  if (array_key_exists('gps_route_gap_seconds', $_POST))
+    $_POST['gps_route_gap_seconds'] = (string)max(5, min(3600, (int)$_POST['gps_route_gap_seconds']));
+  if (array_key_exists('gps_route_gap_meters', $_POST))
+    $_POST['gps_route_gap_meters'] = (string)max(10, min(5000, (int)$_POST['gps_route_gap_meters']));
   if (array_key_exists('gps_stale_window_seconds', $_POST))
     $_POST['gps_stale_window_seconds'] = (string)max(10, min(300, (int)$_POST['gps_stale_window_seconds']));
   if (array_key_exists('gps_stale_min_speed_kmh', $_POST))
@@ -197,9 +202,9 @@ $mapbox_styles = [
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+"
     crossorigin="anonymous">
-  <link rel="stylesheet" href="static/css/torque.css">
-  <link rel="stylesheet" href="static/css/themes.css">
-  <link rel="stylesheet" href="static/css/hud.css">
+  <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/torque.css')); ?>">
+  <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/themes.css')); ?>">
+  <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/hud.css')); ?>">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700">
   <style>
     /* Force page to scroll — torque.css sets html{overflow:hidden} for the map page */
@@ -867,6 +872,23 @@ $mapbox_styles = [
                 <div class="setting-label mb-1">Stale GPS Max Movement (m)</div>
                 <input type="number" class="form-control form-control-sm" name="gps_stale_max_movement_m"
                   min="1" max="100" step="0.5" value="<?php echo (float)($settings['gps_stale_max_movement_m'] ?? 10); ?>">
+              </div>
+            </div>
+
+            <div class="setting-row mt-3 mb-0">
+              <div class="setting-label mb-1">Map Route Gaps</div>
+              <div class="setting-desc mb-2">The map route line breaks (leaves a gap) when consecutive GPS fixes are farther apart than these — avoids drawing a fake straight line across a dropout.</div>
+              <div class="row g-2">
+                <div class="col-sm-6">
+                  <div class="setting-label mb-1">Gap Time (sec)</div>
+                  <input type="number" class="form-control form-control-sm" name="gps_route_gap_seconds"
+                    min="5" max="3600" value="<?php echo (int)($settings['gps_route_gap_seconds'] ?? 30); ?>">
+                </div>
+                <div class="col-sm-6">
+                  <div class="setting-label mb-1">Gap Distance (m)</div>
+                  <input type="number" class="form-control form-control-sm" name="gps_route_gap_meters"
+                    min="10" max="5000" value="<?php echo (int)($settings['gps_route_gap_meters'] ?? 300); ?>">
+                </div>
               </div>
             </div>
 

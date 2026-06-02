@@ -270,7 +270,8 @@ of each `_routeData` entry (`'torque'` or `'home_assistant'`) and shows a repair
 `static/js/session.js` reads `_routeData[i][4]` to render an amber `route-repaired` circle layer over repaired
 points, a legend entry with the repaired count, and a "GPS repaired · Home Assistant" badge in the route hover popup.
 The route line is drawn as **per-segment speed-coloured lines that break at GPS dropouts** (gap when consecutive
-fixes are >30s apart OR >300m apart) — so it never draws a fake straight connector across missing data. Repaired
+fixes are more than `gps_route_gap_seconds` apart OR `gps_route_gap_meters` apart — both configurable in Settings)
+— so it never draws a fake straight connector across missing data. Repaired
 points appear as amber dots on top; **green Start / red Finish** circles mark the first/last route points
 (`route-endpoints` layer). Local CSS/JS in `session.php` are cache-busted with `?v=<filemtime>` so deploys load fresh.
 `export.php` appends `gps_corrected_lon`, `gps_corrected_lat`, and `gps_source` columns to CSV/JSON (raw columns untouched).
@@ -282,8 +283,14 @@ When a session has a GPS problem and HA repair is enabled, `session.php` shows a
 `gps_repair_lookback_days` (14), `gps_repair_min_age_minutes` (5), `gps_ha_tolerance_seconds` (120),
 `gps_ha_max_accuracy_m` (50; 0 = no limit), `gps_stale_window_seconds` (60), `gps_stale_min_speed_kmh` (10),
 `gps_stale_max_movement_m` (10), `gps_repair_cron` (scheduler on/off, default on), `gps_repair_interval`
-(cadence seconds, default 604800 = weekly). HA token lives in the DB, never in code. The worker writes a
-read-only `gps_repair_last_run` heartbeat (shown on the Settings page); the scheduler tracks `gps_repair_last_run_ts`.
+(cadence seconds, default 604800 = weekly), `gps_route_gap_seconds` (30) / `gps_route_gap_meters` (300)
+(map route-line break thresholds, injected into session.js). HA token lives in the DB, never in code. The worker
+writes a read-only `gps_repair_last_run` heartbeat (shown on the Settings page); the scheduler tracks `gps_repair_last_run_ts`.
+
+**Shared helpers (DRY):** `asset_url()` and `gps_corr_join_sql()` live in `db.php`;
+`GpsRepairWorker::config_from_settings()` and `HomeAssistantProvider::from_settings()` / `::is_configured()`
+build the worker bootstrap once for repair.php / gps_repair_run.php / ha_test.php. The JS reuses
+`_haversineKm()` from torquehelpers.js (no duplicate distance fn).
 
 ### Detection & matching
 - **Invalid**: lat/lon null, `(0,0)`, or out of range → `missing_gps` / `zero_gps`.

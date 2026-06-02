@@ -26,19 +26,16 @@ $stbl = quote_name($db_sessions_table);
 
 // Raw columns are preserved intact; corrected GPS is appended as extra columns
 // (gps_corrected_lon/lat) plus a gps_source flag ('torque' or the provider name).
-$rtbl = quote_value($db_table_full);
+// The only column shared by the two tables is `session` (identical via the join).
 $sql = mysqli_query($con,
     "SELECT $tbl.*, $stbl.*,
             gc.corrected_lon AS gps_corrected_lon,
             gc.corrected_lat AS gps_corrected_lat,
             IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
      FROM $tbl
-     JOIN $stbl ON $tbl.session = $stbl.session
-     LEFT JOIN gps_corrections gc
-            ON gc.raw_table = $rtbl
-           AND gc.session   = $tbl.session
-           AND gc.torque_time_ms = $tbl.time
-     WHERE $tbl.session = " . quote_value($session_id) . "
+     JOIN $stbl ON $tbl.session = $stbl.session"
+   . gps_corr_join_sql($db_table_full, (string)$session_id, $tbl)
+   . " WHERE $tbl.session = " . quote_value($session_id) . "
      ORDER BY $tbl.time DESC"
 );
 

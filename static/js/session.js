@@ -274,17 +274,11 @@ document.addEventListener('DOMContentLoaded', function() {
     else              { rr = x; gg = 0; bb = c; }
     return 'rgb(' + Math.round((rr + m) * 255) + ',' + Math.round((gg + m) * 255) + ',' + Math.round((bb + m) * 255) + ')';
   }
-  // Metres between two lon/lat points (Haversine) — for gap detection.
-  function _distM(lon1, lat1, lon2, lat2) {
-    var R = 6371000, p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
-    var dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
-    var a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
   // A "gap" is a GPS dropout: don't draw a connecting line across it (it would
   // imply a path we don't have). Break on a large time OR distance jump.
-  var GAP_TIME_MS = 30000; // > 30s between fixes
-  var GAP_DIST_M  = 300;   // > 300m between fixes
+  // Thresholds come from Settings (injected as _routeGapSec / _routeGapM).
+  var GAP_TIME_MS = (typeof _routeGapSec === 'number' ? _routeGapSec : 30) * 1000;
+  var GAP_DIST_M  = (typeof _routeGapM   === 'number' ? _routeGapM   : 300);
 
   window._torqueDrawRoute = function() {
     try {
@@ -302,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
       for (var i = 1; i < _routeData.length; i++) {
         var a = _routeData[i - 1], b = _routeData[i];
         var dtMs  = Math.abs((b[3] || 0) - (a[3] || 0));
-        var distM = _distM(a[0], a[1], b[0], b[1]);
+        var distM = _haversineKm(a[1], a[0], b[1], b[0]) * 1000; // shared helper (torquehelpers.js)
         if (dtMs > GAP_TIME_MS || distM > GAP_DIST_M) continue; // dropout — leave a gap
         segFeatures.push({
           type: 'Feature',

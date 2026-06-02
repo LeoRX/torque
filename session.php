@@ -64,41 +64,23 @@ if (isset($sids[0])) {
   // Prefers corrected coordinates from gps_corrections where available; falls back to raw GPS.
   // Fifth element of each _routeData entry is the GPS source ('torque' or 'home_assistant').
   $_gps_tbl    = quote_name($db_table_full);
-  $_gps_ctbl   = quote_name('gps_corrections');
   $_gps_sid    = quote_value($session_id);
-  $_gps_rtbl   = quote_value($db_table_full);
   $_valid_raw  = "r.kff1005 IS NOT NULL AND r.kff1006 IS NOT NULL
                   AND r.kff1005 != 0 AND r.kff1006 != 0
                   AND r.kff1005 BETWEEN -180 AND 180
                   AND r.kff1006 BETWEEN -90 AND 90";
-  $_gps_sql_full  = "SELECT
-        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
-        COALESCE(gc.corrected_lat, r.kff1006) AS lat,
-        COALESCE(NULLIF(r.kd,0), NULLIF(r.kff1001,0), 0) AS speed,
-        r.time,
-        IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
-      FROM $_gps_tbl r
-      LEFT JOIN $_gps_ctbl gc
-             ON gc.raw_table = $_gps_rtbl
-            AND gc.session   = $_gps_sid
-            AND gc.torque_time_ms = r.time
-      WHERE r.session = $_gps_sid
-        AND (gc.id IS NOT NULL OR ($_valid_raw))
-      ORDER BY r.time ASC";
-  $_gps_sql_basic = "SELECT
-        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
-        COALESCE(gc.corrected_lat, r.kff1006) AS lat,
-        COALESCE(NULLIF(r.kd,0), 0) AS speed,
-        r.time,
-        IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
-      FROM $_gps_tbl r
-      LEFT JOIN $_gps_ctbl gc
-             ON gc.raw_table = $_gps_rtbl
-            AND gc.session   = $_gps_sid
-            AND gc.torque_time_ms = r.time
-      WHERE r.session = $_gps_sid
-        AND (gc.id IS NOT NULL OR ($_valid_raw))
-      ORDER BY r.time ASC";
+  // Shared corrected-GPS query tail (join + filter + order); full and basic differ
+  // only in the speed expression (basic omits kff1001 for older tables).
+  $_gps_tail = " FROM $_gps_tbl r" . gps_corr_join_sql($db_table_full, $session_id)
+             . " WHERE r.session = $_gps_sid AND (gc.id IS NOT NULL OR ($_valid_raw)) ORDER BY r.time ASC";
+  $_gps_select = function (string $speed) use ($_gps_tail) {
+    return "SELECT COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+                   COALESCE(gc.corrected_lat, r.kff1006) AS lat,
+                   $speed AS speed, r.time,
+                   IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source" . $_gps_tail;
+  };
+  $_gps_sql_full  = $_gps_select("COALESCE(NULLIF(r.kd,0), NULLIF(r.kff1001,0), 0)");
+  $_gps_sql_basic = $_gps_select("COALESCE(NULLIF(r.kd,0), 0)");
   // Raw-only fallback: used when gps_corrections does not exist yet (pre-migration)
   // or kff1001 is missing. Never references the corrections table so it always works.
   $_gps_sql_raw = "SELECT r.kff1005 AS lon, r.kff1006 AS lat,
@@ -262,15 +244,10 @@ if (isset($sids[0])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.bootstrap5.min.css"
       integrity="sha512-w7Qns0H5VYP5I+I0F7sZId5lsVxTH217LlLUPujdU+nLMWXtyzsRPOP3RCRWTC8HLi77L4rZpJ4agDW3QnF7cw=="
       crossorigin="anonymous">
-    <?php // Cache-bust local static assets by file mtime so deploys are picked up immediately
-      $_asset = function (string $rel): string {
-        $f = __DIR__ . '/' . $rel;
-        $v = @filemtime($f) ?: time();
-        return $rel . '?v=' . $v;
-      }; ?>
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/torque.css')); ?>">
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/themes.css')); ?>">
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/hud.css')); ?>">
+    <?php // Cache-bust local static assets by file mtime (asset_url() from db.php) ?>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/torque.css')); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/themes.css')); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('static/css/hud.css')); ?>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
       integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
@@ -310,6 +287,8 @@ if (isset($sids[0])) {
       var _mbStyle     = <?php echo json_encode($mapbox_style); ?>;
       var _lineWeight  = <?php echo (int)$map_line_weight; ?>;
       var _lineOpacity = <?php echo (float)$map_line_opacity; ?>;
+      var _routeGapSec = <?php echo (int)($settings['gps_route_gap_seconds'] ?? 30); ?>;
+      var _routeGapM   = <?php echo (int)($settings['gps_route_gap_meters'] ?? 300); ?>;
       var _chartSeries = <?php
         $_series = [];
         if ($setZoomManually === 0 && isset($var1) && $var1 !== '') {
@@ -325,8 +304,8 @@ if (isset($sids[0])) {
       var _hudSessionAvg = <?php echo isset($hudSessionAvg) ? json_encode($hudSessionAvg) : 'null'; ?>;
       var _aiSessionId   = <?php echo ($claude_enabled && isset($session_id)) ? json_encode($session_id) : "''"; ?>;
     </script>
-    <script src="<?php echo htmlspecialchars($_asset('static/js/torquehelpers.js')); ?>"></script>
-    <script src="<?php echo htmlspecialchars($_asset('static/js/session.js')); ?>"></script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/torquehelpers.js')); ?>"></script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/session.js')); ?>"></script>
   </head>
   <body>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hud-navbar">

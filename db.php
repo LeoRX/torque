@@ -76,4 +76,22 @@ function quote_values($values) {
   return implode(", ", $quoted_values);
 }
 
+// helper: cache-busted URL for a LOCAL static asset — append ?v=<mtime> so a new
+// deploy invalidates browser caches. Use everywhere a local css/js is referenced.
+function asset_url(string $rel): string {
+  $f = __DIR__ . '/' . ltrim($rel, '/');
+  $v = @filemtime($f) ?: time();
+  return $rel . '?v=' . $v;
+}
+
+// helper: LEFT JOIN clause matching gps_corrections to a raw_logs row by
+// (raw_table, session, torque_time_ms). Centralised so the correction join key
+// lives in one place across session.php / get_session_gps.php / export.php.
+function gps_corr_join_sql(string $raw_table, string $session, string $raw_alias = 'r', string $corr_alias = 'gc'): string {
+  return " LEFT JOIN gps_corrections $corr_alias"
+       . " ON $corr_alias.raw_table = " . quote_value($raw_table)
+       . " AND $corr_alias.session = " . quote_value($session)
+       . " AND $corr_alias.torque_time_ms = $raw_alias.time";
+}
+
 ?>

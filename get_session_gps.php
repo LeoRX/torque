@@ -19,19 +19,14 @@ $table      = "{$db_table}_{$tableYear}_{$tableMonth}";
 
 // Prefer corrected GPS from gps_corrections; fall back to raw kff1005/kff1006.
 $_valid_raw = "r.kff1005 IS NOT NULL AND r.kff1006 IS NOT NULL AND r.kff1005 != 0 AND r.kff1006 != 0";
-$result = mysqli_query($con, "
-    SELECT
-        COALESCE(gc.corrected_lon, r.kff1005) AS lon,
-        COALESCE(gc.corrected_lat, r.kff1006) AS lat
-    FROM " . quote_name($table) . " r
-    LEFT JOIN gps_corrections gc
-           ON gc.raw_table = " . quote_value($table) . "
-          AND gc.session   = " . quote_value($sid) . "
-          AND gc.torque_time_ms = r.time
-    WHERE r.session = " . quote_value($sid) . "
-      AND (gc.id IS NOT NULL OR ($_valid_raw))
-    ORDER BY r.time ASC
-");
+$result = mysqli_query($con,
+    "SELECT COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+            COALESCE(gc.corrected_lat, r.kff1006) AS lat
+     FROM " . quote_name($table) . " r"
+   . gps_corr_join_sql($table, (string)$sid)
+   . " WHERE r.session = " . quote_value($sid) . "
+       AND (gc.id IS NOT NULL OR ($_valid_raw))
+     ORDER BY r.time ASC");
 // Raw-only fallback if gps_corrections does not exist yet (pre-migration)
 if (!$result) {
     $result = mysqli_query($con, "SELECT r.kff1005 AS lon, r.kff1006 AS lat

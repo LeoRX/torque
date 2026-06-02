@@ -13,6 +13,25 @@ class GpsRepairWorker {
     ) {}
 
     /**
+     * Build the worker $cfg array from the settings map. Single source of truth so
+     * the CLI (repair.php), the on-demand endpoint (gps_repair_run.php), and any
+     * future caller stay in lockstep on defaults and casts.
+     */
+    public static function config_from_settings(array $settings, string $db_table, string $db_sessions_table): array {
+        return [
+            'db_table'             => $db_table,
+            'db_sessions_table'    => $db_sessions_table,
+            'lookback_days'        => (int)  ($settings['gps_repair_lookback_days']   ?? 14),
+            'min_age_minutes'      => (int)  ($settings['gps_repair_min_age_minutes'] ?? 5),
+            'ha_tolerance_seconds' => (int)  ($settings['gps_ha_tolerance_seconds']   ?? 120),
+            'ha_max_accuracy_m'    => (float)($settings['gps_ha_max_accuracy_m']      ?? 50),
+            'stale_window_seconds' => (float)($settings['gps_stale_window_seconds']   ?? 60),
+            'stale_min_speed_kmh'  => (float)($settings['gps_stale_min_speed_kmh']    ?? 10),
+            'stale_max_movement_m' => (float)($settings['gps_stale_max_movement_m']   ?? 10),
+        ];
+    }
+
+    /**
      * Main entry point.
      *
      * $options may contain:

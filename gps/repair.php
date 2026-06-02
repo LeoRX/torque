@@ -42,22 +42,8 @@ if (isset($opts['help'])) {
 $dry_run = isset($opts['dry-run']);
 $stats   = isset($opts['stats']);
 
-$cfg = [
-    'db_table'              => $db_table,
-    'db_sessions_table'     => $db_sessions_table,
-    'lookback_days'         => (int)  ($settings['gps_repair_lookback_days']   ?? 14),
-    'min_age_minutes'       => (int)  ($settings['gps_repair_min_age_minutes'] ?? 5),
-    'ha_tolerance_seconds'  => (int)  ($settings['gps_ha_tolerance_seconds']   ?? 120),
-    'ha_max_accuracy_m'     => (float)($settings['gps_ha_max_accuracy_m']      ?? 50),
-    'stale_window_seconds'  => (float)($settings['gps_stale_window_seconds']   ?? 60),
-    'stale_min_speed_kmh'   => (float)($settings['gps_stale_min_speed_kmh']    ?? 10),
-    'stale_max_movement_m'  => (float)($settings['gps_stale_max_movement_m']   ?? 10),
-];
-
-$ha_base_url = trim($settings['ha_base_url'] ?? '');
-$ha_token    = trim($settings['ha_token']    ?? '');
-$ha_entity   = trim($settings['ha_entity_id'] ?? '');
-$provider    = new HomeAssistantProvider($ha_base_url, $ha_token, $ha_entity);
+$cfg      = GpsRepairWorker::config_from_settings($settings, $db_table, $db_sessions_table);
+$provider = HomeAssistantProvider::from_settings($settings);
 
 // --stats is read-only and needs no HA connectivity.
 if ($stats) {
@@ -74,7 +60,7 @@ if (!$ha_enabled && !$dry_run) {
     echo "GPS repair is disabled. Enable it in Settings → GPS Repair, or pass --dry-run to preview.\n";
     exit(0);
 }
-if (!$ha_base_url || !$ha_token || !$ha_entity) {
+if (!HomeAssistantProvider::is_configured($settings)) {
     echo "Error: ha_base_url, ha_token, and ha_entity_id must be configured in Settings → GPS Repair.\n";
     exit(1);
 }

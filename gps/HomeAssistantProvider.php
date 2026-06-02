@@ -10,6 +10,22 @@ class HomeAssistantProvider implements GpsLocationProvider {
         private readonly string $entity_id
     ) {}
 
+    /** True if base URL, token, and entity are all present in settings. */
+    public static function is_configured(array $settings): bool {
+        return trim($settings['ha_base_url'] ?? '') !== ''
+            && trim($settings['ha_token'] ?? '') !== ''
+            && trim($settings['ha_entity_id'] ?? '') !== '';
+    }
+
+    /** Build a provider from the settings array (no validation — see is_configured()). */
+    public static function from_settings(array $settings): self {
+        return new self(
+            rtrim(trim($settings['ha_base_url'] ?? ''), '/'),
+            trim($settings['ha_token'] ?? ''),
+            trim($settings['ha_entity_id'] ?? '')
+        );
+    }
+
     public function get_history(int $start_ms, int $end_ms): array {
         $start = gmdate('Y-m-d\TH:i:s\Z', intdiv($start_ms, 1000));
         $end   = gmdate('Y-m-d\TH:i:s\Z', intdiv($end_ms,   1000));

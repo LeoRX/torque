@@ -36,28 +36,14 @@ if ($sid === '') {
 }
 
 $ha_enabled = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
-$base = rtrim(trim($settings['ha_base_url'] ?? ''), '/');
-$tokn = trim($settings['ha_token'] ?? '');
-$ent  = trim($settings['ha_entity_id'] ?? '');
-
 if (!$ha_enabled) { echo json_encode(['error' => 'GPS repair is disabled in Settings.']); exit; }
-if ($base === '' || $tokn === '' || $ent === '') {
+if (!HomeAssistantProvider::is_configured($settings)) {
     echo json_encode(['error' => 'Home Assistant is not fully configured in Settings.']);
     exit;
 }
 
-$provider = new HomeAssistantProvider($base, $tokn, $ent);
-$cfg = [
-    'db_table'             => $db_table,
-    'db_sessions_table'    => $db_sessions_table,
-    'lookback_days'        => (int)  ($settings['gps_repair_lookback_days']   ?? 14),
-    'min_age_minutes'      => (int)  ($settings['gps_repair_min_age_minutes'] ?? 5),
-    'ha_tolerance_seconds' => (int)  ($settings['gps_ha_tolerance_seconds']   ?? 120),
-    'ha_max_accuracy_m'    => (float)($settings['gps_ha_max_accuracy_m']      ?? 50),
-    'stale_window_seconds' => (float)($settings['gps_stale_window_seconds']   ?? 60),
-    'stale_min_speed_kmh'  => (float)($settings['gps_stale_min_speed_kmh']    ?? 10),
-    'stale_max_movement_m' => (float)($settings['gps_stale_max_movement_m']   ?? 10),
-];
+$provider = HomeAssistantProvider::from_settings($settings);
+$cfg      = GpsRepairWorker::config_from_settings($settings, $db_table, $db_sessions_table);
 
 $y     = date('Y', intdiv((int)$sid, 1000));
 $m     = date('m', intdiv((int)$sid, 1000));

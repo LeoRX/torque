@@ -72,6 +72,8 @@ $_setting_defaults = [
   'gps_stale_max_movement_m'   => ['10',                       'float',   'Stale GPS Max Movement (m)', 'If GPS moves less than this within the window (while speed > threshold), flag as stale.', 'gps_repair'],
   'gps_repair_cron'            => ['1',                        'boolean', 'Run Scheduled Repair',        'Periodically run the GPS repair job automatically inside the container.', 'gps_repair'],
   'gps_repair_interval'        => ['604800',                   'select',  'Repair Schedule',             'How often the scheduled repair job runs.', 'gps_repair'],
+  'gps_route_gap_seconds'      => ['30',                       'integer', 'Route Gap Time (sec)',        'On the map, do not draw a line between two GPS fixes more than this many seconds apart (a dropout).', 'gps_repair'],
+  'gps_route_gap_meters'       => ['300',                      'integer', 'Route Gap Distance (m)',      'On the map, do not draw a line between two GPS fixes more than this many metres apart (a dropout).', 'gps_repair'],
 ];
 
 // Remove obsolete settings (one-time cleanup); only run DELETE if rows exist

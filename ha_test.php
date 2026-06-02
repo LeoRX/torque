@@ -12,14 +12,13 @@ require_once('./gps/HomeAssistantProvider.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
-$base = rtrim(trim($settings['ha_base_url'] ?? ''), '/');
-$tok  = trim($settings['ha_token'] ?? '');
-$ent  = trim($settings['ha_entity_id'] ?? '');
-
-if ($base === '' || $tok === '' || $ent === '') {
+if (!HomeAssistantProvider::is_configured($settings)) {
     echo json_encode(['error' => 'HA URL, token, and entity must be configured and saved first.']);
     exit;
 }
+$base = rtrim(trim($settings['ha_base_url'] ?? ''), '/');
+$tok  = trim($settings['ha_token'] ?? '');
+$ent  = trim($settings['ha_entity_id'] ?? '');
 
 $start = gmdate('Y-m-d\TH:i:s\Z', time() - 1800); // last 30 min
 $end   = gmdate('Y-m-d\TH:i:s\Z', time());
