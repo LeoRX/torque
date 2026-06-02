@@ -277,8 +277,9 @@ When a session has a GPS problem and HA repair is enabled, `session.php` shows a
 `ha_enabled`, `ha_base_url`, `ha_token`, `ha_entity_id` (comma-separated entities allowed),
 `gps_repair_lookback_days` (14), `gps_repair_min_age_minutes` (5), `gps_ha_tolerance_seconds` (120),
 `gps_ha_max_accuracy_m` (50; 0 = no limit), `gps_stale_window_seconds` (60), `gps_stale_min_speed_kmh` (10),
-`gps_stale_max_movement_m` (10). HA token lives in the DB, never in code. The worker writes a read-only
-`gps_repair_last_run` heartbeat (shown on the Settings page).
+`gps_stale_max_movement_m` (10), `gps_repair_cron` (scheduler on/off, default on), `gps_repair_interval`
+(cadence seconds, default 604800 = weekly). HA token lives in the DB, never in code. The worker writes a
+read-only `gps_repair_last_run` heartbeat (shown on the Settings page); the scheduler tracks `gps_repair_last_run_ts`.
 
 ### Detection & matching
 - **Invalid**: lat/lon null, `(0,0)`, or out of range → `missing_gps` / `zero_gps`.
@@ -301,9 +302,12 @@ docker exec p_torque php /var/www/html/gps/repair.php --session=<id>            
 docker exec p_torque php /var/www/html/gps/repair.php --stats                       # read-only summary
 docker exec p_torque php /var/www/html/gps/repair.php                               # full lookback, live
 ```
-- **In-container scheduler (default):** `docker/entrypoint.sh` starts a background loop that runs
-  `gps/repair.php` every `GPS_REPAIR_INTERVAL` seconds (default 604800 = 1 week). Disable with env
-  `GPS_REPAIR_CRON=0`. Output is prefixed `[gps-repair]` in `docker logs`. No host cron required.
+- **In-container scheduler (default):** `docker/entrypoint.sh` runs a short loop (every `GPS_REPAIR_TICK`
+  seconds, default 300) calling `gps/scheduler_tick.php`, which reads **`gps_repair_cron`** (on/off) and
+  **`gps_repair_interval`** (cadence: Hourly…Weekly, default Weekly) from the Settings page and runs
+  `gps/repair.php` only when the interval has elapsed (tracked via `gps_repair_last_run_ts`). The schedule
+  is DB-controlled — change it in Settings, no restart needed. Env `GPS_REPAIR_CRON=0` is an ops-level hard
+  kill that stops the loop. Output is prefixed `[gps-repair]` in `docker logs`. No host cron required.
 - **On-demand:** the in-map "Repair GPS" button (per session) via `gps_repair_run.php`. The button is
   hidden for drives older than `gps_repair_lookback_days` (default 14d) since HA Recorder history has expired.
 - **Host cron (alternative):** `*/5 * * * * docker exec p_torque php /var/www/html/gps/repair.php`

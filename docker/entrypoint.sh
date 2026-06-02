@@ -40,23 +40,25 @@ chmod 600 /var/www/html/creds.php
 echo "entrypoint: creds.php generated from environment variables."
 
 # ── In-container GPS repair scheduler ─────────────────────────────────────────
-# Runs gps/repair.php on an interval inside this container (no host cron needed).
-# Disable with GPS_REPAIR_CRON=0; tune cadence with GPS_REPAIR_INTERVAL (seconds,
-# default 604800 = 1 week). repair.php is a no-op when GPS repair is disabled in
-# Settings, so this is safe to leave on. Output is prefixed → container stdout.
+# A short loop calls scheduler_tick.php, which reads the cadence/on-off from the
+# Settings page (gps_repair_cron + gps_repair_interval) and runs gps/repair.php
+# only when the interval has elapsed. So the schedule is DB-controlled — no host
+# cron and no container restart needed to change it. GPS_REPAIR_CRON=0 is an
+# ops-level hard kill that stops the loop entirely. GPS_REPAIR_TICK tunes how
+# often the loop checks (seconds, default 300). Output → container stdout.
 if [ "${GPS_REPAIR_CRON:-1}" != "0" ]; then
-    GPS_REPAIR_INTERVAL="${GPS_REPAIR_INTERVAL:-604800}"
-    echo "entrypoint: in-container GPS repair scheduler enabled (every ${GPS_REPAIR_INTERVAL}s)."
+    GPS_REPAIR_TICK="${GPS_REPAIR_TICK:-300}"
+    echo "entrypoint: in-container GPS repair scheduler enabled (tick ${GPS_REPAIR_TICK}s; cadence set in Settings)."
     (
-        # Let Apache and the DB settle before the first run
+        # Let Apache and the DB settle before the first tick
         sleep 60
         while true; do
-            php /var/www/html/gps/repair.php 2>&1 | sed 's/^/[gps-repair] /' || true
-            sleep "${GPS_REPAIR_INTERVAL}"
+            php /var/www/html/gps/scheduler_tick.php 2>&1 | sed 's/^/[gps-repair] /' || true
+            sleep "${GPS_REPAIR_TICK}"
         done
     ) &
 else
-    echo "entrypoint: in-container GPS repair scheduler disabled (GPS_REPAIR_CRON=0)."
+    echo "entrypoint: in-container GPS repair scheduler hard-disabled (GPS_REPAIR_CRON=0)."
 fi
 
 exec "$@"

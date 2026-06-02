@@ -88,12 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     'gps_repair_lookback_days','gps_repair_min_age_minutes',
     'gps_ha_tolerance_seconds','gps_ha_max_accuracy_m','gps_stale_window_seconds',
     'gps_stale_min_speed_kmh','gps_stale_max_movement_m',
+    'gps_repair_cron','gps_repair_interval',
     // (map_default_type and gmaps_api_key removed)
   ];
   // Boolean fields — unchecked checkboxes send nothing, so default to 0
   $boolean_keys = ['show_session_length','source_is_fahrenheit','use_fahrenheit',
                    'source_is_miles','use_miles','hide_empty_variables','show_render_time',
-                   'claude_enabled','ha_enabled'];
+                   'claude_enabled','ha_enabled','gps_repair_cron'];
   foreach ($boolean_keys as $bk) {
     if (!isset($_POST[$bk])) $_POST[$bk] = '0';
   }
@@ -125,6 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     $_POST['gps_ha_tolerance_seconds'] = (string)max(10, min(600, (int)$_POST['gps_ha_tolerance_seconds']));
   if (array_key_exists('gps_ha_max_accuracy_m', $_POST))
     $_POST['gps_ha_max_accuracy_m'] = (string)max(0.0, min(1000.0, (float)$_POST['gps_ha_max_accuracy_m']));
+  if (array_key_exists('gps_repair_interval', $_POST)
+      && !in_array($_POST['gps_repair_interval'], ['3600','21600','86400','259200','604800'], true))
+    $_POST['gps_repair_interval'] = '604800';
   if (array_key_exists('gps_stale_window_seconds', $_POST))
     $_POST['gps_stale_window_seconds'] = (string)max(10, min(300, (int)$_POST['gps_stale_window_seconds']));
   if (array_key_exists('gps_stale_min_speed_kmh', $_POST))
@@ -824,6 +828,28 @@ $mapbox_styles = [
                 <input type="number" class="form-control form-control-sm" name="gps_ha_max_accuracy_m"
                   min="0" max="1000" step="5" value="<?php echo (float)($settings['gps_ha_max_accuracy_m'] ?? 50); ?>">
               </div>
+            </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Run Scheduled Repair</div>
+              <div class="setting-desc mb-2">Automatically run the repair job inside the container on a schedule. (Container env <code>GPS_REPAIR_CRON=0</code> hard-disables it regardless.)</div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="gps_repair_cron" value="1" id="gps_repair_cron"
+                  <?php echo (!empty($settings['gps_repair_cron']) && $settings['gps_repair_cron'] !== '0') ? 'checked' : ''; ?>>
+                <label class="form-check-label" for="gps_repair_cron">Enabled</label>
+              </div>
+            </div>
+
+            <div class="setting-row mb-3">
+              <div class="setting-label mb-1">Repair Schedule</div>
+              <div class="setting-desc mb-2">How often the scheduled job runs (changes take effect within ~5 min, no restart needed).</div>
+              <?php $_int = (string)($settings['gps_repair_interval'] ?? '604800');
+                    $_int_opts = ['3600'=>'Hourly','21600'=>'Every 6 hours','86400'=>'Daily','259200'=>'Every 3 days','604800'=>'Weekly']; ?>
+              <select class="form-select form-select-sm" style="max-width:220px;" name="gps_repair_interval">
+                <?php foreach ($_int_opts as $_v => $_lbl): ?>
+                <option value="<?php echo $_v; ?>" <?php if ($_int === $_v) echo 'selected'; ?>><?php echo $_lbl; ?></option>
+                <?php endforeach; ?>
+              </select>
             </div>
 
             <div class="row g-2">

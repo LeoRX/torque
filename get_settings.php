@@ -70,6 +70,8 @@ $_setting_defaults = [
   'gps_stale_window_seconds'   => ['60',                       'integer', 'Stale GPS Window (sec)',      'Time window used to detect frozen GPS coordinates.', 'gps_repair'],
   'gps_stale_min_speed_kmh'    => ['10',                       'float',   'Stale GPS Min Speed (km/h)', 'Average OBD speed (kd) needed within the window to flag GPS as stale.', 'gps_repair'],
   'gps_stale_max_movement_m'   => ['10',                       'float',   'Stale GPS Max Movement (m)', 'If GPS moves less than this within the window (while speed > threshold), flag as stale.', 'gps_repair'],
+  'gps_repair_cron'            => ['1',                        'boolean', 'Run Scheduled Repair',        'Periodically run the GPS repair job automatically inside the container.', 'gps_repair'],
+  'gps_repair_interval'        => ['604800',                   'select',  'Repair Schedule',             'How often the scheduled repair job runs.', 'gps_repair'],
 ];
 
 // Remove obsolete settings (one-time cleanup); only run DELETE if rows exist
