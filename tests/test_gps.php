@@ -97,6 +97,16 @@ for ($i = 0; $i < 30; $i++) {
 $stale = GpsFunctions::find_stale_windows($rows, 60, 10, 10);
 ok('partial freeze: some rows stale, not all', count($stale) > 0 && count($stale) < 30);
 
+// A long frozen cluster may exceed the configured detection window. Keep the
+// entire cluster stale instead of dropping the final sparse row after a forced
+// window split.
+$rows = [];
+for ($i = 0; $i < 5; $i++) {
+    $rows[] = ['time_ms' => $i * 20000, 'lat' => -37.888, 'lon' => 145.339, 'speed_kmh' => 50.0];
+}
+$stale = GpsFunctions::find_stale_windows($rows, 60, 10, 10);
+ok('long frozen cluster keeps sparse tail stale', count($stale) === count($rows));
+
 // Null speed rows: treated as unknown, should not flag stale alone
 $rows = [];
 for ($i = 0; $i < 10; $i++) {

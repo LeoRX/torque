@@ -77,7 +77,6 @@ class GpsFunctions {
         // queue repair work. This catches real 20-30s+ freezes while ignoring
         // tiny duplicate-coordinate bursts from normal GPS jitter.
         $min_duration_ms = (int)(min(30.0, max(10.0, $window_s / 2.0)) * 1000.0);
-        $max_window_ms   = (int)($window_s * 1000.0);
 
         $flush_run = function () use (&$run, &$stale, $min_duration_ms, $min_speed, $max_movement): void {
             if (count($run) < 2) {
@@ -128,13 +127,12 @@ class GpsFunctions {
             }
 
             $first = $run[0];
-            $elapsed_ms = $row['time_ms'] - $first['time_ms'];
             $drift_m = self::haversine_m(
                 $first['lat'], $first['lon'],
                 $row['lat'],   $row['lon']
             );
 
-            if ($elapsed_ms <= $max_window_ms && $drift_m < $max_movement) {
+            if ($drift_m < $max_movement) {
                 $run[] = $row;
                 continue;
             }
