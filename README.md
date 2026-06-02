@@ -12,7 +12,8 @@ Browse sessions, plot OBD2 time-series data against interactive charts, follow y
 
 - **Session browser** — calendar and list views, filterable by vehicle profile and month
 - **Interactive charts** — plot any OBD2 PID over time; zoom, pan, multi-select via Chart.js
-- **GPS map** — Mapbox GL route overlay with chart↔map crosshair sync
+- **GPS map** — Mapbox GL route overlay with chart↔map crosshair sync; speed-coloured route line that breaks at GPS dropouts (no fake straight lines), with green/red start/finish markers
+- **GPS repair** — backfills missing, zero, or frozen GPS from Home Assistant location history into a separate table (raw data never overwritten); repaired points shown as dots, runnable on a schedule or on demand
 - **TorqueAI** — Claude-powered assistant with session context (OBD averages, fuel trim trends)
 - **Data export** — CSV and JSON per session
 - **Dark mode** — persistent, toggle in navbar
@@ -157,6 +158,65 @@ After logging in, go to **Settings** to configure:
 | Unit system | km/h ↔ mph, Celsius ↔ Fahrenheit |
 | Min session size | Hide sessions with fewer data points (filters noise) |
 | TorqueAI | Enable + paste your [Anthropic API key](https://console.anthropic.com) |
+| GPS Repair | Enable + Home Assistant URL, token, and entity (see below) |
+
+---
+
+## GPS Repair (Home Assistant)
+
+Torque Pro sometimes uploads bad GPS — coordinates stuck at `0,0`, missing, or frozen at one
+spot while the car keeps moving. The GPS repair subsystem detects those rows and backfills
+corrected coordinates from your **Home Assistant** location history, **without ever modifying the
+raw uploaded data**. Corrected points are stored in a separate `gps_corrections` table and shown
+on the map as amber dots; the route always prefers a correction when one exists, otherwise raw GPS.
+
+### Setup
+
+1. **In Home Assistant**, make sure the Recorder is storing your device tracker. Add (or confirm)
+   your tracker in `configuration.yaml` and **restart HA**:
+   ```yaml
+   recorder:
+     include:
+       entities:
+         - device_tracker.your_phone   # or person.your_name
+   ```
+2. **Create a long-lived access token** in HA: Profile → Long-Lived Access Tokens.
+3. **In Open Torque Viewer → Settings → GPS Repair**, set:
+   - **Enable GPS Repair**
+   - **Home Assistant URL** (e.g. `https://ha.example.com`, no trailing slash)
+   - **HA Access Token** (the token from step 2)
+   - **HA Entity ID** (e.g. `device_tracker.your_phone`; comma-separate multiple)
+   - Use **Test Home Assistant** to confirm connectivity and that recent points are returned.
+
+The remaining tuning options (match tolerance, accuracy gate, stale-GPS thresholds, route-line
+gap thresholds, and the repair schedule) all have sensible defaults and are editable on the same page.
+
+### How repairs run
+
+- **Scheduled (default):** the container runs the repair job automatically. Turn it on/off and pick
+  the cadence (Hourly … Weekly, default **Weekly**) under **Settings → GPS Repair**. Container env
+  `GPS_REPAIR_CRON=0` hard-disables it; `GPS_REPAIR_TICK` (seconds, default 300) tunes how often the
+  scheduler checks whether it's time to run.
+- **On demand:** open a session that has a GPS problem and click the **Repair GPS** button on the map.
+- **Manually / CLI:**
+  ```bash
+  docker compose exec torque php /var/www/html/gps/repair.php --dry-run --lookback-days=1   # preview
+  docker compose exec torque php /var/www/html/gps/repair.php --session=<id>                # one session
+  docker compose exec torque php /var/www/html/gps/repair.php --stats                       # show counts
+  docker compose exec torque php /var/www/html/gps/repair.php                               # full run
+  ```
+
+### Good to know
+
+- **Forward-only.** Only drives that happened *after* HA started recording the tracker can be
+  repaired. Earlier drives have no history to draw from (and HA Recorder retention is typically ~14 days).
+- **Raw data is never overwritten** — corrections live in their own table and are applied at read time.
+- **Uploads never wait on Home Assistant.** Repair runs separately; if HA is unreachable the rows are
+  simply left for the next run.
+- The location source is pluggable (a `GpsLocationProvider` interface), so other providers
+  (e.g. Dawarich) can be added later without touching the repair worker.
+
+Requires migrations v25/v26 — run `db_upgrade.php` (see Database Setup) after upgrading.
 
 ---
 
@@ -181,8 +241,10 @@ torque/
 ├── get_settings.php       ← Settings loader + tz_date() helper
 ├── settings.php           ← Settings UI
 ├── export.php             ← CSV / JSON export
+├── gps/                   ← GPS repair subsystem (detection, HA provider, worker, CLI)
+│   └── repair.php         ← Repair worker CLI entry point
 ├── docker/
-│   └── entrypoint.sh      ← Generates creds.php from env vars at startup
+│   └── entrypoint.sh      ← Generates creds.php from env vars; starts the repair scheduler loop
 ├── static/
 │   ├── css/torque.css
 │   └── js/torquehelpers.js
@@ -204,6 +266,7 @@ Extended by [@LeoRX](https://github.com/LeoRX) with:
 - Mapbox GL JS map with chart↔map crosshair sync
 - Bootstrap 5 dark-mode UI
 - TorqueAI assistant (Claude API)
+- GPS repair / enrichment from Home Assistant location history
 - GitHub Actions CI/CD (PHP lint, secret scan, multi-arch Docker build)
 
 ---
