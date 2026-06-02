@@ -70,45 +70,80 @@ class GpsFunctions {
         float $min_speed    = 10.0,
         float $max_movement = 10.0
     ): array {
-        $n     = count($rows);
         $stale = [];
+        $run   = [];
 
-        for ($i = 0; $i < $n; $i++) {
-            $end_ms = $rows[$i]['time_ms'] + (int)($window_s * 1000.0);
+        // A frozen fix should persist long enough to be meaningful before we
+        // queue repair work. This catches real 20-30s+ freezes while ignoring
+        // tiny duplicate-coordinate bursts from normal GPS jitter.
+        $min_duration_ms = (int)(min(30.0, max(10.0, $window_s / 2.0)) * 1000.0);
+        $max_window_ms   = (int)($window_s * 1000.0);
 
-            // Collect valid-GPS rows in the window starting at row i
-            $win = [];
-            for ($j = $i; $j < $n && $rows[$j]['time_ms'] <= $end_ms; $j++) {
-                if (self::is_valid_point($rows[$j]['lat'], $rows[$j]['lon'])) {
-                    $win[] = $rows[$j];
-                }
+        $flush_run = function () use (&$run, &$stale, $min_duration_ms, $min_speed, $max_movement): void {
+            if (count($run) < 2) {
+                $run = [];
+                return;
             }
-            if (count($win) < 2) continue;
 
-            // Require average OBD speed above threshold to avoid flagging stops/lights
+            $duration_ms = $run[array_key_last($run)]['time_ms'] - $run[0]['time_ms'];
+            if ($duration_ms < $min_duration_ms) {
+                $run = [];
+                return;
+            }
+
             $speeds = array_filter(
-                array_column($win, 'speed_kmh'),
+                array_column($run, 'speed_kmh'),
                 fn($s) => $s !== null && $s >= 0.0
             );
-            if (empty($speeds)) continue;
-            if (array_sum($speeds) / count($speeds) < $min_speed) continue;
-
-            // Measure total GPS path length within the window
-            $movement = 0.0;
-            for ($k = 1; $k < count($win); $k++) {
-                $movement += self::haversine_m(
-                    $win[$k - 1]['lat'], $win[$k - 1]['lon'],
-                    $win[$k]['lat'],     $win[$k]['lon']
-                );
+            if (empty($speeds) || array_sum($speeds) / count($speeds) < $min_speed) {
+                $run = [];
+                return;
             }
 
+            $movement = 0.0;
+            for ($k = 1; $k < count($run); $k++) {
+                $movement += self::haversine_m(
+                    $run[$k - 1]['lat'], $run[$k - 1]['lon'],
+                    $run[$k]['lat'],     $run[$k]['lon']
+                );
+            }
             if ($movement < $max_movement) {
-                foreach ($win as $row) {
+                foreach ($run as $row) {
                     $stale[$row['time_ms']] = true;
                 }
             }
+
+            $run = [];
+        };
+
+        foreach ($rows as $row) {
+            if (!self::is_valid_point($row['lat'], $row['lon'])) {
+                $flush_run();
+                continue;
+            }
+
+            if (empty($run)) {
+                $run[] = $row;
+                continue;
+            }
+
+            $first = $run[0];
+            $elapsed_ms = $row['time_ms'] - $first['time_ms'];
+            $drift_m = self::haversine_m(
+                $first['lat'], $first['lon'],
+                $row['lat'],   $row['lon']
+            );
+
+            if ($elapsed_ms <= $max_window_ms && $drift_m < $max_movement) {
+                $run[] = $row;
+                continue;
+            }
+
+            $flush_run();
+            $run[] = $row;
         }
 
+        $flush_run();
         return array_keys($stale);
     }
 }

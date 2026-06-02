@@ -167,6 +167,17 @@ ok('HA multi: entity_id on first',       $mp[0]->entity === 'device_tracker.phon
 ok('HA multi: second entity attributed', $mp[1]->entity === 'person.someone');
 ok('HA multi: entity_id carried forward',$mp[2]->entity === 'device_tracker.phone_a');
 
+// HA request code must concatenate the saved token. Keep redaction in logs/docs
+// only; executable cURL headers must never contain placeholder text.
+$ha_request_sources = [
+    __DIR__ . '/../ha_test.php',
+    __DIR__ . '/../gps/HomeAssistantProvider.php',
+];
+foreach ($ha_request_sources as $source) {
+    ok('HA auth header is not redacted in ' . basename($source),
+        strpos((string)file_get_contents($source), 'Authorization: Bearer ***') === false);
+}
+
 // ── find_nearest_point (inline mirror of GpsRepairWorker private method) ─────
 function find_nearest_test(array $points, int $time_ms): ?GpsLocationPoint {
     $best = null; $best_d = PHP_INT_MAX;

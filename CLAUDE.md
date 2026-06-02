@@ -294,7 +294,7 @@ build the worker bootstrap once for repair.php / gps_repair_run.php / ha_test.ph
 
 ### Detection & matching
 - **Invalid**: lat/lon null, `(0,0)`, or out of range → `missing_gps` / `zero_gps`.
-- **Stale**: within a sliding window (default 60s), if avg OBD speed (`kd`) ≥ threshold (10 km/h) but total GPS movement < threshold (10 m), all rows in the window are flagged `stale_gps`. Stationary/low-speed rows are never flagged (avoids traffic-light/driveway false positives).
+- **Stale**: `GpsFunctions::find_stale_windows()` groups consecutive valid GPS rows whose coordinates barely drift while OBD speed (`kd`) stays above threshold. A frozen cluster must persist long enough to be meaningful (derived from `gps_stale_window_seconds`, default 60s) before rows are flagged `stale_gps`, so brief duplicate-coordinate bursts do not mark an entire drive stale. Stationary/low-speed rows are never flagged (avoids traffic-light/driveway false positives).
 - **Accuracy gate**: HA points with `gps_accuracy` worse than `gps_ha_max_accuracy_m` are dropped before matching (null accuracy passes; 0 disables).
 - **Confidence**: by |Torque−HA| timestamp delta — `high` ≤30s, `medium` ≤90s, else `low`.
 
@@ -302,6 +302,7 @@ build the worker bootstrap once for repair.php / gps_repair_run.php / ha_test.ph
 - **HA recorder must be recording the tracker entity.** History returns `[]` for any window before recording started. Verify the entity is included in HA `recorder:` config and **restart HA** after changing it. Use the Settings "Test Home Assistant" button or `repair.php --stats` to sanity-check.
 - **Forward-only.** Only sessions driven *after* HA began recording the entity can be repaired. Earlier sessions are unrecoverable (HA Recorder retention is also ~14 days).
 - **Never send `minimal_response=true`** to the HA history API — it strips `attributes` (lat/lon) from all but the first/last state. The provider requests full state history.
+- **Never redact executable HA auth headers.** `ha_test.php` and `gps/HomeAssistantProvider.php` must build the `Authorization: Bearer ...` header by concatenating the saved token at runtime; redaction belongs in logs/docs only. `tests/test_gps.php` guards against literal placeholder text appearing in those request headers.
 - **`db_upgrade.php` runs from CLI** (`docker exec p_torque php /var/www/html/db_upgrade.php`); it skips the web-auth gate under `PHP_SAPI === 'cli'`. From a browser it still requires login.
 - The worker **never blocks uploads** and **never writes to HA**. If HA is down, `get_history()` returns `[]` and the row is left uncorrected (logged), to retry next run.
 - Queries by **Torque row timestamp**, never "current HA location".
