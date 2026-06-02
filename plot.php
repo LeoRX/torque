@@ -62,11 +62,19 @@ if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
         $keyarr[$row['id']] = [$row['description'], $row['units']];
     }
     // Build the SELECT column list from requested variables
+    // Validate each k-code against the known-keys whitelist before use as a column name.
+    // quote_name() backtick-escapes identifiers (prevents SQL injection), but without
+    // this check an authenticated user could read arbitrary columns from raw_logs tables.
     $selectstring = "time";
     $i = 1;
+    $plotIdx = 1;
     while (isset($_GET["s$i"])) {
-        $plotVar[$i]   = $_GET["s$i"];
-        $selectstring .= "," . quote_name($plotVar[$i]);
+        $candidate = $_GET["s$i"];
+        if (array_key_exists($candidate, $keyarr)) {
+            $plotVar[$plotIdx] = $candidate;
+            $selectstring .= "," . quote_name($candidate);
+            $plotIdx++;
+        }
         $i++;
     }
     // Get data for session
