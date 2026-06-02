@@ -260,15 +260,31 @@ document.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
-  var MAX_STOPS = 50;
-  var rawFractions = [];
-  var n    = _routeData.length;
-  var step = Math.max(1, Math.floor(n / MAX_STOPS));
-  for (var si = 0; si < n; si += step) {
-    rawFractions.push(_maxSpeed > 0 ? Math.min(1, _routeData[si][2] / _maxSpeed) : 0);
+  // Speed → colour (blue = slow … red = fast), matching the legend gradient.
+  function _speedColor(speed) {
+    var r = _maxSpeed > 0 ? Math.min(1, Math.max(0, speed / _maxSpeed)) : 0;
+    var h = (1 - r) * 240, s = 1.0, l = 0.45;
+    var c = (1 - Math.abs(2 * l - 1)) * s;
+    var x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    var m = l - c / 2, rr, gg, bb;
+    if      (h < 60)  { rr = c; gg = x; bb = 0; }
+    else if (h < 120) { rr = x; gg = c; bb = 0; }
+    else if (h < 180) { rr = 0; gg = c; bb = x; }
+    else if (h < 240) { rr = 0; gg = x; bb = c; }
+    else              { rr = x; gg = 0; bb = c; }
+    return 'rgb(' + Math.round((rr + m) * 255) + ',' + Math.round((gg + m) * 255) + ',' + Math.round((bb + m) * 255) + ')';
   }
-  if (rawFractions.length < 2) { rawFractions = [0, 0]; }
-  var fractions = rawFractions;
+  // Metres between two lon/lat points (Haversine) — for gap detection.
+  function _distM(lon1, lat1, lon2, lat2) {
+    var R = 6371000, p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+    var dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+  // A "gap" is a GPS dropout: don't draw a connecting line across it (it would
+  // imply a path we don't have). Break on a large time OR distance jump.
+  var GAP_TIME_MS = 30000; // > 30s between fixes
+  var GAP_DIST_M  = 300;   // > 300m between fixes
 
   window._torqueDrawRoute = function() {
     try {
@@ -278,31 +294,24 @@ document.addEventListener('DOMContentLoaded', function() {
       if (map.getSource('route'))         { map.removeSource('route'); }
       if (map.getSource('route-repaired')){ map.removeSource('route-repaired'); }
 
-      var gradientStops = [];
-      var fn = fractions.length;
-      for (var i = 0; i < fn; i++) {
-        var pos = fn > 1 ? i / (fn - 1) : 0;
-        var r   = fractions[i];
-        var h   = (1 - r) * 240;
-        var s   = 1.0, l = 0.45;
-        var c   = (1 - Math.abs(2*l - 1)) * s;
-        var x   = c * (1 - Math.abs((h/60) % 2 - 1));
-        var m   = l - c/2;
-        var rr, gg, bb;
-        if      (h < 60)  { rr=c;  gg=x;  bb=0; }
-        else if (h < 120) { rr=x;  gg=c;  bb=0; }
-        else if (h < 180) { rr=0;  gg=c;  bb=x; }
-        else if (h < 240) { rr=0;  gg=x;  bb=c; }
-        else              { rr=x;  gg=0;  bb=c; }
-        var R = Math.round((rr+m)*255), G = Math.round((gg+m)*255), B = Math.round((bb+m)*255);
-        gradientStops.push(pos);
-        gradientStops.push('rgb('+R+','+G+','+B+')');
+      // Build per-segment coloured lines, skipping gaps so no fake straight
+      // connectors are drawn. Each kept span is its own 2-point LineString.
+      var segFeatures = [];
+      for (var i = 1; i < _routeData.length; i++) {
+        var a = _routeData[i - 1], b = _routeData[i];
+        var dtMs  = Math.abs((b[3] || 0) - (a[3] || 0));
+        var distM = _distM(a[0], a[1], b[0], b[1]);
+        if (dtMs > GAP_TIME_MS || distM > GAP_DIST_M) continue; // dropout — leave a gap
+        segFeatures.push({
+          type: 'Feature',
+          properties: { color: _speedColor(b[2] || 0) },
+          geometry: { type: 'LineString', coordinates: [[a[0], a[1]], [b[0], b[1]]] }
+        });
       }
 
       map.addSource('route', {
         type: 'geojson',
-        lineMetrics: true,
-        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+        data: { type: 'FeatureCollection', features: segFeatures }
       });
       map.addLayer({
         id: 'route-outline', type: 'line', source: 'route',
@@ -310,11 +319,10 @@ document.addEventListener('DOMContentLoaded', function() {
         paint: { 'line-width': _lineWeight + 3, 'line-color': '#111',
                  'line-opacity': Math.min(1, _lineOpacity + 0.2) }
       });
-      var gradExpr = ['interpolate', ['linear'], ['line-progress']].concat(gradientStops);
       map.addLayer({
         id: 'route', type: 'line', source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-width': _lineWeight, 'line-opacity': _lineOpacity, 'line-gradient': gradExpr }
+        paint: { 'line-width': _lineWeight, 'line-opacity': _lineOpacity, 'line-color': ['get', 'color'] }
       });
       map.fitBounds(bounds, { padding: 50, maxZoom: 17, duration: 0 });
 

@@ -269,6 +269,9 @@ never crashes if the table is missing (pre-migration). `session.php` exposes the
 of each `_routeData` entry (`'torque'` or `'home_assistant'`) and shows a repaired count in the Data Summary panel.
 `static/js/session.js` reads `_routeData[i][4]` to render an amber `route-repaired` circle layer over repaired
 points, a legend entry with the repaired count, and a "GPS repaired · Home Assistant" badge in the route hover popup.
+The route line is drawn as **per-segment speed-coloured lines that break at GPS dropouts** (gap when consecutive
+fixes are >30s apart OR >300m apart) — so it never draws a fake straight connector across missing data. Repaired
+points still appear as amber dots on top.
 `export.php` appends `gps_corrected_lon`, `gps_corrected_lat`, and `gps_source` columns to CSV/JSON (raw columns untouched).
 When a session has a GPS problem and HA repair is enabled, `session.php` shows an in-map **"Repair GPS"** button
 (`$gpsRepairOffer`) that POSTs to `gps_repair_run.php` to repair just that session on demand, then reloads.
