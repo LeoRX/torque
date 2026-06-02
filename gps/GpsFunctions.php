@@ -117,6 +117,11 @@ class GpsFunctions {
                 continue;
             }
 
+            if ($row['speed_kmh'] === null || $row['speed_kmh'] < $min_speed) {
+                $flush_run();
+                continue;
+            }
+
             if (empty($run)) {
                 $run[] = $row;
                 continue;

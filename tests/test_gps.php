@@ -127,6 +127,15 @@ $stale = GpsFunctions::find_stale_windows($rows, 60, 10, 10);
 ok('low-speed edge rows in frozen cluster not stale',
     $stale === [10000, 20000, 30000, 40000]);
 
+// A low-speed gap breaks a stale run. Two short moving freezes on either side
+// of a stop should not be glued together into one long stale segment.
+$rows = [];
+foreach ([50.0, 50.0, 0.0, 0.0, 50.0, 50.0] as $i => $speed) {
+    $rows[] = ['time_ms' => $i * 20000, 'lat' => -37.888, 'lon' => 145.339, 'speed_kmh' => $speed];
+}
+ok('low-speed gap breaks stale run',
+    count(GpsFunctions::find_stale_windows($rows, 60, 10, 10)) === 0);
+
 // Empty rows: no stale results
 ok('empty rows not stale',
     count(GpsFunctions::find_stale_windows([], 60, 10, 10)) === 0);
