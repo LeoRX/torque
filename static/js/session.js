@@ -14,7 +14,7 @@ var torqueDatasets = (_chartSeries && _chartSeries.length > 0)
       return {
         label: s.label,
         kcode: s.kcode,
-        data:  s.data.map(function(p) { return {x: p[0], y: p[1]}; }),
+        data:  s.data.map(function(p) { return {x: +p[0], y: +p[1]}; }),
         borderWidth:    1.5,
         pointRadius:    0,
         pointHitRadius: 8,

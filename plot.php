@@ -98,10 +98,10 @@ if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
                 $x = $temp_func(floatval($row[$kcode]));
                 $plotMeasurand[$i] = $temp_measurand;
             } else {
-                $x = $row[$kcode];
+                $x = (float)$row[$kcode];
                 $plotMeasurand[$i] = ' (' . $keyarr[$kcode][1] . ')';
             }
-            $plotData[$i][]  = [$row['time'], $x];
+            $plotData[$i][]  = [(int)$row['time'], $x];
             $plotSpark[$i][] = $x;
             $i++;
         }
