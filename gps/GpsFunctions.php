@@ -79,35 +79,31 @@ class GpsFunctions {
         $min_duration_ms = (int)(min(30.0, max(10.0, $window_s / 2.0)) * 1000.0);
 
         $flush_run = function () use (&$run, &$stale, $min_duration_ms, $min_speed, $max_movement): void {
-            if (count($run) < 2) {
+            $moving = array_values(array_filter(
+                $run,
+                fn($r) => $r['speed_kmh'] !== null && $r['speed_kmh'] >= $min_speed
+            ));
+
+            if (count($moving) < 2) {
                 $run = [];
                 return;
             }
 
-            $duration_ms = $run[array_key_last($run)]['time_ms'] - $run[0]['time_ms'];
+            $duration_ms = $moving[array_key_last($moving)]['time_ms'] - $moving[0]['time_ms'];
             if ($duration_ms < $min_duration_ms) {
                 $run = [];
                 return;
             }
 
-            $speeds = array_filter(
-                array_column($run, 'speed_kmh'),
-                fn($s) => $s !== null && $s >= 0.0
-            );
-            if (empty($speeds) || array_sum($speeds) / count($speeds) < $min_speed) {
-                $run = [];
-                return;
-            }
-
             $movement = 0.0;
-            for ($k = 1; $k < count($run); $k++) {
+            for ($k = 1; $k < count($moving); $k++) {
                 $movement += self::haversine_m(
-                    $run[$k - 1]['lat'], $run[$k - 1]['lon'],
-                    $run[$k]['lat'],     $run[$k]['lon']
+                    $moving[$k - 1]['lat'], $moving[$k - 1]['lon'],
+                    $moving[$k]['lat'],     $moving[$k]['lon']
                 );
             }
             if ($movement < $max_movement) {
-                foreach ($run as $row) {
+                foreach ($moving as $row) {
                     $stale[$row['time_ms']] = true;
                 }
             }

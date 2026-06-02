@@ -115,6 +115,18 @@ for ($i = 0; $i < 10; $i++) {
 ok('null speed not stale',
     count(GpsFunctions::find_stale_windows($rows, 60, 10, 10)) === 0);
 
+// Low-speed rows inside an otherwise frozen moving cluster should not be
+// queued for repair; traffic-light/driveway rows are allowed to sit beside a
+// stale segment, but are not stale themselves.
+$rows = [];
+for ($i = 0; $i < 6; $i++) {
+    $speed = ($i === 0 || $i === 5) ? 0.0 : 50.0;
+    $rows[] = ['time_ms' => $i * 10000, 'lat' => -37.888, 'lon' => 145.339, 'speed_kmh' => $speed];
+}
+$stale = GpsFunctions::find_stale_windows($rows, 60, 10, 10);
+ok('low-speed edge rows in frozen cluster not stale',
+    $stale === [10000, 20000, 30000, 40000]);
+
 // Empty rows: no stale results
 ok('empty rows not stale',
     count(GpsFunctions::find_stale_windows([], 60, 10, 10)) === 0);
