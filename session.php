@@ -256,9 +256,15 @@ if (isset($sids[0])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tom-select/2.3.1/css/tom-select.bootstrap5.min.css"
       integrity="sha512-w7Qns0H5VYP5I+I0F7sZId5lsVxTH217LlLUPujdU+nLMWXtyzsRPOP3RCRWTC8HLi77L4rZpJ4agDW3QnF7cw=="
       crossorigin="anonymous">
-    <link rel="stylesheet" href="static/css/torque.css">
-    <link rel="stylesheet" href="static/css/themes.css">
-    <link rel="stylesheet" href="static/css/hud.css">
+    <?php // Cache-bust local static assets by file mtime so deploys are picked up immediately
+      $_asset = function (string $rel): string {
+        $f = __DIR__ . '/' . $rel;
+        $v = @filemtime($f) ?: time();
+        return $rel . '?v=' . $v;
+      }; ?>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/torque.css')); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/themes.css')); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($_asset('static/css/hud.css')); ?>">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
       integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
@@ -313,8 +319,8 @@ if (isset($sids[0])) {
       var _hudSessionAvg = <?php echo isset($hudSessionAvg) ? json_encode($hudSessionAvg) : 'null'; ?>;
       var _aiSessionId   = <?php echo ($claude_enabled && isset($session_id)) ? json_encode($session_id) : "''"; ?>;
     </script>
-    <script src="static/js/torquehelpers.js"></script>
-    <script src="static/js/session.js"></script>
+    <script src="<?php echo htmlspecialchars($_asset('static/js/torquehelpers.js')); ?>"></script>
+    <script src="<?php echo htmlspecialchars($_asset('static/js/session.js')); ?>"></script>
   </head>
   <body>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hud-navbar">
