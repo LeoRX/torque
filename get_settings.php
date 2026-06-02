@@ -80,10 +80,13 @@ if ($_obs && (int)mysqli_fetch_row($_obs)[0] > 0) {
   mysqli_query($con, "DELETE FROM torque_settings WHERE setting_key IN ('map_default_type','gmaps_api_key','session_gap_threshold')");
 }
 
-// Seed defaults only when the row count is below what we expect — avoids 40+ INSERT IGNORE
-// queries on every page load once all settings are seeded.
+// Seed defaults only when some default key is missing — avoids 40+ INSERT IGNORE
+// queries on every page load once all settings are seeded. Count ONLY default keys
+// (not runtime keys like gps_repair_last_run/_ts) so they can't mask a missing default.
 $_expected_count = count($_setting_defaults);
-$_count_row = mysqli_fetch_row(mysqli_query($con, "SELECT COUNT(*) FROM torque_settings"));
+$_keys_in   = implode(',', array_map('quote_value', array_keys($_setting_defaults)));
+$_count_row = mysqli_fetch_row(mysqli_query($con,
+    "SELECT COUNT(*) FROM torque_settings WHERE setting_key IN ($_keys_in)"));
 if ((int)$_count_row[0] < $_expected_count) {
   foreach ($_setting_defaults as $key => [$val, $type, $label, $desc, $group]) {
     mysqli_query($con, "INSERT IGNORE INTO " . quote_name('torque_settings') . "

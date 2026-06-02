@@ -140,33 +140,39 @@ if (isset($sids[0])) {
   $mapHasGPS = (count($mapdata) > 0);
 
   // GPS quality: query sessions table to distinguish "no GPS" from "GPS recorded but no fix".
-  // Also detect whether the session has invalid/missing GPS points that could be repaired.
   $gpsQuality  = 'unknown'; // fallback if column doesn't exist yet (pre-migration sessions)
-  $gpsHasIssue = false;     // some recorded GPS points are invalid (gps_points > gps_valid_points)
   $_sess_gps_q = mysqli_query($con,
-      "SELECT gps_points, gps_valid_points FROM " . quote_name($db_sessions_table) .
+      "SELECT gps_points FROM " . quote_name($db_sessions_table) .
       " WHERE session = " . quote_value($session_id) . " LIMIT 1");
   if ($_sess_gps_q) {
       $_sgrow = mysqli_fetch_assoc($_sess_gps_q);
-      if (is_array($_sgrow)) {
-          $_gp = (int)($_sgrow['gps_points'] ?? 0);
-          $_gv = (int)($_sgrow['gps_valid_points'] ?? 0);
-          $gpsHasIssue = ($_gp > $_gv);
-          if (!$mapHasGPS) {
-              $gpsQuality = ($_gp > 0) ? 'recorded_no_fix' : 'none';
-          }
+      if (is_array($_sgrow) && !$mapHasGPS) {
+          $gpsQuality = ((int)($_sgrow['gps_points'] ?? 0) > 0) ? 'recorded_no_fix' : 'none';
       }
   }
   if ($mapHasGPS) { $gpsQuality = 'ok'; }
 
   // Offer an on-demand repair button when HA repair is enabled and this session
-  // shows a GPS problem (invalid points, or recorded-but-no-fix / no fix at all).
-  // Hide it for drives older than the lookback window (default 14d) — HA Recorder
-  // retention has expired, so there is no history left to repair from.
-  $ha_enabled       = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
-  $_lookbackDays    = (int)($settings['gps_repair_lookback_days'] ?? 14);
-  $_sessionAgeDays  = (time() - intdiv((int)$session_id, 1000)) / 86400.0;
-  $gpsRepairOffer   = $ha_enabled
+  // shows a GPS problem. Hide it for drives older than the lookback window
+  // (default 14d) — HA Recorder retention has expired, so there's nothing to repair from.
+  $ha_enabled      = !empty($settings['ha_enabled']) && $settings['ha_enabled'] !== '0';
+  $_lookbackDays   = (int)($settings['gps_repair_lookback_days'] ?? 14);
+  $_sessionAgeDays = (time() - intdiv((int)$session_id, 1000)) / 86400.0;
+
+  // Detect repairable GPS rows directly from the raw table — works for real-time
+  // uploads too (gps_points/gps_valid_points are only populated by batch uploads).
+  // Counts invalid fixes (null or zero-island); these are the rows the worker repairs.
+  // Only runs when an offer is otherwise possible (avoids an extra scan per page load).
+  $gpsHasIssue = (($repairedCount ?? 0) > 0); // already-repaired sessions stay offerable
+  if (!$gpsHasIssue && $ha_enabled && $_sessionAgeDays <= $_lookbackDays) {
+      $_bad_q = mysqli_query($con,
+          "SELECT 1 FROM " . quote_name($db_table_full) .
+          " WHERE session = " . quote_value($session_id) .
+          "   AND (kff1005 IS NULL OR kff1006 IS NULL OR (kff1005 = 0 AND kff1006 = 0)) LIMIT 1");
+      if ($_bad_q && mysqli_num_rows($_bad_q) > 0) { $gpsHasIssue = true; }
+  }
+
+  $gpsRepairOffer = $ha_enabled
       && ($_sessionAgeDays <= $_lookbackDays)
       && ($gpsHasIssue || $gpsQuality === 'recorded_no_fix' || $gpsQuality === 'none');
 

@@ -266,7 +266,8 @@ class GpsRepairWorker {
             . "  source               = " . quote_value($source) . ","
             . "  source_entity        = " . quote_value($entity) . ","
             . "  source_updated_at_ms = " . quote_value((string)$src_ts_ms) . ","
-            . "  reason               = " . quote_value($reason)
+            . "  reason               = " . quote_value($reason) . ","
+            . "  confidence           = " . quote_value($confidence)
         );
     }
 
