@@ -294,6 +294,31 @@ if (!migration_applied($con, 27)) {
   echo "Migration 27: already applied.\n";
 }
 
+// ── v28: corrected_speed_kmh on gps_corrections (2026-06-03) ─────────────────
+// Derived GPS speed (km/h) at each repaired point. Computed by GpsRepairWorker
+// from the haversine distance between consecutive corrected/raw-valid GPS
+// points and their time delta. Stored alongside corrected_lat/_lon; the raw
+// kff1001 column is never touched.
+if (!migration_applied($con, 28)) {
+  $ok = true;
+  $r = mysqli_query($con, "SHOW COLUMNS FROM gps_corrections LIKE 'corrected_speed_kmh'");
+  if ($r && mysqli_num_rows($r) == 0) {
+    if (!mysqli_query($con, "ALTER TABLE gps_corrections
+        ADD COLUMN corrected_speed_kmh DOUBLE NULL AFTER accuracy")) {
+      echo "Migration 28: ERROR adding corrected_speed_kmh — " . mysqli_error($con) . "\n";
+      $ok = false;
+    }
+  }
+  if ($ok) {
+    record_migration($con, 28, 'Add corrected_speed_kmh to gps_corrections');
+    echo "Migration 28: corrected_speed_kmh — done.\n";
+  } else {
+    echo "Migration 28: failed — will retry on next run.\n";
+  }
+} else {
+  echo "Migration 28: already applied.\n";
+}
+
 mysqli_close($con);
 echo "Upgrade complete.\n";
 ?>

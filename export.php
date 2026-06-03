@@ -31,6 +31,7 @@ $sql = mysqli_query($con,
     "SELECT $tbl.*, $stbl.*,
             gc.corrected_lon AS gps_corrected_lon,
             gc.corrected_lat AS gps_corrected_lat,
+            gc.corrected_speed_kmh AS gps_corrected_speed_kmh,
             IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source
      FROM $tbl
      JOIN $stbl ON $tbl.session = $stbl.session"

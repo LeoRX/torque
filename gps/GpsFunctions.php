@@ -51,6 +51,22 @@ class GpsFunctions {
     }
 
     /**
+     * Derive GPS speed (km/h) between two timestamped points. Returns null when
+     * the time delta is too small to be meaningful (avoids division spikes from
+     * duplicate-ms rows) or when either coordinate is missing.
+     */
+    public static function compute_speed_kmh(
+        ?float $lat1, ?float $lon1, int $t1_ms,
+        ?float $lat2, ?float $lon2, int $t2_ms
+    ): ?float {
+        if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) return null;
+        $dt_s = abs($t2_ms - $t1_ms) / 1000.0;
+        if ($dt_s < 0.5) return null;
+        $d_m  = self::haversine_m($lat1, $lon1, $lat2, $lon2);
+        return ($d_m / $dt_s) * 3.6;
+    }
+
+    /**
      * Find rows with frozen GPS while OBD speed shows the car is moving.
      *
      * Each element of $rows must have keys:

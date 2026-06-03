@@ -79,7 +79,7 @@ if (isset($sids[0])) {
                    $speed AS speed, r.time,
                    IF(gc.id IS NOT NULL, gc.source, 'torque') AS gps_source" . $_gps_tail;
   };
-  $_gps_sql_full  = $_gps_select("COALESCE(NULLIF(r.kd,0), NULLIF(r.kff1001,0), 0)");
+  $_gps_sql_full  = $_gps_select("COALESCE(NULLIF(r.kd,0), gc.corrected_speed_kmh, NULLIF(r.kff1001,0), 0)");
   $_gps_sql_basic = $_gps_select("COALESCE(NULLIF(r.kd,0), 0)");
   // Raw-only fallback: used when gps_corrections does not exist yet (pre-migration)
   // or kff1001 is missing. Never references the corrections table so it always works.

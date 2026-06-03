@@ -39,6 +39,15 @@ ok('~111m per 0.001° lat', $d > 100 && $d < 130);
 $d = GpsFunctions::haversine_m(-37.888, 145.339, -37.888, 145.340);
 ok('~89m per 0.001° lon at -38°', $d > 70 && $d < 110);
 
+// ── compute_speed_kmh ────────────────────────────────────────────────────────
+// 0.001° lat ≈ 111m. 10s gap → 11.1 m/s → 39.96 km/h. Use a tolerant band.
+$v = GpsFunctions::compute_speed_kmh(-37.888, 145.339, 0, -37.889, 145.339, 10000);
+ok('moving ~40 km/h',          $v !== null && $v > 35.0 && $v < 45.0);
+$v = GpsFunctions::compute_speed_kmh(-37.888, 145.339, 0, -37.888, 145.339, 10000);
+ok('stationary = 0 km/h',      $v !== null && abs($v) < 0.01);
+ok('dt < 0.5s → null',         GpsFunctions::compute_speed_kmh(-37.888, 145.339, 0, -37.889, 145.339, 200) === null);
+ok('null coord → null',        GpsFunctions::compute_speed_kmh(null, 145.339, 0, -37.889, 145.339, 10000) === null);
+
 // ── confidence_for_delta ─────────────────────────────────────────────────────
 ok('conf 0s = high',        GpsFunctions::confidence_for_delta(0)       === 'high');
 ok('conf 30s = high',       GpsFunctions::confidence_for_delta(30000)   === 'high');

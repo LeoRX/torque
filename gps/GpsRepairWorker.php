@@ -224,8 +224,73 @@ class GpsRepairWorker {
             $this->update_session_repaired_count($sid);
         }
 
+        // Second pass: derive a GPS-based speed (km/h) for each corrected row
+        // from the now-final GPS sequence (corrected lat/lon where present,
+        // else raw kff1006/kff1005). The raw kff1001 column is never written.
+        if ($corrected > 0) {
+            $n_speeds = $this->compute_corrected_speeds($sid, $table);
+            if ($this->dry_run) {
+                $this->log("  [DRY-RUN] would update $n_speeds corrected_speed_kmh values");
+            } else if ($n_speeds > 0) {
+                $this->log("  updated corrected_speed_kmh for $n_speeds row(s)");
+            }
+        }
+
         $this->log("  corrected=$corrected unresolved=$unresolved");
         return [$corrected, $unresolved];
+    }
+
+    /**
+     * Walk the session's final GPS sequence (corrected where present, raw-valid
+     * otherwise) in time order and write a derived km/h into gps_corrections for
+     * every repaired row. Idempotent — re-running recomputes the same values.
+     * Returns the number of rows whose speed was (or would be) updated.
+     */
+    private function compute_corrected_speeds(string $sid, string $table): int {
+        $sql = "SELECT r.time AS time_ms,
+                       COALESCE(gc.corrected_lat, r.kff1006) AS lat,
+                       COALESCE(gc.corrected_lon, r.kff1005) AS lon,
+                       gc.id AS corr_id"
+             . " FROM " . quote_name($table) . " r"
+             . gps_corr_join_sql($table, $sid)
+             . " WHERE r.session = " . quote_value($sid)
+             . " ORDER BY r.time ASC";
+        $res = mysqli_query($this->con, $sql);
+        if (!$res) {
+            $this->log("  speed pass: query failed — " . mysqli_error($this->con));
+            return 0;
+        }
+
+        $prev = null;     // ['time_ms' => int, 'lat' => float, 'lon' => float]
+        $updates = [];    // corr_id => speed_kmh (or null)
+        while ($r = mysqli_fetch_assoc($res)) {
+            $time_ms = (int)$r['time_ms'];
+            $lat = $r['lat'] !== null ? (float)$r['lat'] : null;
+            $lon = $r['lon'] !== null ? (float)$r['lon'] : null;
+            $corr_id = $r['corr_id'] !== null ? (int)$r['corr_id'] : null;
+
+            if (!GpsFunctions::is_valid_point($lat, $lon)) continue;
+
+            if ($corr_id !== null) {
+                $speed = ($prev === null) ? null : GpsFunctions::compute_speed_kmh(
+                    $prev['lat'], $prev['lon'], $prev['time_ms'],
+                    $lat, $lon, $time_ms
+                );
+                $updates[$corr_id] = $speed;
+            }
+            $prev = ['time_ms' => $time_ms, 'lat' => $lat, 'lon' => $lon];
+        }
+        mysqli_free_result($res);
+
+        if ($this->dry_run) return count($updates);
+
+        foreach ($updates as $corr_id => $speed) {
+            $val = $speed !== null ? quote_value((string)$speed) : 'NULL';
+            mysqli_query($this->con,
+                "UPDATE gps_corrections SET corrected_speed_kmh = $val WHERE id = " . (int)$corr_id
+            );
+        }
+        return count($updates);
     }
 
     // ── DB helpers ───────────────────────────────────────────────────────────

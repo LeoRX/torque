@@ -435,10 +435,12 @@ $mapbox_styles = [
         <?php if ($group_key === 'plugin' || $group_key === 'gps_repair') continue; // rendered as custom cards after this loop ?>
 
         <div class="card mb-4">
-          <div class="card-header d-flex align-items-center">
+          <div class="card-header d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#section-<?php echo $group_key; ?>" style="cursor:pointer">
             <i class="bi <?php echo $group_meta['icon']; ?> section-icon"></i>
-            <h6 class="mb-0"><?php echo $group_meta['label']; ?></h6>
+            <span class="fw-semibold"><?php echo $group_meta['label']; ?></span>
+            <i class="bi bi-chevron-down ms-auto"></i>
           </div>
+          <div class="collapse" id="section-<?php echo $group_key; ?>">
 
           <?php if ($group_key === 'display'): ?>
           <div class="card-body p-0">
@@ -718,6 +720,7 @@ $mapbox_styles = [
           </div>
           <?php endif; ?>
 
+          </div><!-- /.collapse -->
         </div>
       <?php endforeach; ?>
 
@@ -728,7 +731,7 @@ $mapbox_styles = [
           <span class="fw-semibold">Plugin Upload</span>
           <i class="bi bi-chevron-down ms-auto"></i>
         </div>
-        <div class="collapse show" id="section-plugin">
+        <div class="collapse" id="section-plugin">
           <div class="card-body p-0">
             <div class="setting-row">
               <div class="setting-label mb-1">Duplicate Data Handling</div>

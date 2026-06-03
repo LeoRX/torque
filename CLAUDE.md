@@ -255,10 +255,11 @@ from Home Assistant location history — **without ever overwriting raw uploaded
 | `gps_repair_run.php` | Login-gated + CSRF AJAX endpoint; runs the worker for a single session on demand (the in-map "Repair GPS" button) |
 | `tests/test_gps.php` | Standalone PHP unit tests (no framework) — `php tests/test_gps.php` |
 
-### Data model (migrations v25 + v26 in `db_upgrade.php`)
+### Data model (migrations v25 + v26 + v28 in `db_upgrade.php`)
 - **`gps_corrections`** (v25) — corrected points. Unique key `(raw_table, session, torque_time_ms)` → upserts are idempotent. Stores `source` (`home_assistant`), `source_entity`, `reason` (`zero_gps`/`missing_gps`/`stale_gps`), `confidence` (`high`/`medium`/`low`), and the original `raw_lat`/`raw_lon`.
 - **`gps_repair_queue`** (v25) — tracks which rows were flagged and their processing status/last_error.
 - **`sessions.gps_repaired_points`** (v26) — cached count of corrections per session, refreshed by the worker.
+- **`gps_corrections.corrected_speed_kmh`** (v28, DOUBLE NULL) — derived GPS speed at each repaired point (km/h). Computed by `GpsRepairWorker::compute_corrected_speeds()` in a second pass after corrections are upserted; walks the final GPS sequence (corrected where present, raw-valid otherwise) and divides haversine distance by time delta. The first corrected row of a session has no prior point → stored as NULL. Idempotent — re-running recomputes the same values. The raw `kff1001` column is never written.
 - `torque_time_ms` is BIGINT to join directly against `raw_logs_*.time` (ms epoch).
 - `del_session.php` deletes matching `gps_corrections` + `gps_repair_queue` rows when a session is removed.
 
@@ -274,7 +275,8 @@ fixes are more than `gps_route_gap_seconds` apart OR `gps_route_gap_meters` apar
 — so it never draws a fake straight connector across missing data. Repaired
 points appear as amber dots on top; **green Start / red Finish** circles mark the first/last route points
 (`route-endpoints` layer). Local CSS/JS in `session.php` are cache-busted with `?v=<filemtime>` so deploys load fresh.
-`export.php` appends `gps_corrected_lon`, `gps_corrected_lat`, and `gps_source` columns to CSV/JSON (raw columns untouched).
+`export.php` appends `gps_corrected_lon`, `gps_corrected_lat`, `gps_corrected_speed_kmh`, and `gps_source` columns to CSV/JSON (raw columns untouched).
+`session.php`'s main GPS query also coalesces `gc.corrected_speed_kmh` into the route speed expression — OBD `kd` still takes priority (it doesn't depend on GPS), then the repaired speed, then raw `kff1001`, then 0. So when a repaired row had both bad GPS and missing/zero OBD speed, the route now shows the derived speed instead of a 0 segment.
 When a session has a GPS problem and HA repair is enabled, `session.php` shows an in-map **"Repair GPS"** button
 (`$gpsRepairOffer`) that POSTs to `gps_repair_run.php` to repair just that session on demand, then reloads.
 
