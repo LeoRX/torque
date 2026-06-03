@@ -5,7 +5,7 @@ require_once ("./auth_user.php");
 require_once ("./csrf.php");
 
 // Fetch all k* keys ordered by description
-$keyqry = mysqli_query($con, "SELECT id,description,units,type,min,max,populated,favorite FROM ".$db_name.".".$db_keys_table." ORDER BY description") ;
+$keyqry = mysqli_query($con, "SELECT id,description,units,type,min,max,populated,favorite FROM " . quote_name($db_name) . "." . quote_name($db_keys_table) . " ORDER BY description");
 $i = 0;
 while ($x = mysqli_fetch_array($keyqry)) {
 	if ((substr($x[0], 0, 1) == "k") ) {
