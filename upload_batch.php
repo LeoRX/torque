@@ -117,40 +117,38 @@ $has_gps_lat = in_array('kff1006', $col_map, true);
 $has_gps_lon = in_array('kff1005', $col_map, true);
 
 // ── 8. Ensure all needed k-code columns exist in all monthly tables ───────
-// Get current columns from the target table
-$dbfields = [];
-$cols_res = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($db_table_full));
-if ($cols_res && mysqli_num_rows($cols_res) > 0) {
-    while ($cr = mysqli_fetch_assoc($cols_res)) {
-        $dbfields[] = $cr['Field'];
+// Pre-load every monthly table's schema once; avoids O(M×N) SHOW COLUMNS queries
+// when M new k-codes each re-scan all N monthly tables independently.
+$monthly_table_cols = [];
+$tlist_res = mysqli_query($con,
+    "SELECT table_name FROM INFORMATION_SCHEMA.tables
+     WHERE table_schema = " . quote_value($db_name) .
+    " AND table_name LIKE " . quote_value($db_table . '%') .
+    " ORDER BY table_name DESC");
+while ($tlist_res && ($tr = mysqli_fetch_assoc($tlist_res))) {
+    $tname = $tr['table_name'];
+    $tc_res = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($tname));
+    $cols = [];
+    while ($tc_res && ($tc = mysqli_fetch_assoc($tc_res))) {
+        $cols[] = $tc['Field'];
     }
+    $monthly_table_cols[$tname] = $cols;
 }
+$dbfields = $monthly_table_cols[$db_table_full] ?? [];
 
 foreach ($all_kcodes as $kcode) {
     if (in_array($kcode, $dbfields, true)) continue;
 
-    // Not in target table — scan all monthly tables and add if missing
-    $all_tables = mysqli_query($con,
-        "SELECT table_name FROM INFORMATION_SCHEMA.tables
-         WHERE table_schema = " . quote_value($db_name) .
-        " AND table_name LIKE " . quote_value($db_table . '%') .
-        " ORDER BY table_name DESC");
-
-    while ($tr = mysqli_fetch_assoc($all_tables)) {
-        $tname = $tr['table_name'];
-        $tc_res = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($tname));
-        $tfields = [];
-        while ($tc = mysqli_fetch_assoc($tc_res)) {
-            $tfields[] = $tc['Field'];
-        }
+    // Add column to every monthly table that's missing it
+    foreach ($monthly_table_cols as $tname => &$tfields) {
         if (!in_array($kcode, $tfields, true)) {
-            // Use float for k-codes that are known numeric; VARCHAR for string ones
-            $type_sql = "float NOT NULL DEFAULT '0'";
             mysqli_query($con,
                 "ALTER TABLE " . quote_name($tname) .
-                " ADD " . quote_name($kcode) . " $type_sql");
+                " ADD " . quote_name($kcode) . " float NOT NULL DEFAULT '0'");
+            $tfields[] = $kcode;
         }
     }
+    unset($tfields);
     $dbfields[] = $kcode;
 
     // Ensure k-code is registered in torque_keys
