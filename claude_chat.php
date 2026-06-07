@@ -51,39 +51,49 @@ function session_obd_summary($con, $db_table, $session_id_str, $dur_seconds = 0)
     $ts    = intdiv($sid, 1000);
     $tbl   = $db_table . '_' . date('Y', $ts) . '_' . date('m', $ts);
     $q = mysqli_query($con, "SELECT
-        AVG(CAST(NULLIF(k5,'')   AS DECIMAL(10,4))) AS coolant,
-        AVG(CAST(NULLIF(k5c,'')  AS DECIMAL(10,4))) AS oil_temp,
-        AVG(CAST(NULLIF(k6,'')   AS DECIMAL(10,4))) AS st_b1,
-        AVG(CAST(NULLIF(k7,'')   AS DECIMAL(10,4))) AS lt_b1,
-        AVG(CAST(NULLIF(k8,'')   AS DECIMAL(10,4))) AS st_b2,
-        AVG(CAST(NULLIF(k9,'')   AS DECIMAL(10,4))) AS lt_b2,
-        AVG(CAST(NULLIF(k10,'')  AS DECIMAL(10,4))) AS maf,
-        AVG(CAST(NULLIF(k4,'')   AS DECIMAL(10,4))) AS eng_load,
-        AVG(CAST(NULLIF(kc,'')   AS DECIMAL(10,4))) AS rpm,
-        AVG(CAST(NULLIF(kd,'')   AS DECIMAL(10,4))) AS speed,
-        MAX(CAST(NULLIF(kd,'')   AS DECIMAL(10,4))) AS max_speed,
+        AVG(CAST(NULLIF(k5,'')    AS DECIMAL(10,4))) AS coolant,
+        MAX(CAST(NULLIF(k5,'')    AS DECIMAL(10,4))) AS max_coolant,
+        AVG(CAST(NULLIF(k5c,'')   AS DECIMAL(10,4))) AS oil_temp,
+        MAX(CAST(NULLIF(k5c,'')   AS DECIMAL(10,4))) AS max_oil_temp,
+        AVG(CAST(NULLIF(k6,'')    AS DECIMAL(10,4))) AS st_b1,
+        AVG(CAST(NULLIF(k7,'')    AS DECIMAL(10,4))) AS lt_b1,
+        AVG(CAST(NULLIF(k8,'')    AS DECIMAL(10,4))) AS st_b2,
+        AVG(CAST(NULLIF(k9,'')    AS DECIMAL(10,4))) AS lt_b2,
+        AVG(CAST(NULLIF(k10,'')   AS DECIMAL(10,4))) AS maf,
+        AVG(CAST(NULLIF(k4,'')    AS DECIMAL(10,4))) AS eng_load,
+        MAX(CAST(NULLIF(k4,'')    AS DECIMAL(10,4))) AS max_eng_load,
+        AVG(CAST(NULLIF(kc,'')    AS DECIMAL(10,4))) AS rpm,
+        MAX(CAST(NULLIF(kc,'')    AS DECIMAL(10,4))) AS max_rpm,
+        AVG(CAST(NULLIF(kd,'')    AS DECIMAL(10,4))) AS speed,
+        MAX(CAST(NULLIF(kd,'')    AS DECIMAL(10,4))) AS max_speed,
         AVG(CAST(NULLIF(k2182,'') AS DECIMAL(10,4))) AS atf_temp,
-        AVG(CAST(NULLIF(kb,'')   AS DECIMAL(10,4))) AS map_kpa,
+        MAX(CAST(NULLIF(k2182,'') AS DECIMAL(10,4))) AS max_atf_temp,
+        AVG(CAST(NULLIF(kb,'')    AS DECIMAL(10,4))) AS map_kpa,
         AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km,
         AVG(CAST(NULLIF(kff1001,'') AS DECIMAL(10,4))) AS gps_speed
-        FROM " . quote_name($tbl) . " WHERE session=$sid");
+        FROM " . quote_name($tbl) . " WHERE session=" . quote_value($sid));
     if (!$q) return [];
     $r = mysqli_fetch_assoc($q);
     if (!$r) return [];
     $out = [];
-    if ($r['lt_b1']    !== null) $out[] = "LTFT B1: "      . round((float)$r['lt_b1'],1)    . "%";
-    if ($r['st_b1']    !== null) $out[] = "STFT B1: "      . round((float)$r['st_b1'],1)    . "%";
-    if ($r['lt_b2']    !== null) $out[] = "LTFT B2: "      . round((float)$r['lt_b2'],1)    . "%";
-    if ($r['st_b2']    !== null) $out[] = "STFT B2: "      . round((float)$r['st_b2'],1)    . "%";
-    if ($r['coolant']  !== null) $out[] = "Coolant: "      . round((float)$r['coolant'],1)  . "°C";
-    if ($r['oil_temp'] !== null) $out[] = "Oil: "          . round((float)$r['oil_temp'],1) . "°C";
-    if ($r['atf_temp'] !== null) $out[] = "ATF: "          . round((float)$r['atf_temp'],1) . "°C";
-    if ($r['rpm']      !== null) $out[] = "RPM: "          . round((float)$r['rpm']);
-    if ($r['eng_load'] !== null) $out[] = "Load: "         . round((float)$r['eng_load'],1) . "%";
-    if ($r['maf']      !== null) $out[] = "MAF: "          . round((float)$r['maf'],1)      . "g/s";
-    if ($r['speed']    !== null) $out[] = "Avg spd: "      . round((float)$r['speed'],1)    . "km/h";
-    if ($r['max_speed'] !== null) $out[] = "Max spd: "     . round((float)$r['max_speed'],1). "km/h";
-    if ($r['l100km']   !== null) $out[] = "L/100km: "      . round((float)$r['l100km'],1);
+    if ($r['lt_b1']       !== null) $out[] = "LTFT B1: "        . round((float)$r['lt_b1'],1)       . "%";
+    if ($r['st_b1']       !== null) $out[] = "STFT B1: "        . round((float)$r['st_b1'],1)       . "%";
+    if ($r['lt_b2']       !== null) $out[] = "LTFT B2: "        . round((float)$r['lt_b2'],1)       . "%";
+    if ($r['st_b2']       !== null) $out[] = "STFT B2: "        . round((float)$r['st_b2'],1)       . "%";
+    if ($r['coolant']     !== null) $out[] = "Coolant avg: "    . round((float)$r['coolant'],1)     . "°C";
+    if ($r['max_coolant'] !== null) $out[] = "Coolant peak: "   . round((float)$r['max_coolant'],1) . "°C";
+    if ($r['oil_temp']    !== null) $out[] = "Oil avg: "        . round((float)$r['oil_temp'],1)    . "°C";
+    if ($r['max_oil_temp'] !== null) $out[] = "Oil peak: "      . round((float)$r['max_oil_temp'],1). "°C";
+    if ($r['atf_temp']    !== null) $out[] = "ATF avg: "        . round((float)$r['atf_temp'],1)    . "°C";
+    if ($r['max_atf_temp'] !== null) $out[] = "ATF peak: "      . round((float)$r['max_atf_temp'],1). "°C";
+    if ($r['rpm']         !== null) $out[] = "RPM avg: "        . round((float)$r['rpm']);
+    if ($r['max_rpm']     !== null) $out[] = "RPM peak: "       . round((float)$r['max_rpm']);
+    if ($r['eng_load']    !== null) $out[] = "Load avg: "       . round((float)$r['eng_load'],1)    . "%";
+    if ($r['max_eng_load'] !== null) $out[] = "Load peak: "     . round((float)$r['max_eng_load'],1). "%";
+    if ($r['maf']         !== null) $out[] = "MAF: "            . round((float)$r['maf'],1)         . "g/s";
+    if ($r['speed']       !== null) $out[] = "Avg spd: "        . round((float)$r['speed'],1)       . "km/h";
+    if ($r['max_speed']   !== null) $out[] = "Max spd: "        . round((float)$r['max_speed'],1)   . "km/h";
+    if ($r['l100km']      !== null) $out[] = "L/100km: "        . round((float)$r['l100km'],1);
     // Estimate trip distance from GPS speed (falls back to OBD speed) × duration
     if ($dur_seconds > 0) {
         $spd = $r['gps_speed'] ?? $r['speed'];
@@ -175,7 +185,7 @@ $ctx[] = "TODAY: " . tz_date('l, F j, Y', time(), $tz_str) . " (local time: " . 
 if ($session_id) {
     $sid_esc = (int)$session_id;
     $sq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize, profileName, profileFuelType
-                              FROM $q_sess_tbl WHERE session=$sid_esc LIMIT 1");
+                              FROM $q_sess_tbl WHERE session=" . quote_value($sid_esc) . " LIMIT 1");
     if ($sq && ($sr = mysqli_fetch_assoc($sq))) {
         $ts  = intdiv((int)$sr['session'], 1000);
         $dur = max(0, (int)(((int)$sr['timeend'] - (int)$sr['timestart']) / 1000));
@@ -287,7 +297,7 @@ if ($trend_rows) {
 $statsq = mysqli_query($con, "SELECT COUNT(*) AS cnt,
     FROM_UNIXTIME(MIN(session)/1000,'%Y-%m-%d') AS first_date,
     FROM_UNIXTIME(MAX(session)/1000,'%Y-%m-%d') AS last_date
-    FROM $q_sess_tbl WHERE sessionsize >= $min_session_size");
+    FROM $q_sess_tbl WHERE sessionsize >= " . quote_value($min_session_size));
 if ($statsq && ($sr2 = mysqli_fetch_assoc($statsq))) {
     $ctx[] = "DATABASE: {$sr2['cnt']} sessions from {$sr2['first_date']} to {$sr2['last_date']}";
 }
@@ -438,7 +448,7 @@ $dynamic_ctx = "Current data context:\n" . implode("\n", $ctx);
 $messages = [];
 foreach ($history as $turn) {
     $role    = ($turn['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
-    $content = trim($turn['content'] ?? '');
+    $content = mb_substr(trim($turn['content'] ?? ''), 0, 4000);
     if ($content) $messages[] = ['role' => $role, 'content' => $content];
 }
 $messages[] = ['role' => 'user', 'content' => $user_message];
