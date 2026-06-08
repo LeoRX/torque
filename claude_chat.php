@@ -45,11 +45,37 @@ if (empty($user_message)) {
 // Limit history to last 20 turns
 $history = array_slice($history, -20);
 
-// ── Helper: query per-session OBD averages from the correct raw_logs table ──
+// ── Helper: format a raw OBD averages row into a string array ───────────────
+function _format_obd_avgs(array $r, int $dur_seconds = 0): array {
+    $out = [];
+    if ($r['lt_b1']    !== null) $out[] = "LTFT B1: "      . round((float)$r['lt_b1'],1)    . "%";
+    if ($r['st_b1']    !== null) $out[] = "STFT B1: "      . round((float)$r['st_b1'],1)    . "%";
+    if ($r['lt_b2']    !== null) $out[] = "LTFT B2: "      . round((float)$r['lt_b2'],1)    . "%";
+    if ($r['st_b2']    !== null) $out[] = "STFT B2: "      . round((float)$r['st_b2'],1)    . "%";
+    if ($r['coolant']  !== null) $out[] = "Coolant: "      . round((float)$r['coolant'],1)  . "°C";
+    if ($r['oil_temp'] !== null) $out[] = "Oil: "          . round((float)$r['oil_temp'],1) . "°C";
+    if ($r['atf_temp'] !== null) $out[] = "ATF: "          . round((float)$r['atf_temp'],1) . "°C";
+    if ($r['rpm']      !== null) $out[] = "RPM: "          . round((float)$r['rpm']);
+    if ($r['eng_load'] !== null) $out[] = "Load: "         . round((float)$r['eng_load'],1) . "%";
+    if ($r['maf']      !== null) $out[] = "MAF: "          . round((float)$r['maf'],1)      . "g/s";
+    if ($r['speed']    !== null) $out[] = "Avg spd: "      . round((float)$r['speed'],1)    . "km/h";
+    if ($r['max_speed'] !== null) $out[] = "Max spd: "     . round((float)$r['max_speed'],1). "km/h";
+    if ($r['l100km']   !== null) $out[] = "L/100km: "      . round((float)$r['l100km'],1);
+    if ($dur_seconds > 0) {
+        $spd = $r['gps_speed'] ?? $r['speed'];
+        if ($spd !== null) {
+            $dist_km = round((float)$spd * $dur_seconds / 3600, 1);
+            if ($dist_km > 0) $out[] = "~{$dist_km} km";
+        }
+    }
+    return $out;
+}
+
+// ── Helper: query OBD averages for a single session ──────────────────────────
 function session_obd_summary($con, $db_table, $session_id_str, $dur_seconds = 0) {
-    $sid   = (int)$session_id_str;
-    $ts    = intdiv($sid, 1000);
-    $tbl   = $db_table . '_' . date('Y', $ts) . '_' . date('m', $ts);
+    $sid = (int)$session_id_str;
+    $ts  = intdiv($sid, 1000);
+    $tbl = $db_table . '_' . date('Y', $ts) . '_' . date('m', $ts);
     $q = mysqli_query($con, "SELECT
         AVG(CAST(NULLIF(k5,'')   AS DECIMAL(10,4))) AS coolant,
         AVG(CAST(NULLIF(k5c,'')  AS DECIMAL(10,4))) AS oil_temp,
@@ -66,33 +92,60 @@ function session_obd_summary($con, $db_table, $session_id_str, $dur_seconds = 0)
         AVG(CAST(NULLIF(kb,'')   AS DECIMAL(10,4))) AS map_kpa,
         AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km,
         AVG(CAST(NULLIF(kff1001,'') AS DECIMAL(10,4))) AS gps_speed
-        FROM " . quote_name($tbl) . " WHERE session=$sid");
+        FROM " . quote_name($tbl) . " WHERE session=" . quote_value((string)$sid));
     if (!$q) return [];
     $r = mysqli_fetch_assoc($q);
     if (!$r) return [];
-    $out = [];
-    if ($r['lt_b1']    !== null) $out[] = "LTFT B1: "      . round((float)$r['lt_b1'],1)    . "%";
-    if ($r['st_b1']    !== null) $out[] = "STFT B1: "      . round((float)$r['st_b1'],1)    . "%";
-    if ($r['lt_b2']    !== null) $out[] = "LTFT B2: "      . round((float)$r['lt_b2'],1)    . "%";
-    if ($r['st_b2']    !== null) $out[] = "STFT B2: "      . round((float)$r['st_b2'],1)    . "%";
-    if ($r['coolant']  !== null) $out[] = "Coolant: "      . round((float)$r['coolant'],1)  . "°C";
-    if ($r['oil_temp'] !== null) $out[] = "Oil: "          . round((float)$r['oil_temp'],1) . "°C";
-    if ($r['atf_temp'] !== null) $out[] = "ATF: "          . round((float)$r['atf_temp'],1) . "°C";
-    if ($r['rpm']      !== null) $out[] = "RPM: "          . round((float)$r['rpm']);
-    if ($r['eng_load'] !== null) $out[] = "Load: "         . round((float)$r['eng_load'],1) . "%";
-    if ($r['maf']      !== null) $out[] = "MAF: "          . round((float)$r['maf'],1)      . "g/s";
-    if ($r['speed']    !== null) $out[] = "Avg spd: "      . round((float)$r['speed'],1)    . "km/h";
-    if ($r['max_speed'] !== null) $out[] = "Max spd: "     . round((float)$r['max_speed'],1). "km/h";
-    if ($r['l100km']   !== null) $out[] = "L/100km: "      . round((float)$r['l100km'],1);
-    // Estimate trip distance from GPS speed (falls back to OBD speed) × duration
-    if ($dur_seconds > 0) {
-        $spd = $r['gps_speed'] ?? $r['speed'];
-        if ($spd !== null) {
-            $dist_km = round((float)$spd * $dur_seconds / 3600, 1);
-            if ($dist_km > 0) $out[] = "~{$dist_km} km";
+    return _format_obd_avgs($r, $dur_seconds);
+}
+
+// ── Helper: batch-query OBD averages for multiple sessions in one round-trip ─
+// Groups sessions by monthly table, issues one UNION ALL per table spanned
+// (typically 1–2 queries for a 2-week window), and returns results indexed by
+// session ID. Avoids the N+1 pattern when building date-range context.
+function _batch_obd_avgs($con, $db_table, array $sessions): array {
+    if (empty($sessions)) return [];
+
+    // Group session IDs by their monthly raw_logs table
+    $by_table = [];
+    foreach ($sessions as $ds) {
+        $sid = (int)$ds['session'];
+        $ts  = intdiv($sid, 1000);
+        $tbl = $db_table . '_' . date('Y', $ts) . '_' . date('m', $ts);
+        $by_table[$tbl][] = $sid;
+    }
+
+    // Build a UNION ALL sub-query for each monthly table (typically 1–2 tables)
+    $union_parts = [];
+    foreach ($by_table as $tbl => $sids) {
+        $in_list = implode(',', $sids); // safe: all are (int)-cast above
+        $union_parts[] = "SELECT session,
+            AVG(CAST(NULLIF(k5,'')   AS DECIMAL(10,4))) AS coolant,
+            AVG(CAST(NULLIF(k5c,'')  AS DECIMAL(10,4))) AS oil_temp,
+            AVG(CAST(NULLIF(k6,'')   AS DECIMAL(10,4))) AS st_b1,
+            AVG(CAST(NULLIF(k7,'')   AS DECIMAL(10,4))) AS lt_b1,
+            AVG(CAST(NULLIF(k8,'')   AS DECIMAL(10,4))) AS st_b2,
+            AVG(CAST(NULLIF(k9,'')   AS DECIMAL(10,4))) AS lt_b2,
+            AVG(CAST(NULLIF(k10,'')  AS DECIMAL(10,4))) AS maf,
+            AVG(CAST(NULLIF(k4,'')   AS DECIMAL(10,4))) AS eng_load,
+            AVG(CAST(NULLIF(kc,'')   AS DECIMAL(10,4))) AS rpm,
+            AVG(CAST(NULLIF(kd,'')   AS DECIMAL(10,4))) AS speed,
+            MAX(CAST(NULLIF(kd,'')   AS DECIMAL(10,4))) AS max_speed,
+            AVG(CAST(NULLIF(k2182,'') AS DECIMAL(10,4))) AS atf_temp,
+            AVG(CAST(NULLIF(kb,'')   AS DECIMAL(10,4))) AS map_kpa,
+            AVG(CAST(NULLIF(kff5203,'') AS DECIMAL(10,4))) AS l100km,
+            AVG(CAST(NULLIF(kff1001,'') AS DECIMAL(10,4))) AS gps_speed
+            FROM " . quote_name($tbl) . " WHERE session IN ($in_list) GROUP BY session";
+    }
+
+    $q = mysqli_query($con, implode(' UNION ALL ', $union_parts));
+    $results = [];
+    if ($q) {
+        while ($r = mysqli_fetch_assoc($q)) {
+            $results[$r['session']] = $r;
         }
     }
-    return $out;
+    return $results;
 }
 
 // ── Helper: detect date range from natural-language message ─────────────────
@@ -175,7 +228,7 @@ $ctx[] = "TODAY: " . tz_date('l, F j, Y', time(), $tz_str) . " (local time: " . 
 if ($session_id) {
     $sid_esc = (int)$session_id;
     $sq = mysqli_query($con, "SELECT session, timestart, timeend, sessionsize, profileName, profileFuelType
-                              FROM $q_sess_tbl WHERE session=$sid_esc LIMIT 1");
+                              FROM $q_sess_tbl WHERE session=" . quote_value((string)$sid_esc) . " LIMIT 1");
     if ($sq && ($sr = mysqli_fetch_assoc($sq))) {
         $ts  = intdiv((int)$sr['session'], 1000);
         $dur = max(0, (int)(((int)$sr['timeend'] - (int)$sr['timestart']) / 1000));
@@ -209,6 +262,9 @@ if ($date_range) {
 
     if ($date_sessions) {
         $ctx[] = "SESSIONS FOR $label (" . count($date_sessions) . " found):";
+        // Batch-fetch OBD averages for all matching sessions in one UNION ALL query
+        // instead of N individual queries (one per session).
+        $obd_batch = _batch_obd_avgs($con, $db_table, $date_sessions);
         foreach ($date_sessions as $ds) {
             $ts2  = intdiv((int)$ds['session'], 1000);
             $dur2 = max(0, (int)(((int)$ds['timeend'] - (int)$ds['timestart']) / 1000));
@@ -216,8 +272,8 @@ if ($date_range) {
                   . " | " . tz_date('g:ia', $ts2, $tz_str)
                   . " | " . gmdate('H:i:s', $dur2) . " duration"
                   . " | " . $ds['sessionsize'] . " pts";
-            $obd2 = session_obd_summary($con, $db_table, $ds['session'], $dur2);
-            if ($obd2) $line .= " | " . implode(', ', $obd2);
+            $r = $obd_batch[$ds['session']] ?? null;
+            if ($r) $line .= " | " . implode(', ', _format_obd_avgs($r, $dur2));
             $ctx[] = $line;
         }
     } else {
