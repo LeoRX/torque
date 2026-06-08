@@ -67,7 +67,9 @@ function auth_user()
         return false; // no credentials defined → deny (fail closed)
     }
     foreach ($users as $key => $value) {
-        if ($user == $users[$key]['user'] && $pass == $users[$key]['pass']) {
+        // Use hash_equals for the password comparison to prevent timing oracles
+        // (even though creds.php stores plaintext, timing-safe comparison is correct practice)
+        if ($user === $users[$key]['user'] && hash_equals((string)$users[$key]['pass'], (string)$pass)) {
             session_regenerate_id(true); // prevent session fixation
             $_SESSION['torque_user'] = $users[$key]['user'];
             return true;
