@@ -16,7 +16,7 @@ if (!empty($bearer_token ?? '')) {
         $log_line = date('Y-m-d H:i:s')
             . "\tSERVER_AUTH="   . (isset($_SERVER['HTTP_AUTHORIZATION']) ? 'present' : 'missing')
             . "\tAPACHE_AUTH="   . ($auth_header !== '' ? 'present' : 'missing')
-            . "\tHEADER_VALUE="  . (strlen($auth_header) > 0 ? substr($auth_header, 0, 20) . '…' : '(empty)')
+            . "\tHEADER_VALUE="  . ($auth_header !== '' ? 'present' : '(empty)')
             . "\tIP="            . ($_SERVER['REMOTE_ADDR'] ?? '')
             . "\n";
         @file_put_contents(__DIR__ . '/data/auth_debug.log', $log_line, FILE_APPEND | LOCK_EX);
