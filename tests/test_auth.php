@@ -32,6 +32,12 @@ ok('extra trailing space',       bearer_matches("Bearer $tok ", $tok)); // trim(
 
 // ── auth_id() with stubs ─────────────────────────────────────────────────────
 // Inline stub — mirrors auth_functions.php::auth_id() logic without DB/creds
+//
+// Torque ID semantics:
+//   - The app sends   id = md5(raw_device_id)  — a 32-char hex string
+//   - creds.php sets  $torque_id = raw_device_id  (plain, auth_id() hashes it)
+//           OR        $torque_id_hash = md5(raw_device_id)  (pre-hashed)
+// So $session_id (what the app sends) must equal md5($torque_id) to match.
 
 function stub_auth_id(string $session_id, $torque_id, $torque_id_hash, bool $allow_open): bool {
     $auth_by_hash_possible = false;
@@ -49,18 +55,22 @@ function stub_auth_id(string $session_id, $torque_id, $torque_id_hash, bool $all
     return $allow_open;
 }
 
-$known_id  = 'f915d4d07eae49baa866ac7d723553a2';
-$known_tok = 'aaabbbccc111222333deadbeef000000'; // a different device
+// Raw device IDs as stored in creds.php $torque_id.
+// The app sends md5() of these values.
+$raw_id_a  = 'raw_device_id_alpha';
+$raw_id_b  = 'raw_device_id_beta';
+$hash_id_a = md5($raw_id_a);  // what Torque app actually sends as 'id'
+$hash_id_b = md5($raw_id_b);
 
-ok('known id accepted (plain)',  stub_auth_id($known_id, $known_id, null, false));
-ok('known id via hash',          stub_auth_id($known_id, null, md5($known_id), false));
-ok('unknown id rejected',        !stub_auth_id('deadbeef' . str_repeat('0', 24), $known_id, null, false));
-ok('open auth enabled allows',   stub_auth_id($known_id, '', null, true));
-ok('open auth disabled denies',  !stub_auth_id($known_id, '', null, false));
-ok('empty id/hash denies when closed', !stub_auth_id($known_id, '', '', false));
-ok('multi-id array: first',      stub_auth_id($known_id, [$known_id, $known_tok], null, false));
-ok('multi-id array: second',     stub_auth_id($known_tok, [$known_id, $known_tok], null, false));
-ok('multi-id array: unknown',    !stub_auth_id('not_a_real_id', [$known_id, $known_tok], null, false));
+ok('known id accepted (plain)',       stub_auth_id($hash_id_a, $raw_id_a, null, false));
+ok('known id via pre-hash',           stub_auth_id($hash_id_a, null, $hash_id_a, false));
+ok('unknown id rejected',             !stub_auth_id('deadbeef' . str_repeat('0', 24), $raw_id_a, null, false));
+ok('open auth enabled allows',        stub_auth_id($hash_id_a, '', null, true));
+ok('open auth disabled denies',       !stub_auth_id($hash_id_a, '', null, false));
+ok('empty id/hash denies when closed',!stub_auth_id($hash_id_a, '', '', false));
+ok('multi-id array: first matches',   stub_auth_id($hash_id_a, [$raw_id_a, $raw_id_b], null, false));
+ok('multi-id array: second matches',  stub_auth_id($hash_id_b, [$raw_id_a, $raw_id_b], null, false));
+ok('multi-id array: unknown rejected',!stub_auth_id('not_a_real_id', [$raw_id_a, $raw_id_b], null, false));
 
 // ── auth_app.php flow simulation ─────────────────────────────────────────────
 // Simulates the $logged_in state machine for the four cases that matter.
