@@ -177,7 +177,7 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Auth flow**: `auth_functions.php::auth_user()` checks `torque_users` DB table first (bcrypt), then falls back to `$users[]` array in `creds.php`
 - **Session**: `$_SESSION['torque_logged_in']` + `$_SESSION['torque_user']`
 - **Torque Pro upload auth**: `auth_app.php` via `auth_id()` — checks `$torque_id` / `$torque_id_hash` in `creds.php`
-- **Bearer token gate**: `auth_app.php` checks `$bearer_token` (from `creds.php`) before any other auth. If set, requires `Authorization: Bearer <token>` header — enables HTTPS uploads. Controlled by `BEARER_TOKEN` env var; empty = disabled (backwards-compatible).
+- **Bearer token gate**: `auth_app.php` checks `$bearer_token` (from `creds.php`) before any other auth. If set and the token matches, `$logged_in = true` is set immediately — no Torque-ID auth is attempted. If the token is missing/wrong, returns HTTP 401. `$logged_in` is initialised to `false` **before** the bearer-token block so a successful match is not overwritten. Controlled by `BEARER_TOKEN` env var; empty = disabled (backwards-compatible).
 - **Plugin upload auth**: `upload_batch.php` and `check_session.php` both require `auth_app.php` — same bearer token / Torque ID / user+password flow as `upload_data.php`.
 
 ---
@@ -365,6 +365,7 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **Session ordering**: Always `ORDER BY session DESC` for newest-first.
 - **`creds.php` is gitignored** — never tracked. Copy from `creds.example.php` or let `entrypoint.sh` generate it.
 - **Mapbox popup styling**: Use JS inline styles via `_applyPopupTheme()`, not CSS classes. Mapbox's runtime stylesheet wins specificity battles.
+- **`auth_app.php` variable ordering**: `$logged_in = false` must be initialized **before** the bearer-token block. If it is placed after, a valid bearer token sets `$logged_in = true` and then it is immediately reset to `false`, falling through into Torque-ID auth and silently failing. Auth failures must call `http_response_code(401)` — without it Apache logs show misleading HTTP 200 even when the upload is rejected.
 - **Tom Select in panels**: Always set `dropdownParent: 'body'` to escape `overflow: hidden` panels.
 - **Never use `date()` directly** for user-facing timestamps — always use `tz_date()`.
 - **All DB queries**: use `quote_name()`/`quote_value()` from `db.php`. Never raw string interpolation. This includes every table identifier (`$db_table_full`, `$db_sessions_table`, `$db_keys_table`, `$newest_table`, `$db_table_name`) and INFORMATION_SCHEMA string values (`table_schema`, `table_name` literals). `quote_name()` wraps in backticks; `quote_value()` escapes and wraps in single quotes.

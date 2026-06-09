@@ -2,6 +2,9 @@
 require_once ('creds.php');
 require_once ('auth_functions.php');
 
+//This variable will be evaluated at the end of this file to check if a user is authenticated
+$logged_in = false;
+
 // Bearer token gate — runs before all other auth if $bearer_token is set in creds.php
 if (!empty($bearer_token ?? '')) {
     $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
@@ -11,7 +14,9 @@ if (!empty($bearer_token ?? '')) {
     }
     $token_ok = preg_match('/^Bearer\s+(.+)$/i', $auth_header, $m)
                 && hash_equals($bearer_token, trim($m[1]));
-    if (!$token_ok) {
+    if ($token_ok) {
+        $logged_in = true;
+    } else {
         // Debug log — records what PHP actually received so header-stripping issues can be diagnosed
         $log_line = date('Y-m-d H:i:s')
             . "\tSERVER_AUTH="   . (isset($_SERVER['HTTP_AUTHORIZATION']) ? 'present' : 'missing')
@@ -26,9 +31,6 @@ if (!empty($bearer_token ?? '')) {
         exit(0);
     }
 }
-
-//This variable will be evaluated at the end of this file to check if a user is authenticated
-$logged_in = false;
 
 
 //Session makes no sense for the torque app, I assume it to have no cookie handling integrated
@@ -82,6 +84,7 @@ if (!$logged_in && $auth_user_with_torque_id)
 
 
 if (!$logged_in) {
+    http_response_code(401);
     $txt  = "ERROR. Please authenticate with ";
     $txt .= ($auth_user_with_user_pass?"User/Password":"");
     $txt .= ( ($auth_user_with_user_pass && $auth_user_with_torque_id)?" or ":"");
