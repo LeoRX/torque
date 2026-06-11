@@ -153,6 +153,26 @@ if (isset($sids[0])) {
           "   AND (kff1005 IS NULL OR kff1006 IS NULL OR (kff1005 = 0 AND kff1006 = 0)) LIMIT 1");
       if ($_bad_q && mysqli_num_rows($_bad_q) > 0) { $gpsHasIssue = true; }
   }
+  // Detect stale GPS: same valid coordinate appearing many times while OBD speed is above the
+  // worker's threshold — frozen fix while the car was moving.  Threshold = window_seconds/2
+  // (default 30 rows at ~1 Hz) so a single traffic-light stop never triggers it.
+  if (!$gpsHasIssue && $ha_enabled && $_sessionAgeDays <= $_lookbackDays) {
+      $_stale_threshold = max(5, (int)(((float)($settings['gps_stale_window_seconds'] ?? 60)) / 2));
+      $_stale_speed     = (int)($settings['gps_stale_min_speed_kmh'] ?? 10);
+      $_stale_q = mysqli_query($con,
+          "SELECT 1 FROM (
+              SELECT kff1006, kff1005
+              FROM " . quote_name($db_table_full) . "
+              WHERE session = " . quote_value($session_id) . "
+                AND kff1005 IS NOT NULL AND kff1006 IS NOT NULL
+                AND kff1005 != 0 AND kff1006 != 0
+                AND kd >= " . $_stale_speed . "
+              GROUP BY kff1006, kff1005
+              HAVING COUNT(*) >= " . $_stale_threshold . "
+              LIMIT 1
+          ) AS _stale_probe");
+      if ($_stale_q && mysqli_num_rows($_stale_q) > 0) { $gpsHasIssue = true; }
+  }
 
   $gpsRepairOffer = $ha_enabled
       && ($_sessionAgeDays <= $_lookbackDays)
