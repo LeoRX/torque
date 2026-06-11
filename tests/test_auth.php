@@ -72,6 +72,37 @@ ok('multi-id array: first matches',   stub_auth_id($hash_id_a, [$raw_id_a, $raw_
 ok('multi-id array: second matches',  stub_auth_id($hash_id_b, [$raw_id_a, $raw_id_b], null, false));
 ok('multi-id array: unknown rejected',!stub_auth_id('not_a_real_id', [$raw_id_a, $raw_id_b], null, false));
 
+// ── auth_id() real function ──────────────────────────────────────────────────
+// Exercises auth_functions.php::auth_id() directly. The stub above quotes
+// 'md5' correctly, which masked the unquoted-bareword `array_map(md5, ...)`
+// bug in the real code (fatal "Undefined constant" on PHP 8+).
+
+require_once __DIR__ . '/../auth_functions.php';
+
+// Returns true/false from the real auth_id(), or null if it threw.
+function real_auth_id(string $post_id, $id, $id_hash, bool $allow_open): ?bool {
+    global $torque_id, $torque_id_hash, $allow_open_upload_auth;
+    $_POST['id'] = $post_id;
+    $torque_id = $id;
+    $torque_id_hash = $id_hash;
+    $allow_open_upload_auth = $allow_open;
+    try {
+        return auth_id();
+    } catch (Throwable $e) {
+        echo "  ERROR in auth_id(): " . $e->getMessage() . "\n";
+        return null;
+    }
+}
+
+$unknown_id = 'deadbeef' . str_repeat('0', 24); // valid 32-hex shape, not a known hash
+
+ok('real: known id accepted (plain)', real_auth_id($hash_id_a, $raw_id_a, null, false) === true);
+ok('real: known id via pre-hash',     real_auth_id($hash_id_a, null, $hash_id_a, false) === true);
+ok('real: unknown id rejected',       real_auth_id($unknown_id, $raw_id_a, null, false) === false);
+ok('real: multi-id second matches',   real_auth_id($hash_id_b, [$raw_id_a, $raw_id_b], null, false) === true);
+ok('real: open auth enabled allows',  real_auth_id($hash_id_a, '', null, true) === true);
+ok('real: open auth disabled denies', real_auth_id($hash_id_a, '', null, false) === false);
+
 // ── auth_app.php flow simulation ─────────────────────────────────────────────
 // Simulates the $logged_in state machine for the four cases that matter.
 

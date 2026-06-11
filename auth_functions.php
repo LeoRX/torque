@@ -97,7 +97,7 @@ function auth_id()
         if (!is_array($torque_id))
             $torque_id = array($torque_id);
 
-        $torque_id_hash = array_map(md5,$torque_id);
+        $torque_id_hash = array_map('md5', $torque_id);
         $auth_by_hash_possible = true;
     }
     // Parse HASHES
