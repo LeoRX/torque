@@ -107,7 +107,7 @@ if (isset($sids[0])) {
     $mapdata[] = [$lon, $lat, $spd, (int)$geo['time'], $geo['gps_source']];
     if ($spd > $maxSpeed) $maxSpeed = $spd;
   }
-  $imapdata = json_encode($mapdata);
+  $imapdata = json_encode($mapdata, JSON_HEX_TAG | JSON_HEX_AMP);
   if ($maxSpeed < 10) $maxSpeed = 120; // sensible default if no speed data
 
   // Count repaired points among the rendered route (source != 'torque').
@@ -252,6 +252,7 @@ if (isset($sids[0])) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
     <title>Open Torque Viewer</title>
     <meta name="description" content="Open Torque Viewer">
@@ -302,9 +303,9 @@ if (isset($sids[0])) {
       var _maxSpeed    = <?php echo (float)$maxSpeed; ?>;
       var _noSession   = <?php echo $setZoomManually ? 'true' : 'false'; ?>;
       var _hasGPS      = <?php echo (!$setZoomManually && ($mapHasGPS ?? false)) ? 'true' : 'false'; ?>;
-      var _gpsQuality  = <?php echo json_encode($gpsQuality ?? 'unknown'); ?>;
-      var _mbToken     = <?php echo json_encode($mapbox_token); ?>;
-      var _mbStyle     = <?php echo json_encode($mapbox_style); ?>;
+      var _gpsQuality  = <?php echo json_encode($gpsQuality ?? 'unknown', JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+      var _mbToken     = <?php echo json_encode($mapbox_token, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+      var _mbStyle     = <?php echo json_encode($mapbox_style, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
       var _lineWeight  = <?php echo (int)$map_line_weight; ?>;
       var _lineOpacity = <?php echo (float)$map_line_opacity; ?>;
       var _routeGapSec = <?php echo (int)($settings['gps_route_gap_seconds'] ?? 30); ?>;
@@ -318,11 +319,11 @@ if (isset($sids[0])) {
             $i++;
           }
         }
-        echo json_encode($_series, JSON_UNESCAPED_UNICODE);
+        echo json_encode($_series, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
       ?>;
-      var _hudConfig     = <?php echo isset($hudConfig)     ? json_encode($hudConfig,     JSON_UNESCAPED_UNICODE) : 'null'; ?>;
-      var _hudSessionAvg = <?php echo isset($hudSessionAvg) ? json_encode($hudSessionAvg) : 'null'; ?>;
-      var _aiSessionId   = <?php echo ($claude_enabled && isset($session_id)) ? json_encode($session_id) : "''"; ?>;
+      var _hudConfig     = <?php echo isset($hudConfig)     ? json_encode($hudConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) : 'null'; ?>;
+      var _hudSessionAvg = <?php echo isset($hudSessionAvg) ? json_encode($hudSessionAvg, JSON_HEX_TAG | JSON_HEX_AMP) : 'null'; ?>;
+      var _aiSessionId   = <?php echo ($claude_enabled && isset($session_id)) ? json_encode($session_id, JSON_HEX_TAG | JSON_HEX_AMP) : "''"; ?>;
     </script>
     <script src="<?php echo htmlspecialchars(asset_url('static/js/torquehelpers.js')); ?>"></script>
     <script src="<?php echo htmlspecialchars(asset_url('static/js/session.js')); ?>"></script>
@@ -459,8 +460,8 @@ if (isset($sids[0])) {
       <span id="gps-repair-status" class="small" style="color:#ffb84d;">GPS issue detected</span>
     </div>
     <script>
-      window._gpsRepairSid  = <?php echo json_encode((string)$session_id); ?>;
-      window._gpsRepairCsrf = <?php echo json_encode(csrf_token()); ?>;
+      window._gpsRepairSid  = <?php echo json_encode((string)$session_id, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+      window._gpsRepairCsrf = <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP); ?>;
       function torqueRepairGps() {
         var btn = document.getElementById('gps-repair-btn');
         var st  = document.getElementById('gps-repair-status');

@@ -84,6 +84,17 @@ function asset_url(string $rel): string {
   return $rel . '?v=' . $v;
 }
 
+// helper: directory for app debug logs — kept OUTSIDE the web root so logs can
+// never be fetched over HTTP. TORQUE_LOG_DIR env overrides (default
+// /var/log/torque, created by the Dockerfile); falls back to the system temp dir.
+function torque_log_dir(): string {
+  $dir = rtrim(getenv('TORQUE_LOG_DIR') ?: '/var/log/torque', '/');
+  if (is_dir($dir) ? is_writable($dir) : @mkdir($dir, 0750, true)) {
+    return $dir;
+  }
+  return rtrim(sys_get_temp_dir(), '/') . '/torque';
+}
+
 // helper: LEFT JOIN clause matching gps_corrections to a raw_logs row by
 // (raw_table, session, torque_time_ms). Centralised so the correction join key
 // lives in one place across session.php / get_session_gps.php / export.php.

@@ -3,15 +3,17 @@ require_once ('db.php');
 require_once ('auth_app.php');
 
 // ── Upload debug log (14-day rolling retention) ───────────────────────────────
-// One file per session in data/upload_log/SESSIONID.log.
-// Each line: server_timestamp TAB raw_query_string
+// One file per session in torque_log_dir()/upload_log/SESSIONID.log — OUTSIDE the
+// web root, so it can't be fetched over HTTP. The device-credential (id) and
+// email (eml) parameters are redacted before writing.
+// Each line: server_timestamp TAB redacted_query_string
 // Files are removed automatically after 14 days.
-// To inspect: cat data/upload_log/SESSIONID.log
+// To inspect: docker exec p_torque cat /var/log/torque/upload_log/SESSIONID.log
 (function() {
-  $log_dir = __DIR__ . '/data/upload_log';
+  $log_dir = torque_log_dir() . '/upload_log';
 
   // Create directory if it doesn't exist — failure is non-fatal, never break uploads
-  if (!is_dir($log_dir) && !mkdir($log_dir, 0755, true) && !is_dir($log_dir)) {
+  if (!is_dir($log_dir) && !@mkdir($log_dir, 0750, true) && !is_dir($log_dir)) {
     return; // can't create dir — skip logging silently
   }
 
@@ -32,9 +34,10 @@ require_once ('auth_app.php');
     return; // malformed request — main code will reject it too
   }
 
+  $query = preg_replace('/(^|&)(id|eml)=[^&]*/i', '$1$2=REDACTED', $_SERVER['QUERY_STRING'] ?? '');
   $log_file = $log_dir . '/' . $_GET['session'] . '.log';
-  $line     = date('Y-m-d H:i:s') . "\t" . $_SERVER['QUERY_STRING'] . "\n";
-  file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX); // failure is non-fatal
+  $line     = date('Y-m-d H:i:s') . "\t" . $query . "\n";
+  @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX); // failure is non-fatal
 })();
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -108,7 +111,7 @@ if (sizeof($_GET) > 0) {
         $sessuploadid = $value;
       }
       if ($key == 'time') {
-        $sesstime = $value;
+        $sesstime = (string)(int)$value; // ms epoch; cast blocks SQL injection via ?time=
       }
       $sesskeys[] = $key;
       $sessvalues[] = $value;
@@ -196,7 +199,7 @@ if (sizeof($_GET) > 0) {
     $sessionqry = mysqli_query($con, $sessionqrystring) ;
     $row = mysqli_fetch_assoc($sessionqry);
     if ( ! $row ) {
-      $sessioninsertstring = "INSERT INTO " . quote_name($db_sessions_table) . " (".quote_names($sesskeys).", timestart, sessionsize) VALUES (".quote_values($sessvalues).", $sesstime, '1')";
+      $sessioninsertstring = "INSERT INTO " . quote_name($db_sessions_table) . " (".quote_names($sesskeys).", timestart, sessionsize) VALUES (".quote_values($sessvalues).", ".quote_value($sesstime).", '1')";
       mysqli_query($con, $sessioninsertstring) ;
       // Initialize session tracking vars for the first datapoint of a new session.
       // Without this, $sessTimeStart stays uninitialized (""), causing UPDATE to write

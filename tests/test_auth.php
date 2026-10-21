@@ -103,6 +103,27 @@ ok('real: multi-id second matches',   real_auth_id($hash_id_b, [$raw_id_a, $raw_
 ok('real: open auth enabled allows',  real_auth_id($hash_id_a, '', null, true) === true);
 ok('real: open auth disabled denies', real_auth_id($hash_id_a, '', null, false) === false);
 
+// Magic-hash regression: md5('240610708') and md5('QNKCDZO') are both "0e<digits>",
+// which PHP's loose == (and non-strict in_array) treats as equal floats (0.0).
+$magic_known = md5('240610708');  // 0e462097431906509019562988736854
+$magic_sent  = md5('QNKCDZO');    // 0e830400451993494058024219903391
+ok('real: magic hash collision rejected', real_auth_id($magic_sent, null, $magic_known, false) === false);
+ok('real: uppercase id accepted',        real_auth_id(strtoupper($hash_id_a), $raw_id_a, null, false) === true);
+
+// ── get_id() shape validation ───────────────────────────────────────────────
+function id_from_post(string $v): string { $_POST = ['id' => $v]; $_GET = []; return get_id(); }
+ok('get_id: 32 hex accepted',                 id_from_post($hash_id_a) === $hash_id_a);
+ok('get_id: uppercase normalised',            id_from_post(strtoupper($hash_id_a)) === $hash_id_a);
+ok('get_id: 33 chars rejected',               id_from_post($hash_id_a . 'a') === '');
+ok('get_id: embedded hash rejected',          id_from_post('xx' . $hash_id_a . 'yy') === '');
+ok('get_id: non-hex rejected',                id_from_post(str_repeat('g', 32)) === '');
+$_POST = []; $_GET = ['id' => $hash_id_b];
+ok('get_id: falls back to GET',               get_id() === $hash_id_b);
+$_POST = []; $_GET = [];
+
+// ── login throttling without a DB connection ────────────────────────────────
+ok('throttle: no DB → never throttled',       login_is_throttled(null, '1.2.3.4') === false);
+
 // ── auth_app.php flow simulation ─────────────────────────────────────────────
 // Simulates the $logged_in state machine for the four cases that matter.
 

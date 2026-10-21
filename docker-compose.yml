@@ -45,7 +45,9 @@ services:
       # ── Upload endpoint — HTTP by default ────────────────────────────────────
       # Set BEARER_TOKEN env var and use docker-compose.https-upload.yml to switch
       # this router to HTTPS once bearer auth is configured in Torque Pro.
-      - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.your-domain.com`)"
+      # Restricted to the upload endpoints only: without the Path() rules this
+      # router would serve the whole UI (including the login form) over plain HTTP.
+      - "traefik.http.routers.torque-upload.rule=Host(`torqueupload.your-domain.com`) && (Path(`/upload_data.php`) || Path(`/upload_batch.php`) || Path(`/check_session.php`))"
       - "traefik.http.routers.torque-upload.entrypoints=web"
       - "traefik.http.routers.torque-upload.service=torque-upload"
       - "traefik.http.services.torque-upload.loadbalancer.server.port=80"

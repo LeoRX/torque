@@ -179,6 +179,10 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Torque Pro upload auth**: `auth_app.php` via `auth_id()` — checks `$torque_id` / `$torque_id_hash` in `creds.php`
 - **Bearer token gate**: `auth_app.php` checks `$bearer_token` (from `creds.php`) before any other auth. If set and the token matches, `$logged_in = true` is set immediately — no Torque-ID auth is attempted. If the token is missing/wrong, returns HTTP 401. `$logged_in` is initialised to `false` **before** the bearer-token block so a successful match is not overwritten. Controlled by `BEARER_TOKEN` env var; empty = disabled (backwards-compatible).
 - **Plugin upload auth**: `upload_batch.php` and `check_session.php` both require `auth_app.php` — same bearer token / Torque ID / user+password flow as `upload_data.php`.
+- **Torque ID check**: `get_id()` accepts only an exact 32-hex-char value (anchored regex, lowercased). `auth_id()` compares with `hash_equals()` in a loop — **never** `in_array()`/`==`, which treats "magic hashes" (`0e<digits>`) as equal.
+- **Login throttling**: `auth_user()` counts failed web logins per `REMOTE_ADDR` in `torque_login_attempts` (created lazily) — 10 failures / 15 min locks the IP out (`$login_throttled` shows a message on the login form). Unknown usernames still run a dummy `password_verify()` so timing doesn't reveal which accounts exist. Credential checks live in `_auth_user_check()`; `settings.php` reuses it to require the signed-in user's current password before any password change. Minimum password length is 10.
+- **CSRF**: form posts use `csrf_field()`/`csrf_verify()` (`csrf.php`). JSON/AJAX endpoints check the token too: `claude_chat.php` requires an `X-CSRF-Token` header (pages expose it via `<meta name="csrf-token">`), `ha_test.php` and `gps_repair_run.php` take `csrf_token` in the POST body, and `db_upgrade.php` runs from the web only on POST + token (CLI unaffected).
+- **Secrets in Settings are write-only**: `claude_api_key` and `ha_token` are never echoed into the page; a blank field keeps the saved value, a "Remove saved …" checkbox clears it.
 
 ---
 
@@ -251,7 +255,7 @@ from Home Assistant location history — **without ever overwriting raw uploaded
 | `gps/HomeAssistantProvider.php` | HA REST History API provider; `parse_states()` is static + unit-testable; attributes each point to its `entity_id` (supports comma-separated multi-entity) |
 | `gps/GpsRepairWorker.php` | Orchestration: scan sessions → detect bad rows → batch HA query → accuracy-gate → upsert corrections; `stats()` + `record_heartbeat()` |
 | `gps/repair.php` | CLI entry point (`--dry-run`, `--session=<id>`, `--lookback-days=N`, `--stats`, `--help`) |
-| `ha_test.php` | Login-gated AJAX endpoint behind the Settings "Test Home Assistant" button; reports HTTP status + recent point count, never logs the token |
+| `ha_test.php` | Login-gated, POST + CSRF AJAX endpoint behind the Settings "Test Home Assistant" button; reports HTTP status + recent point count, never logs the token; connection errors are reported generically (detail to the server log only) so it can't be used as a port scanner |
 | `gps_repair_run.php` | Login-gated + CSRF AJAX endpoint; runs the worker for a single session on demand (the in-map "Repair GPS" button) |
 | `tests/test_gps.php` | Standalone PHP unit tests (no framework) — `php tests/test_gps.php` |
 
@@ -304,6 +308,7 @@ build the worker bootstrap once for repair.php / gps_repair_run.php / ha_test.ph
 - **HA recorder must be recording the tracker entity.** History returns `[]` for any window before recording started. Verify the entity is included in HA `recorder:` config and **restart HA** after changing it. Use the Settings "Test Home Assistant" button or `repair.php --stats` to sanity-check.
 - **Forward-only.** Only sessions driven *after* HA began recording the entity can be repaired. Earlier sessions are unrecoverable (HA Recorder retention is also ~14 days).
 - **Never send `minimal_response=true`** to the HA history API — it strips `attributes` (lat/lon) from all but the first/last state. The provider requests full state history.
+- **All HA HTTP goes through `HomeAssistantProvider::http_get()`** — it refuses anything but `http(s)://` (`is_valid_base_url()`), pins curl to `CURLOPT_PROTOCOLS_STR = http,https`, and never follows redirects. `settings.php` validates `ha_base_url` with the same function on save. LAN/private addresses are deliberately allowed.
 - **Never redact executable HA auth headers.** `ha_test.php` and `gps/HomeAssistantProvider.php` must build the auth header by concatenating the literal `Authorization: Bearer ` prefix with the saved token at runtime; redaction belongs in logs/docs only. `tests/test_gps.php` guards against placeholder text appearing in those request headers.
 - **`db_upgrade.php` runs from CLI** (`docker exec p_torque php /var/www/html/db_upgrade.php`); it skips the web-auth gate under `PHP_SAPI === 'cli'`. From a browser it still requires login.
 - The worker **never blocks uploads** and **never writes to HA**. If HA is down, `get_history()` returns `[]` and the row is left uncorrected (logged), to retry next run.
@@ -363,7 +368,12 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **GPS must include `time` column** in queries — the chart↔map crosshair sync requires timestamps in `_routeData[3]`.
 - **Profile filter**: Skip `''` and `'Not Specified'` entries. "All Profiles" uses SQL wildcard `%`.
 - **Session ordering**: Always `ORDER BY session DESC` for newest-first.
-- **`creds.php` is gitignored** — never tracked. Copy from `creds.example.php` or let `entrypoint.sh` generate it.
+- **`creds.php` is gitignored** — never tracked. Copy from `creds.example.php` or let `entrypoint.sh` generate it. The generated file reads every value with `getenv()` at runtime (quoted heredoc) — **never** paste env values into PHP source in the entrypoint; a `'` or `\` in a password broke the file and allowed code injection.
+- **Logs live outside the web root**: use `torque_log_dir()` (db.php; `/var/log/torque`, overridable with `TORQUE_LOG_DIR`). Never write logs, uploads or caches under `/var/www/html` — the code tree is root-owned and read-only to `www-data`, and `data/`, `tests/`, `gps/`, `docker/`, `docs/`, dotfiles, `*.md`/`*.yml`/`*.sh` are denied by Apache (`zz-torque-security.conf` in the Dockerfile). Upload logs redact `id`/`eml`.
+- **Upload SQL values**: every value from `$_GET`/`$_POST` goes through `quote_value()` or an explicit `(int)` cast — including `time`, which was once interpolated raw into the sessions INSERT (blind SQLi).
+- **JSON in `<script>`**: always `json_encode(..., JSON_HEX_TAG | JSON_HEX_AMP)` so uploader-controlled strings can't break out of the script block.
+- **HTTP upload router** (`docker-compose.yml` `torque-upload`) is restricted with `Path()` rules to `upload_data.php`, `upload_batch.php`, `check_session.php` — without them the whole UI (login form included) is served over plain HTTP.
+- **Production PHP config**: the image uses `php.ini-production` plus `zz-torque-hardening.ini` (`display_errors=Off`, `expose_php=Off`, `session.use_strict_mode=1`). PHP errors go to `docker logs`, not the page.
 - **Mapbox popup styling**: Use JS inline styles via `_applyPopupTheme()`, not CSS classes. Mapbox's runtime stylesheet wins specificity battles.
 - **`auth_app.php` variable ordering**: `$logged_in = false` must be initialized **before** the bearer-token block. If it is placed after, a valid bearer token sets `$logged_in = true` and then it is immediately reset to `false`, falling through into Torque-ID auth and silently failing. Auth failures must call `http_response_code(401)` — without it Apache logs show misleading HTTP 200 even when the upload is rejected.
 - **Tom Select in panels**: Always set `dropdownParent: 'body'` to escape `overflow: hidden` panels.

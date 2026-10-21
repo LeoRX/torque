@@ -18,7 +18,8 @@ $db_sessions_table = 'sessions';
 
 // ── Optional: Torque Pro device authentication ────────────────────────────────
 // Enter your Torque app device ID or its MD5 hash to restrict uploads.
-// Leave both empty to allow any Torque Pro device to upload data.
+// If both are empty (and no $bearer_token is set) uploads are REFUSED — set
+// $allow_open_upload_auth = true only for an isolated dev/LAN setup.
 $torque_id      = ''; // e.g. 123456789012345
 $torque_id_hash = ''; // e.g. 58b9b9268acaef64ac6a80b0543357e6
 

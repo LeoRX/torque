@@ -15,34 +15,98 @@ function get_pass()
 
 
 //Get Torque-ID from Browser-Request
+//The Torque app sends md5(device_id): exactly 32 hex chars. Anything else is rejected.
 function get_id()
 {
-    $id = "";
+    $raw = $_POST['id'] ?? $_GET['id'] ?? '';
+    if (is_string($raw) && 1 === preg_match('/^[\da-f]{32}$/i', trim($raw))) {
+        return strtolower(trim($raw));
+    }
+    return "";
+}
 
-    if (isset($_POST["id"])) {
-        if (1 === preg_match('/[\da-f]{32}/i', $_POST['id'], $matches))
-        {
-            $id = $matches[0];
-        }
+
+// ── Login throttling ─────────────────────────────────────────────────────────
+// Failed web logins are counted per client IP (REMOTE_ADDR — real client via
+// mod_remoteip behind Traefik). After LOGIN_MAX_FAILURES failures inside
+// LOGIN_WINDOW_SECONDS, further attempts from that IP are refused until the
+// window slides. Table is created lazily so no migration is required.
+const LOGIN_MAX_FAILURES   = 10;
+const LOGIN_WINDOW_SECONDS = 900;
+
+function _login_attempts_table($con): bool
+{
+    return (bool)mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_login_attempts (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        ip         VARCHAR(45) NOT NULL,
+        attempt_ts INT NOT NULL,
+        KEY idx_ip_ts (ip, attempt_ts)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function login_is_throttled($con, string $ip): bool
+{
+    if (!$con || !_login_attempts_table($con)) { return false; }
+    $since = time() - LOGIN_WINDOW_SECONDS;
+    $q = mysqli_query($con, "SELECT COUNT(*) AS n FROM torque_login_attempts WHERE ip=" . quote_value($ip) . " AND attempt_ts > " . (int)$since);
+    $row = $q ? mysqli_fetch_assoc($q) : null;
+    return $row && (int)$row['n'] >= LOGIN_MAX_FAILURES;
+}
+
+function login_record_failure($con, string $ip): void
+{
+    if (!$con || !_login_attempts_table($con)) { return; }
+    mysqli_query($con, "INSERT INTO torque_login_attempts (ip, attempt_ts) VALUES (" . quote_value($ip) . ", " . time() . ")");
+    // Opportunistic cleanup of expired rows
+    if (random_int(1, 20) === 1) {
+        mysqli_query($con, "DELETE FROM torque_login_attempts WHERE attempt_ts < " . (int)(time() - LOGIN_WINDOW_SECONDS));
     }
-    elseif (isset($_GET["id"])) {
-        if (1 === preg_match('/[\da-f]{32}/i', $_GET['id'], $matches))
-        {
-            $id = $matches[0];
-        }
-    }
-    
-    return $id;
+}
+
+function login_clear_failures($con, string $ip): void
+{
+    if (!$con || !_login_attempts_table($con)) { return; }
+    mysqli_query($con, "DELETE FROM torque_login_attempts WHERE ip=" . quote_value($ip));
 }
 
 
 //True if User/Pass match DB users (torque_users table) or creds.php $users array.
+//Sets global $login_throttled = true when the client IP is temporarily locked out.
 function auth_user()
 {
-    global $users, $con;
+    global $users, $con, $login_throttled;
+    $login_throttled = false;
 
     $user = get_user();
     $pass = get_pass();
+
+    // Nothing submitted (normal unauthenticated page view) — not a login attempt
+    if ($user === '' && $pass === '') {
+        return false;
+    }
+
+    $ip  = $_SERVER['REMOTE_ADDR'] ?? '';
+    $db  = isset($con) ? $con : null;
+    if (login_is_throttled($db, $ip)) {
+        $login_throttled = true;
+        return false;
+    }
+
+    if (_auth_user_check($user, $pass)) {
+        login_clear_failures($db, $ip);
+        return true;
+    }
+    login_record_failure($db, $ip);
+    return false;
+}
+
+function _auth_user_check(string $user, string $pass): bool
+{
+    global $users, $con;
+
+    // Bcrypt (cost 12, PHP 8.4's default) hash of a random string: verified against when the username is
+    // unknown so that response time doesn't reveal which usernames exist.
+    static $dummy_hash = '$2y$12$5JeMoM5Z9lfvwFEWD78QNu7lfXE/pZQvpM4ItwKnnoxCQyX/VCz9K';
 
     // 1. Check DB users table first (bcrypt hashed passwords)
     if (isset($con)) {
@@ -62,14 +126,16 @@ function auth_user()
         }
     }
 
+    // Equalise timing with the DB path above for unknown usernames
+    password_verify($pass, $dummy_hash);
+
     // 2. Fallback: plain-text $users from creds.php
     if ( !isset($users) || empty($users) ) {
         return false; // no credentials defined → deny (fail closed)
     }
     foreach ($users as $key => $value) {
-        // Use hash_equals for the password comparison to prevent timing oracles
-        // (even though creds.php stores plaintext, timing-safe comparison is correct practice)
-        if ($user === $users[$key]['user'] && hash_equals((string)$users[$key]['pass'], (string)$pass)) {
+        // hash_equals on both fields: timing-safe comparison
+        if (hash_equals((string)$users[$key]['user'], $user) && hash_equals((string)$users[$key]['pass'], (string)$pass)) {
             session_regenerate_id(true); // prevent session fixation
             $_SESSION['torque_user'] = $users[$key]['user'];
             return true;
@@ -81,7 +147,7 @@ function auth_user()
 
 
 //True is Torque-ID matches any of the IDs or HASHes defined in creds.php
-//If both IDs and HASHes are empty, all IDs are accepted.
+//If both IDs and HASHes are empty, uploads are refused unless $allow_open_upload_auth is set.
 function auth_id()
 {
     global $torque_id, $torque_id_hash;
@@ -111,9 +177,14 @@ function auth_id()
     // Authenticate torque instance: Check if we know its HASH
     if ($auth_by_hash_possible)
     {
-        if (in_array($session_id, $torque_id_hash) )
-        {
-            return true;
+        // Strict, timing-safe comparison. A loose in_array() treats numeric-looking
+        // "magic hashes" (e.g. "0e123...") as equal to each other.
+        if ($session_id !== '') {
+            foreach ($torque_id_hash as $known) {
+                if (is_string($known) && hash_equals(strtolower(trim($known)), $session_id)) {
+                    return true;
+                }
+            }
         }
     }
     // No IDs/HASHes defined. Fail closed by default; set $allow_open_upload_auth = true

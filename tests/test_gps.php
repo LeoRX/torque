@@ -250,5 +250,17 @@ ok('within tolerance accepted', abs($pt_near->time_ms - 1000) <= $tol_ms);
 ok('beyond tolerance rejected', abs($pt_far->time_ms  - 1000) >  $tol_ms);
 
 // ── results ──────────────────────────────────────────────────────────────────
+
+// ── HomeAssistantProvider::is_valid_base_url (SSRF guard) ────────────────────
+ok('ha url: https accepted',        HomeAssistantProvider::is_valid_base_url('https://ha.example.com'));
+ok('ha url: http LAN accepted',     HomeAssistantProvider::is_valid_base_url('http://192.168.1.10:8123'));
+ok('ha url: file:// rejected',      !HomeAssistantProvider::is_valid_base_url('file:///etc/passwd'));
+ok('ha url: gopher:// rejected',    !HomeAssistantProvider::is_valid_base_url('gopher://127.0.0.1:6379/_x'));
+ok('ha url: no scheme rejected',    !HomeAssistantProvider::is_valid_base_url('ha.example.com'));
+ok('ha url: userinfo rejected',     !HomeAssistantProvider::is_valid_base_url('http://u:p@ha.example.com'));
+ok('ha url: empty rejected',        !HomeAssistantProvider::is_valid_base_url(''));
+[$_r, $_e, $_c] = HomeAssistantProvider::http_get('file:///etc/passwd', 'tok');
+ok('ha http_get: refuses file:// without a request', $_r === false && $_c === 0 && $_e !== '');
+
 echo "\n--- All tests: $pass passed, $fail failed ---\n";
 exit($fail > 0 ? 1 : 0);

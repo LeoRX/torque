@@ -6,8 +6,19 @@
 require_once('./db.php');
 require_once('./auth_user.php');
 require_once('./get_settings.php');
+require_once('./csrf.php');
 
 header('Content-Type: application/json; charset=utf-8');
+
+// CSRF: the page sends its token in a custom header. A cross-site page can't set
+// custom headers without a CORS preflight (which we never grant), so this blocks
+// forged requests that would otherwise spend API credit.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST'
+    || !hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''))) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Request validation failed. Reload the page and try again.']);
+    exit;
+}
 
 // Must have AI enabled and an API key
 if (!$claude_enabled || empty($claude_api_key)) {
