@@ -1,4 +1,6 @@
-FROM php:8.2-apache
+# Pinned to an exact patch release: 8.4.27 fixes PHP2Shell
+# (CVE-2026-109618 / CVE-2026-109619, unauthenticated RCE against mod_php).
+FROM php:8.4.27-apache
 
 # ── System dependencies for PHP extensions ────────────────────────────────────
 # libonig-dev is required by mbstring
@@ -8,6 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── PHP extensions ─────────────────────────────────────────────────────────────
 RUN docker-php-ext-install mysqli mbstring
+
+# Refuse to build on a PHP release vulnerable to CVE-2026-109618 / CVE-2026-109619
+RUN php -r 'exit(version_compare(PHP_VERSION, "8.4.27", ">=") ? 0 : 1);' \
+ || (echo "ERROR: PHP $(php -r 'echo PHP_VERSION;') is vulnerable to PHP2Shell; need >= 8.4.27" >&2; exit 1)
 
 # ── Apache: enable mod_rewrite (for future .htaccess use) ─────────────────────
 RUN a2enmod rewrite

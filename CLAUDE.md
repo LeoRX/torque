@@ -18,9 +18,9 @@ data export, and an AI assistant (TorqueAI powered by Claude).
 
 | Layer | Technology |
 |---|---|
-| Container | `php:8.2-apache` — Apache + mod_php, single process, no FPM/supervisord |
+| Container | `php:8.4.27-apache` (pinned; ≥8.4.27 required for CVE-2026-109618/109619) — Apache + mod_php, single process, no FPM/supervisord |
 | Reverse proxy | Traefik v2 — TLS via Let's Encrypt |
-| Backend | PHP 8.2 |
+| Backend | PHP 8.4 |
 | Database | MariaDB 11.4 (external, configured via env vars) |
 | Frontend | Bootstrap 5.3.3, jQuery 3.7.1, Chart.js 4.4, Mapbox GL JS, Tom Select 2.3 |
 | AI assistant | Anthropic Claude API (`claude_chat.php`) |
