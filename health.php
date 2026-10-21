@@ -1,6 +1,10 @@
 <?php
 require_once('db.php');
-$ok = ($con && mysqli_ping($con));
+try {
+    $ok = ($con && mysqli_query($con, 'SELECT 1') !== false);
+} catch (Throwable $e) {
+    $ok = false;
+}
 if ($con) { mysqli_close($con); }
 http_response_code($ok ? 200 : 503);
 header('Content-Type: text/plain');

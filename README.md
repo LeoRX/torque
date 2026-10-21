@@ -18,7 +18,7 @@ Browse sessions, plot OBD2 time-series data against interactive charts, follow y
 - **Data export** — CSV and JSON per session
 - **Dark mode** — persistent, toggle in navbar
 - **Mobile-responsive** — hamburger navbar on phones, viewport-relative chart and panel sizing, collapsible HUD widget
-- **Docker-ready** — single `php:8.2-apache` container, credentials injected at runtime via env vars
+- **Docker-ready** — single `php:8.4.27-apache` container, credentials injected at runtime via env vars
 - **Traefik-compatible** — HTTPS via Let's Encrypt, separate HTTP-only upload endpoint for Torque Pro
 - **Plugin batch upload** — `upload_batch.php` receives complete trip CSV files from the companion Android plugin; `check_session.php` lets the plugin check for existing sessions before uploading
 
@@ -223,7 +223,7 @@ Requires migrations v25/v26 — run `db_upgrade.php` (see Database Setup) after 
 ## Running Without Docker
 
 1. Copy `creds.example.php` → `creds.php` and fill in real values
-2. Ensure PHP 8.2+ with `mysqli` and `mbstring` extensions
+2. Ensure PHP 8.4.27+ with `mysqli` and `mbstring` extensions
 3. Point your web server document root at the repo directory
 4. Create `.htaccess` if using Apache (mod_rewrite recommended)
 
@@ -260,7 +260,7 @@ torque/
 This project is a fork of **[econpy/torque](https://github.com/econpy/torque)** by [@econpy](https://github.com/econpy), which provided the original Torque Pro upload receiver and PHP viewer. Without that foundation, none of this would exist.
 
 Extended by [@LeoRX](https://github.com/LeoRX) with:
-- Docker / `php:8.2-apache` containerisation
+- Docker / `php:8.4.27-apache` containerisation
 - Environment-variable credential injection
 - Traefik + Let's Encrypt integration
 - Mapbox GL JS map with chart↔map crosshair sync
