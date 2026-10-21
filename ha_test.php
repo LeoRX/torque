@@ -4,13 +4,22 @@
 // Read-only — performs no writes and never echoes the token.
 
 require_once('./db.php');
-require_once('./get_settings.php');
 require_once('./auth_user.php'); // ensures the caller is logged in
+require_once('./get_settings.php');
+require_once('./csrf.php');
 require_once('./gps/LocationPoint.php');
 require_once('./gps/LocationProvider.php');
 require_once('./gps/HomeAssistantProvider.php');
 
 header('Content-Type: application/json; charset=utf-8');
+
+// POST + CSRF only: this endpoint makes an outbound request with the saved token.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST'
+    || !hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)($_POST['csrf_token'] ?? ''))) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Request validation failed. Reload the page and try again.']);
+    exit;
+}
 
 if (!HomeAssistantProvider::is_configured($settings)) {
     echo json_encode(['error' => 'HA URL, token, and entity must be configured and saved first.']);
@@ -26,19 +35,13 @@ $url   = $base . '/api/history/period/' . rawurlencode($start)
        . '?end_time='         . rawurlencode($end)
        . '&filter_entity_id=' . rawurlencode($ent);
 
-$ch = curl_init($url);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT        => 15,
-    CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $tok, 'Content-Type: application/json'],
-]);
-$raw  = curl_exec($ch);
-$err  = curl_error($ch);
-$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
+[$raw, $err, $code] = HomeAssistantProvider::http_get($url, $tok);
 
 if ($err !== '') {
-    echo json_encode(['error' => 'Connection failed: ' . $err]);
+    // Generic message: raw curl errors would let this endpoint be used to probe
+    // which internal hosts/ports exist. The detail goes to the server log only.
+    error_log('ha_test: connection failed: ' . $err);
+    echo json_encode(['error' => 'Could not connect to Home Assistant — check the URL (http:// or https://) and that HA is reachable from the container.']);
     exit;
 }
 if ($code === 401 || $code === 403) {

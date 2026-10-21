@@ -24,7 +24,7 @@ if (!empty($bearer_token ?? '')) {
             . "\tHEADER_VALUE="  . ($auth_header !== '' ? 'present' : '(empty)')
             . "\tIP="            . ($_SERVER['REMOTE_ADDR'] ?? '')
             . "\n";
-        @file_put_contents(__DIR__ . '/data/auth_debug.log', $log_line, FILE_APPEND | LOCK_EX);
+        @file_put_contents(torque_log_dir() . '/auth_debug.log', $log_line, FILE_APPEND | LOCK_EX);
         http_response_code(401);
         header('WWW-Authenticate: Bearer realm="Torque Upload"');
         echo 'ERROR. Bearer token authentication required.';

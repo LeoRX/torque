@@ -75,8 +75,8 @@ if (!$logged_in) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Open Torque Viewer - Login</title>
     <meta name="description" content="Open Torque Viewer">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg==" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700">
     <link rel="stylesheet" href="static/css/themes.css">
     <style>
@@ -251,6 +251,9 @@ if (!$logged_in) {
       </div>
       <div class="login-card">
         <form method="post" action="session.php" id="formlogin">
+<?php if (!empty($login_throttled)): ?>
+          <div class="alert alert-danger py-2 small" role="alert">Too many failed sign-in attempts. Please wait 15 minutes and try again.</div>
+<?php endif; ?>
           <div class="mb-3">
             <label class="form-label">Username</label>
             <div class="input-icon">
@@ -277,7 +280,7 @@ if (!$logged_in) {
         </div>
       </div>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg==" crossorigin="anonymous"></script>
     <script>
       (function(){
         var saved = localStorage.getItem('torque-theme') || 'light';

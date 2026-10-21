@@ -403,9 +403,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var sid = typeof _aiSessionId !== 'undefined' ? _aiSessionId : '';
 
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
     fetch('claude_chat.php', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfMeta ? csrfMeta.content : ''},
       body: JSON.stringify({message: text, history: _aiHistory.slice(0, -1), session_id: sid})
     })
     .then(function(r) { return r.json(); })

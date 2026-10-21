@@ -17,6 +17,49 @@ class HomeAssistantProvider implements GpsLocationProvider {
             && trim($settings['ha_entity_id'] ?? '') !== '';
     }
 
+    /**
+     * True if $url is an absolute http(s) URL with a host. Anything else (file://,
+     * gopher://, dict://, relative paths…) is refused before any request is made.
+     * Private/LAN addresses are allowed on purpose — HA normally lives on the LAN.
+     */
+    public static function is_valid_base_url(string $url): bool {
+        $url = trim($url);
+        if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) return false;
+        $p = parse_url($url);
+        return is_array($p)
+            && in_array(strtolower($p['scheme'] ?? ''), ['http', 'https'], true)
+            && ($p['host'] ?? '') !== ''
+            && !isset($p['user']) && !isset($p['pass']);
+    }
+
+    /**
+     * GET $url from Home Assistant with the bearer token. Restricted to http/https
+     * (including on redirects, which are not followed anyway).
+     * @return array{0: string|false, 1: string, 2: int}  [body, curl_error, http_code]
+     */
+    public static function http_get(string $url, string $token): array {
+        if (!self::is_valid_base_url($url)) {
+            return [false, 'invalid Home Assistant URL (must be http:// or https://)', 0];
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER      => true,
+            CURLOPT_TIMEOUT             => 15,
+            CURLOPT_FOLLOWLOCATION      => false,
+            CURLOPT_PROTOCOLS_STR       => 'http,https',
+            CURLOPT_REDIR_PROTOCOLS_STR => 'http,https',
+            CURLOPT_HTTPHEADER          => [
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json',
+            ],
+        ]);
+        $raw  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return [$raw, $err, $code];
+    }
+
     /** Build a provider from the settings array (no validation — see is_configured()). */
     public static function from_settings(array $settings): self {
         return new self(
@@ -38,22 +81,11 @@ class HomeAssistantProvider implements GpsLocationProvider {
              . '?end_time='          . rawurlencode($end)
              . '&filter_entity_id='  . rawurlencode($this->entity_id);
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 15,
-            CURLOPT_HTTPHEADER     => [
-                'Authorization: Bearer ' . $this->token,
-                'Content-Type: application/json',
-            ],
-        ]);
-        $raw  = curl_exec($ch);
-        $err  = curl_error($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        [$raw, $err, $code] = self::http_get($url, $this->token);
 
+        // Log the failure without the URL (it carries the entity id and query window)
         if ($err)          { error_log("HomeAssistantProvider cURL error: $err");     return []; }
-        if ($code !== 200) { error_log("HomeAssistantProvider HTTP $code for $url");  return []; }
+        if ($code !== 200) { error_log("HomeAssistantProvider HTTP $code");           return []; }
 
         $data = json_decode($raw, true);
         if (!is_array($data)) return [];

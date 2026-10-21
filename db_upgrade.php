@@ -4,6 +4,19 @@ require_once('db.php');
 // because shell access to the container is already a higher privilege than login.
 if (PHP_SAPI !== 'cli') {
   require_once('auth_user.php');
+  require_once('csrf.php');
+  // Schema changes must not run from a plain GET (a cross-site link or image tag
+  // could trigger them): show a confirm button, run only on POST + CSRF token.
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><meta charset="utf-8"><title>Database upgrade</title>'
+       . '<form method="post" style="font-family:sans-serif;margin:2em">'
+       . '<p>Run pending database migrations?</p>' . csrf_field()
+       . '<button type="submit">Run upgrade</button></form>';
+    exit;
+  }
+  csrf_verify();
+  header('Content-Type: text/plain; charset=utf-8');
 }
 
 // ── Version tracking table ────────────────────────────────────────────────────

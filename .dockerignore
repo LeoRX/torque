@@ -17,3 +17,13 @@ data/
 
 # Dev/build artifacts
 *.log
+
+# Not part of the web app — must not be reachable over HTTP
+tests/
+docs/
+.github/
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.env.example
+creds.example.php

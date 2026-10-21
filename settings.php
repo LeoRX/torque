@@ -2,6 +2,7 @@
 require_once('db.php');
 require_once('auth_user.php');
 require_once('get_settings.php');
+require_once(__DIR__ . '/gps/HomeAssistantProvider.php');
 
 // Ensure torque_users table exists
 mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_users (
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nu = trim($_POST['new_username']); $np = $_POST['new_password'];
     if (strlen($nu) < 2)        { $cred_error = 'Username must be at least 2 characters.'; }
     elseif (!preg_match('/^[\w.\-@]+$/', $nu)) { $cred_error = 'Username may only contain letters, numbers, underscores, hyphens, dots, and @.'; }
-    elseif (strlen($np) < 6)    { $cred_error = 'Password must be at least 6 characters.'; }
+    elseif (strlen($np) < 10)   { $cred_error = 'Password must be at least 10 characters.'; }
     else {
       $hash = password_hash($np, PASSWORD_BCRYPT);
       if (mysqli_query($con, "INSERT INTO " . quote_name('torque_users') . " (username, password_hash) VALUES (" . quote_value($nu) . "," . quote_value($hash) . ")")) {
@@ -39,7 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
   if (isset($_POST['change_password']) && !empty($_POST['cp_username']) && !empty($_POST['cp_password'])) {
     $cu = trim($_POST['cp_username']); $cp = $_POST['cp_password'];
-    if (strlen($cp) < 6) { $cred_error = 'New password must be at least 6 characters.'; }
+    // Re-authenticate the signed-in user before changing any password, so a
+    // hijacked session alone can't take over accounts.
+    if (!_auth_user_check((string)($_SESSION['torque_user'] ?? ''), (string)($_POST['cp_current'] ?? ''))) {
+      $cred_error = 'Your current password is incorrect.';
+    }
+    elseif (strlen($cp) < 10) { $cred_error = 'New password must be at least 10 characters.'; }
     else {
       $hash = password_hash($cp, PASSWORD_BCRYPT);
       if (mysqli_query($con, "UPDATE " . quote_name('torque_users') . " SET password_hash=" . quote_value($hash) . " WHERE username=" . quote_value($cu))) {
@@ -127,6 +133,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     $_POST['gps_ha_tolerance_seconds'] = (string)max(10, min(600, (int)$_POST['gps_ha_tolerance_seconds']));
   if (array_key_exists('gps_ha_max_accuracy_m', $_POST))
     $_POST['gps_ha_max_accuracy_m'] = (string)max(0.0, min(1000.0, (float)$_POST['gps_ha_max_accuracy_m']));
+  // Write-only secrets: the form never echoes the saved value, so a blank field
+  // means "keep what's saved". Ticking the matching "remove" box clears it.
+  foreach (['claude_api_key', 'ha_token'] as $_secret) {
+    if (!empty($_POST['clear_' . $_secret])) {
+      $_POST[$_secret] = '';
+    } elseif (array_key_exists($_secret, $_POST) && trim((string)$_POST[$_secret]) === '') {
+      unset($_POST[$_secret]);
+    }
+  }
+  // Home Assistant URL: http(s) only — the server makes requests to it (SSRF guard)
+  if (array_key_exists('ha_base_url', $_POST)) {
+    $_ha_url = rtrim(trim((string)$_POST['ha_base_url']), '/');
+    if ($_ha_url !== '' && !HomeAssistantProvider::is_valid_base_url($_ha_url)) {
+      $save_error = 'Home Assistant URL must start with http:// or https:// — not saved.';
+      unset($_POST['ha_base_url']);
+    } else {
+      $_POST['ha_base_url'] = $_ha_url;
+    }
+  }
+  // HUD PIDs must be k-codes (they're used as column names)
+  foreach (['hud_gauge1_pid', 'hud_gauge2_pid', 'hud_gauge3_pid', 'hud_stat_fuel_pid'] as $_pidkey) {
+    if (array_key_exists($_pidkey, $_POST) && !preg_match('/^k[0-9a-z]{1,15}$/i', trim((string)$_POST[$_pidkey]))) {
+      unset($_POST[$_pidkey]);
+    }
+  }
   if (array_key_exists('gps_repair_interval', $_POST)
       && !in_array($_POST['gps_repair_interval'], ['3600','21600','86400','259200','604800'], true))
     $_POST['gps_repair_interval'] = '604800';
@@ -195,6 +226,7 @@ $mapbox_styles = [
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?php echo htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
   <title>Settings — Open Torque Viewer</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
     integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg=="
@@ -389,7 +421,7 @@ $mapbox_styles = [
                 <input type="text" class="form-control form-control-sm" name="new_username" placeholder="Username" required minlength="2" autocomplete="off">
               </div>
               <div class="mb-2">
-                <input type="password" class="form-control form-control-sm" name="new_password" placeholder="Password (min 6 chars)" required minlength="6" autocomplete="new-password">
+                <input type="password" class="form-control form-control-sm" name="new_password" placeholder="Password (min 10 chars)" required minlength="10" autocomplete="new-password">
               </div>
               <button type="submit" name="add_user" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus-circle me-1"></i>Add User</button>
             </form>
@@ -409,7 +441,10 @@ $mapbox_styles = [
                 </select>
               </div>
               <div class="mb-2">
-                <input type="password" class="form-control form-control-sm" name="cp_password" placeholder="New password (min 6 chars)" required minlength="6" autocomplete="new-password">
+                <input type="password" class="form-control form-control-sm" name="cp_password" placeholder="New password (min 10 chars)" required minlength="10" autocomplete="new-password">
+              </div>
+              <div class="mb-2">
+                <input type="password" class="form-control form-control-sm" name="cp_current" placeholder="Your current password" required autocomplete="current-password">
               </div>
               <button type="submit" name="change_password" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>Update Password</button>
             </form>
@@ -426,6 +461,12 @@ $mapbox_styles = [
       <?php if ($save_success): ?>
       <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
         <i class="bi bi-check-circle me-2"></i><strong>Settings saved successfully.</strong>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      <?php endif; ?>
+      <?php if ($save_error !== ''): ?>
+      <div class="alert alert-warning alert-dismissible fade show mb-3" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($save_error); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
       <?php endif; ?>
@@ -555,13 +596,13 @@ $mapbox_styles = [
               <div class="setting-desc mb-2">Your Anthropic API key. Get one free at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys.</div>
               <div class="input-group" style="max-width:500px;">
                 <input type="password" class="form-control form-control-sm" id="claude_api_key_input"
-                  name="claude_api_key" value="<?php echo htmlspecialchars($settings['claude_api_key'] ?? ''); ?>"
-                  placeholder="sk-ant-api03-..." autocomplete="off">
-                <button class="btn btn-outline-secondary btn-sm" type="button"
-                  onclick="var i=document.getElementById('claude_api_key_input');i.type=i.type==='password'?'text':'password';">
-                  <i class="bi bi-eye"></i>
-                </button>
+                  name="claude_api_key" value=""
+                  placeholder="<?php echo !empty($settings['claude_api_key']) ? '•••••••• saved — leave blank to keep' : 'sk-ant-api03-...'; ?>" autocomplete="new-password">
               </div>
+              <?php if (!empty($settings['claude_api_key'])): ?>
+              <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="clear_claude_api_key" value="1" id="clear_claude_api_key">
+                <label class="form-check-label small text-muted" for="clear_claude_api_key">Remove saved key</label></div>
+              <?php endif; ?>
             </div>
             <!-- Model -->
             <div class="setting-row">
@@ -778,13 +819,14 @@ $mapbox_styles = [
               <div class="setting-desc mb-2">Long-lived access token from your HA profile page (Profile → Long-Lived Access Tokens).</div>
               <div class="input-group input-group-sm" style="max-width:400px;">
                 <input type="password" class="form-control form-control-sm" name="ha_token" id="ha_token"
-                  value="<?php echo htmlspecialchars($settings['ha_token'] ?? ''); ?>"
+                  value=""
+                  placeholder="<?php echo !empty($settings['ha_token']) ? '•••••••• saved — leave blank to keep' : ''; ?>"
                   autocomplete="new-password">
-                <button class="btn btn-outline-secondary" type="button"
-                  onclick="var f=document.getElementById('ha_token');f.type=f.type==='password'?'text':'password';">
-                  <i class="bi bi-eye"></i>
-                </button>
               </div>
+              <?php if (!empty($settings['ha_token'])): ?>
+              <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="clear_ha_token" value="1" id="clear_ha_token">
+                <label class="form-check-label small text-muted" for="clear_ha_token">Remove saved token</label></div>
+              <?php endif; ?>
             </div>
 
             <div class="setting-row mb-3">
@@ -943,7 +985,7 @@ $mapbox_styles = [
       res.className = 'ms-3 small text-muted';
       fetch('claude_chat.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content},
         body: JSON.stringify({message: 'Reply with exactly: "API key works."', history: [], session_id: ''})
       })
       .then(function(r) { return r.json(); })
@@ -969,7 +1011,9 @@ $mapbox_styles = [
       btn.disabled = true;
       res.textContent = 'Testing…';
       res.className = 'ms-3 small text-muted';
-      fetch('ha_test.php', { method: 'POST', headers: {'Content-Type': 'application/json'} })
+      var body = new FormData();
+      body.append('csrf_token', <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
+      fetch('ha_test.php', { method: 'POST', body: body })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.error) {
