@@ -77,16 +77,22 @@ if (!$sessionqry || mysqli_num_rows( $sessionqry ) == 0 ) {
 }
 
 // Create an array mapping session IDs to date strings
+// (always initialised: callers such as plot.php use them even when no session qualifies)
+$sids = array();
 $seshdates = array();
 $seshsizes = array();
 $seshprofile = array();
-while($row = mysqli_fetch_assoc($sessionqry)) {
+// A session the user explicitly opened (?id=) is always listed, even if it is
+// smaller than $min_session_size — otherwise plot.php refuses to chart it.
+$requested_sid = (isset($_GET['id']) && preg_match('/^\d+$/', $_GET['id'])) ? $_GET['id'] : '';
+
+while ($sessionqry && ($row = mysqli_fetch_assoc($sessionqry))) {
     $session_duration_str = gmdate("H:i:s", (int)(((int)$row["timeend"] - (int)$row["timestart"])/1000));
     $session_profileName = $row["profileName"];
     $session_size = $row["sessionsize"];
 
     // Do not show sessions smaller than $min_session_size
-    if ($session_size >= $min_session_size) {
+    if ($session_size >= $min_session_size || (string)$row["session"] === $requested_sid) {
         $sid = $row["session"];
         $sids[] = preg_replace('/\D/', '', $sid);
         $seshdates[$sid] = tz_date("F d, Y  g:ia", (int)substr($sid, 0, -3), $display_timezone ?? 'UTC');
@@ -96,7 +102,7 @@ while($row = mysqli_fetch_assoc($sessionqry)) {
     else {}
 }
 
-mysqli_free_result($sessionqry);
+if ($sessionqry) { mysqli_free_result($sessionqry); }
 //echo "<!-- End get_sessions.php at ".date("H:i:s", microtime(true))." -->\r\n";
 
 ?>

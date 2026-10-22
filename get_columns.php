@@ -6,15 +6,18 @@
 // 2015.08.21 - edit by surfrock66 - Rather than pull from the column comments,
 //   oull from a new database created which manages variables. Include
 //   a column flagging whether a variable is populated or not.
+// The keys table may not exist yet on a fresh install (created by the first
+// upload), so a failed query must yield an empty list, not a fatal error.
+$coldata = array();
 $colqry = mysqli_query($con, "SELECT id,description,type,favorite FROM " . quote_name($db_keys_table) . " WHERE populated = 1 ORDER BY description");
-while ($x = mysqli_fetch_array($colqry)) {
+while ($colqry && ($x = mysqli_fetch_array($colqry))) {
   if ((substr($x[0], 0, 1) == "k") && in_array($x[2], ['float', 'double'])) {
     $coldata[] = array("colname"=>$x[0], "colcomment"=>$x[1], "colfavorite"=>$x[3]);
   }
 }
 
 $numcols = strval(count($coldata)+1);
-mysqli_free_result($colqry);
+if ($colqry) { mysqli_free_result($colqry); }
 
 //TODO: Do this once in a dedicated file
 if (isset($_POST["id"])) {
