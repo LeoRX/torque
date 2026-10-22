@@ -1,0 +1,104 @@
+name: CI
+
+# Checks for pull requests — the same gates as the publish workflow (docker.yml),
+# without pushing anything. Actions are pinned to commit SHAs (tag in comment).
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, unit tests, secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+
+      - name: PHP syntax check
+        run: |
+          find . -name "*.php" ! -path "./.git/*" -print0 | xargs -0 -n1 php -l
+
+      - name: Unit tests
+        run: |
+          for t in tests/test_*.php; do
+            echo "── $t"
+            php "$t"
+          done
+
+      - name: Secret scan
+        run: |
+          if grep -rn --include="*.php" -e "AIzaSy" -e "dckr_pat_" -e "ghp_" .; then
+            echo "ERROR: Credential pattern found in committed PHP file." >&2
+            exit 1
+          fi
+
+  image:
+    name: Docker build + Trivy scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload Trivy SARIF (read-only on fork PRs — upload is then skipped)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      # Builds the full Dockerfile (including the apt step and the PHP version
+      # guard) exactly as the publish workflow does, but only loads it locally.
+      - name: Build image (amd64, not pushed)
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          pull: true
+          tags: open-torque-viewer:pr
+          cache-from: type=registry,ref=leorx/open-torque-viewer:buildcache
+
+      - name: Smoke-test image
+        run: |
+          # Patched PHP (PHP2Shell), production error display, hardened file layout
+          docker run --rm --entrypoint php open-torque-viewer:pr -r \
+            'echo PHP_VERSION, "\n"; exit(version_compare(PHP_VERSION, "8.4.27", ">=") ? 0 : 1);'
+          docker run --rm --entrypoint php open-torque-viewer:pr -r \
+            'exit(in_array(strtolower((string)ini_get("display_errors")), ["", "0", "off"], true) ? 0 : 1);'
+          docker run --rm --entrypoint sh open-torque-viewer:pr -c \
+            'test ! -e /var/www/html/tests && test "$(stat -c %U /var/www/html)" = root && test -f /var/www/html/static/js/actions.js'
+
+      - name: Trivy scan (report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: open-torque-viewer:pr
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '0'
+
+      - name: Upload Trivy results
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      - name: Trivy gate (fixable CRITICAL fails the PR)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: open-torque-viewer:pr
+          format: table
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: '1'
+          skip-setup-trivy: true

@@ -127,6 +127,23 @@ docker compose -f docker-compose.yml -f docker-compose.https-upload.yml up -d
 
 > **Non-Traefik users**: The bearer gate lives in PHP (`auth_app.php`) and works with any reverse proxy or direct HTTPS setup — just set `BEARER_TOKEN` and terminate TLS however you prefer.
 
+### Docker secrets (optional)
+
+Any credential (`DB_USER`, `DB_PASS`, `APP_USER`, `APP_PASS`, `BEARER_TOKEN`, `TORQUE_ID`, `TORQUE_ID_HASH`) can be supplied as a file by setting `NAME_FILE` instead of `NAME` — e.g. `DB_PASS_FILE=/run/secrets/db_pass`. The file wins over the plain variable and the value no longer shows up in `docker inspect` or the process environment. The file must be readable by `www-data` (uid 33). See the commented `secrets:` example in `docker-compose.yml`.
+
+---
+
+## Users and roles
+
+Accounts are managed by an **admin** under **Settings → Login Credentials**:
+
+| Role | Can do |
+|------|--------|
+| **admin** | Everything, including Settings and user management |
+| **viewer** | Browse sessions, map/chart, export, TorqueAI, edit PIDs, merge/delete sessions, GPS repair |
+
+Everyone can change their own password under **My account** (click your username in the navbar). The `APP_USER` account from the environment is always an admin. Existing accounts become admins when you run `db_upgrade.php` (migration 29); new accounts default to viewer.
+
 ---
 
 ## Database Setup

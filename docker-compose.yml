@@ -28,6 +28,19 @@ services:
       # See docker-compose.https-upload.yml to switch the upload router to HTTPS.
       - BEARER_TOKEN=${BEARER_TOKEN:-}
 
+      # ── Optional: Docker secrets instead of plain env vars ───────────────────
+      # Any of DB_USER, DB_PASS, APP_USER, APP_PASS, BEARER_TOKEN, TORQUE_ID,
+      # TORQUE_ID_HASH can be read from a file via NAME_FILE. The file wins over
+      # the plain variable, and the value stays out of `docker inspect` and
+      # /proc/*/environ. The file must be readable by www-data (uid 33).
+      # Uncomment together with the `secrets:` blocks below:
+      # - DB_PASS_FILE=/run/secrets/db_pass
+      # - BEARER_TOKEN_FILE=/run/secrets/bearer_token
+
+    # secrets:
+    #   - db_pass
+    #   - bearer_token
+
     # Lets the container reach services running on the NAS host (MariaDB)
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -51,6 +64,13 @@ services:
       - "traefik.http.routers.torque-upload.entrypoints=web"
       - "traefik.http.routers.torque-upload.service=torque-upload"
       - "traefik.http.services.torque-upload.loadbalancer.server.port=80"
+
+# Optional Docker secrets (see the *_FILE note above). Keep ./secrets/ out of git.
+# secrets:
+#   db_pass:
+#     file: ./secrets/db_pass
+#   bearer_token:
+#     file: ./secrets/bearer_token
 
 # Join the existing Traefik network.
 # Verify the exact network name in Portainer → Networks, then update below.

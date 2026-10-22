@@ -1,0 +1,18 @@
+# Keeps the SHA-pinned GitHub Actions current: Dependabot opens a PR that bumps
+# both the commit SHA and the "# vX.Y.Z" comment when an action releases.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Base image (php:8.4.x-apache) — security patch releases matter here
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

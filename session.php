@@ -297,7 +297,7 @@ if (isset($sids[0])) {
     <!-- Mapbox GL JS -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       (function(){var s=localStorage.getItem('torque-theme')||'light';document.documentElement.setAttribute('data-bs-theme',s);})();
       var _routeData   = <?php echo $imapdata; ?>;
       var _maxSpeed    = <?php echo (float)$maxSpeed; ?>;
@@ -327,6 +327,7 @@ if (isset($sids[0])) {
     </script>
     <script src="<?php echo htmlspecialchars(asset_url('static/js/torquehelpers.js')); ?>"></script>
     <script src="<?php echo htmlspecialchars(asset_url('static/js/session.js')); ?>"></script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/actions.js')); ?>"></script>
   </head>
   <body>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top hud-navbar">
@@ -337,7 +338,7 @@ if (isset($sids[0])) {
 
         <!-- Profile filter + calendar — always visible (most essential session control) -->
         <form id="navfilterform" class="d-flex align-items-center gap-2 flex-shrink-0" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
-          <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" onchange="document.getElementById('navfilterform').submit()">
+          <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" data-submit-form="navfilterform">
             <option value="ALL"<?php if ($filterprofile == '%' || $filterprofile == 'ALL' || empty($filterprofile)) echo ' selected'; ?>>All Profiles</option>
 <?php $i = 0; while(isset($profilearray[$i])) { ?>
             <option value="<?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?>"<?php if ($filterprofile == $profilearray[$i]) echo ' selected'; ?>><?php echo htmlspecialchars($profilearray[$i], ENT_QUOTES, 'UTF-8'); ?></option>
@@ -363,19 +364,21 @@ if (isset($sids[0])) {
             </button>
 <?php } ?>
 <?php if ($setZoomManually === 0) { ?>
-            <button id="btn-vars" class="btn btn-sm btn-outline-light" onclick="torqueToggle('vars-section', this)" title="Toggle Variables"><i class="bi bi-sliders"></i></button>
-            <button id="btn-chart" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('chart-section', this)" title="Toggle Chart"><i class="bi bi-bar-chart-line"></i></button>
-            <button id="btn-summary" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" onclick="torqueToggle('summary-section', this)" title="Toggle Data Summary"><i class="bi bi-table"></i></button>
-            <button id="btn-export" class="btn btn-sm btn-outline-light" onclick="torqueToggle('export-section', this)" title="Toggle Export"><i class="bi bi-download"></i></button>
+            <button id="btn-vars" class="btn btn-sm btn-outline-light" data-action="toggle-panel" data-panel="vars-section" title="Toggle Variables"><i class="bi bi-sliders"></i></button>
+            <button id="btn-chart" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" data-action="toggle-panel" data-panel="chart-section" title="Toggle Chart"><i class="bi bi-bar-chart-line"></i></button>
+            <button id="btn-summary" class="btn btn-sm btn-outline-light<?php if ($var1 != "") echo ' active'; ?>" data-action="toggle-panel" data-panel="summary-section" title="Toggle Data Summary"><i class="bi bi-table"></i></button>
+            <button id="btn-export" class="btn btn-sm btn-outline-light" data-action="toggle-panel" data-panel="export-section" title="Toggle Export"><i class="bi bi-download"></i></button>
 <?php } ?>
 <?php if ($claude_enabled): ?>
-            <button id="btn-ai" class="btn btn-sm btn-outline-light" onclick="torqueToggle('ai-section', this)" title="AI Assistant"><i class="bi bi-robot"></i></button>
+            <button id="btn-ai" class="btn btn-sm btn-outline-light" data-action="toggle-panel" data-panel="ai-section" title="AI Assistant"><i class="bi bi-robot"></i></button>
 <?php endif; ?>
+<?php if (is_admin()): ?>
             <a href="settings.php" class="btn btn-sm btn-outline-light" title="Settings"><i class="bi bi-gear"></i></a>
-            <button class="btn btn-sm btn-outline-light" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
+<?php endif; ?>
+            <button class="btn btn-sm btn-outline-light" id="darkModeBtn" data-action="dark-mode" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
 <?php if ( !empty($_SESSION['torque_user']) ) { ?>
             <span class="navbar-text navbar-user ms-1 flex-shrink-0">
-              <?php echo htmlspecialchars($_SESSION['torque_user']); ?>
+              <a href="account.php" class="text-reset text-decoration-none" title="My account"><?php echo htmlspecialchars($_SESSION['torque_user']); ?></a>
               <a href="session.php?logout=true" class="ms-2" title="Logout">
                 <img width="20" height="20" src="./static/logout.png" alt="Logout">
               </a>
@@ -403,7 +406,7 @@ if (isset($sids[0])) {
     <div id="cal-panel" class="torque-panel" style="display:none">
       <div class="torque-panel-header">
         <h6><i class="bi bi-calendar3 me-2"></i>Select Date Range</h6>
-        <button class="torque-panel-close" onclick="window._torqueCal && _torqueCal.close()">×</button>
+        <button class="torque-panel-close" data-action="cal-close">×</button>
       </div>
       <div class="torque-panel-body p-3">
         <p id="cal-hint" class="text-muted small text-center mb-3">Click a start date, then an end date.</p>
@@ -422,20 +425,20 @@ if (isset($sids[0])) {
     <div class="torque-panel" id="ai-section" style="display:none">
       <div class="torque-panel-header">
         <h6><i class="bi bi-robot me-2"></i>TORQUE<span style="color:var(--hud-red)">AI</span>&nbsp;<span style="background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.35);color:#00ff88;font-size:7px;padding:1px 5px;border-radius:10px;letter-spacing:1px;vertical-align:middle;">ONLINE</span></h6>
-        <button class="torque-panel-close" onclick="torqueToggle('ai-section', document.getElementById('btn-ai'))">×</button>
+        <button class="torque-panel-close" data-action="toggle-panel" data-panel="ai-section" data-btn="btn-ai">×</button>
       </div>
       <div class="torque-panel-body d-flex flex-column" style="padding:0;height:420px;">
         <div id="ai-messages" class="ai-messages flex-grow-1"></div>
         <div class="ai-suggestions" id="ai-suggestions">
-          <button class="ai-suggestion-btn" onclick="aiSend('What does my current session data show?')">What does my current session show?</button>
-          <button class="ai-suggestion-btn" onclick="aiSend('Is my engine running healthy based on the data?')">Is my engine healthy?</button>
-          <button class="ai-suggestion-btn" onclick="aiSend('When was my car last serviced based on the fuel trim history?')">When was it last serviced?</button>
-          <button class="ai-suggestion-btn" onclick="aiSend('What should I service next and why?')">What should I service next?</button>
+          <button class="ai-suggestion-btn" data-action="ai-send" data-prompt="What does my current session data show?">What does my current session show?</button>
+          <button class="ai-suggestion-btn" data-action="ai-send" data-prompt="Is my engine running healthy based on the data?">Is my engine healthy?</button>
+          <button class="ai-suggestion-btn" data-action="ai-send" data-prompt="When was my car last serviced based on the fuel trim history?">When was it last serviced?</button>
+          <button class="ai-suggestion-btn" data-action="ai-send" data-prompt="What should I service next and why?">What should I service next?</button>
         </div>
         <div class="ai-input-bar">
           <input type="text" id="ai-input" class="ai-input" placeholder="Ask about your car data…" autocomplete="off"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){aiSend();event.preventDefault();}">
-          <button class="ai-send-btn" id="ai-send" onclick="aiSend()" title="Send">
+            data-enter-action="ai-send">
+          <button class="ai-send-btn" id="ai-send" data-action="ai-send" title="Send">
             <i class="bi bi-send-fill"></i>
           </button>
         </div>
@@ -454,12 +457,12 @@ if (isset($sids[0])) {
                 background:rgba(6,9,18,0.88);border:1px solid rgba(255,149,0,0.4);
                 border-radius:20px;padding:5px 12px;box-shadow:0 2px 10px rgba(0,0,0,0.35);">
       <button id="gps-repair-btn" class="btn btn-sm btn-warning py-0 px-2"
-              style="font-size:12px;font-weight:600;" onclick="torqueRepairGps()">
+              style="font-size:12px;font-weight:600;" data-action="gps-repair">
         <i class="bi bi-geo-alt-fill me-1"></i>Repair GPS
       </button>
       <span id="gps-repair-status" class="small" style="color:#ffb84d;">GPS issue detected</span>
     </div>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       window._gpsRepairSid  = <?php echo json_encode((string)$session_id, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
       window._gpsRepairCsrf = <?php echo json_encode(csrf_token(), JSON_HEX_TAG | JSON_HEX_AMP); ?>;
       function torqueRepairGps() {
@@ -561,8 +564,8 @@ if (isset($sids[0])) {
       <div class="torque-panel-header">
         <h6>Select Variables</h6>
         <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-primary btn-sm py-0 px-3" onclick="onSubmitIt()">Plot!</button>
-          <button class="torque-panel-close" onclick="torqueToggle('vars-section', document.getElementById('btn-vars'))">×</button>
+          <button type="button" class="btn btn-primary btn-sm py-0 px-3" data-action="plot">Plot!</button>
+          <button class="torque-panel-close" data-action="toggle-panel" data-panel="vars-section" data-btn="btn-vars">×</button>
         </div>
       </div>
       <div class="torque-panel-body p-3">
@@ -591,9 +594,9 @@ if (isset($sids[0])) {
         <h6>Chart</h6>
         <div class="d-flex align-items-center gap-2">
 <?php if ($var1 != "") { ?>
-          <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="window.torqueChart && window.torqueChart.resetZoom()" title="Reset Zoom"><i class="bi bi-zoom-out"></i></button>
+          <button class="btn btn-sm btn-outline-secondary py-0 px-2" data-action="chart-reset-zoom" title="Reset Zoom"><i class="bi bi-zoom-out"></i></button>
 <?php } ?>
-          <button class="torque-panel-close" onclick="torqueToggle('chart-section', document.getElementById('btn-chart'))">×</button>
+          <button class="torque-panel-close" data-action="toggle-panel" data-panel="chart-section" data-btn="btn-chart">×</button>
         </div>
       </div>
       <div class="torque-panel-body">
@@ -611,7 +614,7 @@ if (isset($sids[0])) {
     <div class="torque-panel" id="summary-section"<?php if ($var1 == "") echo ' style="display:none"'; ?>>
       <div class="torque-panel-header">
         <h6>Data Summary</h6>
-        <button class="torque-panel-close" onclick="torqueToggle('summary-section', document.getElementById('btn-summary'))">×</button>
+        <button class="torque-panel-close" data-action="toggle-panel" data-panel="summary-section" data-btn="btn-summary">×</button>
       </div>
       <div class="torque-panel-body">
 <?php   if (($repairedCount ?? 0) > 0) { ?>
@@ -651,7 +654,7 @@ if (isset($sids[0])) {
     <div class="torque-panel" id="export-section" style="display:none">
       <div class="torque-panel-header">
         <h6>Export Data</h6>
-        <button class="torque-panel-close" onclick="torqueToggle('export-section', document.getElementById('btn-export'))">×</button>
+        <button class="torque-panel-close" data-action="toggle-panel" data-panel="export-section" data-btn="btn-export">×</button>
       </div>
       <div class="torque-panel-body p-3">
         <div class="btn-group w-100 mb-2" role="group">

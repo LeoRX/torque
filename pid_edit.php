@@ -25,7 +25,7 @@ mysqli_close($con);
     <title>Open Torque Viewer – PID Editor</title>
     <meta name="description" content="Open Torque Viewer – PID Editor">
     <!-- Apply saved theme before render to avoid flash -->
-    <script>(function(){var t=localStorage.getItem('torque-theme')||'light';document.documentElement.setAttribute('data-bs-theme',t);})();</script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/theme-init.js')); ?>"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg==" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700">
@@ -157,15 +157,7 @@ mysqli_close($con);
             <?php echo count($keydata ?? []); ?> PIDs
           </span>
           <!-- Dark mode toggle -->
-          <button id="darkModeBtn" class="btn btn-sm btn-outline-light" title="Toggle dark mode" onclick="
-            var cur = document.documentElement.getAttribute('data-bs-theme');
-            var next = cur === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-bs-theme', next);
-            localStorage.setItem('torque-theme', next);
-            this.innerHTML = next === 'dark'
-              ? '<i class=\'bi bi-sun\'></i>'
-              : '<i class=\'bi bi-moon-stars\'></i>';
-          ">
+          <button id="darkModeBtn" class="btn btn-sm btn-outline-light" title="Toggle dark mode" data-action="dark-mode">
             <i id="dm-icon" class="bi bi-moon-stars"></i>
           </button>
           <a href="session.php" class="btn btn-sm btn-outline-light">
@@ -231,9 +223,10 @@ mysqli_close($con);
     <!-- ── Save-status toast ── -->
     <div id="status-toast" class="alert mb-0"></div>
 
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/actions.js')); ?>"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg==" crossorigin="anonymous"></script>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       // Set correct dark-mode icon on page load
       (function() {
         var saved = localStorage.getItem('torque-theme') || 'light';
