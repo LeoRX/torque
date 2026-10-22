@@ -27,3 +27,4 @@ Dockerfile
 docker-compose*.yml
 .env.example
 creds.example.php
+secrets/

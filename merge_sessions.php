@@ -101,7 +101,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
     <link rel="stylesheet" href="static/css/torque.css">
     <link rel="stylesheet" href="static/css/themes.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
-    <script>(function(){ var s=localStorage.getItem('torque-theme')||'light'; document.documentElement.setAttribute('data-bs-theme',s); })();</script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/theme-init.js')); ?>"></script>
     <style>
       @media (max-width: 767px) {
         .merge-table th:nth-child(5), .merge-table td:nth-child(5) { display: none; } /* hide datapoints */
@@ -118,7 +118,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
       <div class="container-fluid">
         <a class="navbar-brand" href="session.php">Open Torque Viewer</a>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-light" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
+          <button class="btn btn-sm btn-outline-light" id="darkModeBtn" data-action="dark-mode" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
           <a href="session.php" class="btn btn-sm btn-outline-light"><i class="bi bi-arrow-left me-1"></i>Back to Sessions</a>
         </div>
       </div>
@@ -169,15 +169,16 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
         </div>
       </form>
     </div>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       document.getElementById('formmerge').addEventListener('submit', function(e) {
         if (!confirm("Click OK to merge the selected session(s) with session <?php echo (int)$mergesession; ?>.\nPlease make sure what you're trying to do makes sense, this cannot be easily undone!")) {
           e.preventDefault();
         }
       });
     </script>
+    <script src="<?php echo htmlspecialchars(asset_url('static/js/actions.js')); ?>"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg==" crossorigin="anonymous"></script>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       function toggleDarkMode() {
         var html = document.documentElement;
         var isDark = html.getAttribute('data-bs-theme') === 'dark';

@@ -1,6 +1,7 @@
 <?php
 require_once('db.php');
 require_once('auth_app.php');
+require_once('upload_limits.php');
 
 require_once('get_settings.php');
 
@@ -8,6 +9,13 @@ require_once('get_settings.php');
 $session_id = trim($_POST['session_id'] ?? '');
 if (!preg_match('/^\d{10,15}$/', $session_id)) {
     echo "ERROR. Invalid session_id.";
+    exit;
+}
+// The timestamp picks the raw_logs_YYYY_MM table (created on demand) — reject
+// implausible years so a client can't create tables like raw_logs_33658_01.
+if (!torque_session_ts_ok($session_id)) {
+    http_response_code(400);
+    echo "ERROR. Invalid session timestamp.";
     exit;
 }
 
@@ -136,8 +144,17 @@ while ($tlist_res && ($tr = mysqli_fetch_assoc($tlist_res))) {
 }
 $dbfields = $monthly_table_cols[$db_table_full] ?? [];
 
+$dropped_kcodes = [];
 foreach ($all_kcodes as $kcode) {
     if (in_array($kcode, $dbfields, true)) continue;
+
+    // Guard schema growth: only real PIDs, and at most torque_max_kcolumns() k* columns
+    if (!torque_is_valid_kcode($kcode)
+        || torque_count_kcolumns($dbfields) >= torque_max_kcolumns()) {
+        error_log('upload_batch: k-column limit (' . torque_max_kcolumns() . ') reached or invalid key; ignored ' . $kcode);
+        $dropped_kcodes[] = $kcode;
+        continue;
+    }
 
     // Add column to every monthly table that's missing it
     foreach ($monthly_table_cols as $tname => &$tfields) {
@@ -161,6 +178,15 @@ foreach ($all_kcodes as $kcode) {
             " (id, description, type, populated) VALUES (" .
             quote_value($kcode) . ", " .
             quote_value($kcode) . ", 'varchar(255)', '1')");
+    }
+}
+
+// Columns that weren't created must not be written
+if ($dropped_kcodes) {
+    foreach ($col_map as $i => $kcode) {
+        if ($kcode !== null && in_array($kcode, $dropped_kcodes, true)) {
+            $col_map[$i] = null;
+        }
     }
 }
 

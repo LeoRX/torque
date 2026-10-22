@@ -116,7 +116,8 @@ document.addEventListener('DOMContentLoaded', function() {
       else if (range.s && range.e && td > range.s && td < range.e) cls += ' cal-in-range';
       var key = dateKey(td);
       // Pass event so we can stopPropagation before the calendar re-renders (prevents auto-close)
-      var click = (td > today) ? '' : ' onclick="window._torqueCal.clickDay(event,\'' + key + '\')"';
+      // Handled by the calPanel click delegate (no inline handlers — strict CSP)
+      var click = (td > today) ? '' : ' data-cal-day="' + key + '"';
       html += '<div class="' + cls + '"' + click + '>' + d + '</div>';
     }
     html += '</div></div>';
@@ -181,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Action bar — appears once sessions are checked
         html += '<div class="cal-action-bar" id="cal-action-bar" style="display:none">';
         html += '<span id="cal-sel-count" class="small text-muted"></span>';
-        html += '<button id="cal-open-btn" class="btn btn-primary btn-sm" onclick="window._torqueCal.openSelected()">';
+        html += '<button id="cal-open-btn" class="btn btn-primary btn-sm">';
         html += '<i class="bi bi-arrow-right-circle me-1"></i>Open Session</button>';
         html += '</div>';
         sessDiv.innerHTML = html;
@@ -292,6 +293,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Delegated: nav buttons + month/year selects + session checkboxes
   calPanel.addEventListener('click', function(e) {
+    // Day cells: pass the event so clickDay can stopPropagation before re-rendering
+    var day = e.target.closest('[data-cal-day]');
+    if (day) { _torqueCal.clickDay(e, day.getAttribute('data-cal-day')); return; }
+    if (e.target.closest('#cal-open-btn')) { _torqueCal.openSelected(); return; }
     var nb = e.target.closest('.torque-cal-nav');
     if (!nb) return;
     parseInt(nb.getAttribute('data-dir'), 10) < 0 ? _torqueCal.prevMonth() : _torqueCal.nextMonth();

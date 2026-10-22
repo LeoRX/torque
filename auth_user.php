@@ -24,6 +24,19 @@ if (!isset($_SESSION['torque_logged_in'])) {
 }
 $logged_in = (boolean)$_SESSION['torque_logged_in'];
 
+// Re-check an existing login on every request: a deleted account is signed out
+// immediately, and a role change (admin ↔ viewer) takes effect without re-login.
+if ($logged_in) {
+  $_role = user_role_lookup((string)($_SESSION['torque_user'] ?? ''));
+  if ($_role === null) {
+    $_SESSION = [];
+    session_regenerate_id(true);
+    $logged_in = false;
+  } else {
+    $_SESSION['torque_role'] = $_role;
+  }
+}
+
 //There are two ways to authenticate for Open Torque Viewer
 //The uploading data provider running on Android uses its torque ID, while the User Interface uses User/Password.
 //Which method will be chosed depends on the variable set before including this file
@@ -281,7 +294,7 @@ if (!$logged_in) {
       </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg==" crossorigin="anonymous"></script>
-    <script>
+    <script<?php echo csp_nonce_attr(); ?>>
       (function(){
         var saved = localStorage.getItem('torque-theme') || 'light';
         document.documentElement.setAttribute('data-bs-theme', saved);

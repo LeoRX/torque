@@ -29,3 +29,6 @@ desktop.ini
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
 *.log
+
+# ── Docker secret files (docker-compose.yml secrets: blocks) ─────────────────
+secrets/

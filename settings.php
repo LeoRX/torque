@@ -4,19 +4,32 @@ require_once('auth_user.php');
 require_once('get_settings.php');
 require_once(__DIR__ . '/gps/HomeAssistantProvider.php');
 
-// Ensure torque_users table exists
+// Settings and user management are admin-only (viewers get a 403 page)
+require_admin();
+
+// Ensure torque_users table exists (with the role column from migration 29)
 mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_users (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  role          VARCHAR(10)  NOT NULL DEFAULT 'admin',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Older installs created the table without `role`; add it (same as migration 29)
+$_rc = mysqli_query($con, "SHOW COLUMNS FROM torque_users LIKE 'role'");
+if ($_rc && mysqli_num_rows($_rc) == 0) {
+  mysqli_query($con, "ALTER TABLE torque_users ADD COLUMN role VARCHAR(10) NOT NULL DEFAULT 'admin' AFTER password_hash");
+}
 
-// Load existing DB users
-$db_users = [];
-$_uq = mysqli_query($con, "SELECT id, username FROM torque_users ORDER BY username");
-while ($_ur = mysqli_fetch_assoc($_uq)) { $db_users[] = $_ur; }
+function _load_db_users($con): array {
+  $out = [];
+  $q = mysqli_query($con, "SELECT id, username, role FROM torque_users ORDER BY username");
+  while ($q && ($r = mysqli_fetch_assoc($q))) { $out[] = $r; }
+  return $out;
+}
+$db_users = _load_db_users($con);
+$_me = (string)($_SESSION['torque_user'] ?? '');
 
 // Handle credential actions
 $cred_success = ''; $cred_error = '';
@@ -25,24 +38,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
   if (isset($_POST['add_user']) && !empty($_POST['new_username']) && !empty($_POST['new_password'])) {
     $nu = trim($_POST['new_username']); $np = $_POST['new_password'];
+    $nr = (($_POST['new_role'] ?? 'viewer') === 'admin') ? 'admin' : 'viewer';
     if (strlen($nu) < 2)        { $cred_error = 'Username must be at least 2 characters.'; }
     elseif (!preg_match('/^[\w.\-@]+$/', $nu)) { $cred_error = 'Username may only contain letters, numbers, underscores, hyphens, dots, and @.'; }
     elseif (strlen($np) < 10)   { $cred_error = 'Password must be at least 10 characters.'; }
     else {
       $hash = password_hash($np, PASSWORD_BCRYPT);
-      if (mysqli_query($con, "INSERT INTO " . quote_name('torque_users') . " (username, password_hash) VALUES (" . quote_value($nu) . "," . quote_value($hash) . ")")) {
-        $cred_success = "User '$nu' added successfully.";
+      if (mysqli_query($con, "INSERT INTO " . quote_name('torque_users') . " (username, password_hash, role) VALUES (" . quote_value($nu) . "," . quote_value($hash) . "," . quote_value($nr) . ")")) {
+        $cred_success = "User '$nu' added as $nr.";
       } else { $cred_error = 'Username already exists.'; }
     }
-    $db_users = [];
-    $_uq2 = mysqli_query($con, "SELECT id, username FROM torque_users ORDER BY username");
-    while ($_ur2 = mysqli_fetch_assoc($_uq2)) { $db_users[] = $_ur2; }
   }
   if (isset($_POST['change_password']) && !empty($_POST['cp_username']) && !empty($_POST['cp_password'])) {
     $cu = trim($_POST['cp_username']); $cp = $_POST['cp_password'];
     // Re-authenticate the signed-in user before changing any password, so a
     // hijacked session alone can't take over accounts.
-    if (!_auth_user_check((string)($_SESSION['torque_user'] ?? ''), (string)($_POST['cp_current'] ?? ''))) {
+    if (!_auth_user_check($_me, (string)($_POST['cp_current'] ?? ''))) {
       $cred_error = 'Your current password is incorrect.';
     }
     elseif (strlen($cp) < 10) { $cred_error = 'New password must be at least 10 characters.'; }
@@ -54,14 +65,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   }
+  if (isset($_POST['set_role']) && !empty($_POST['role_username'])) {
+    $ru = trim($_POST['role_username']);
+    $rr = (($_POST['role'] ?? '') === 'admin') ? 'admin' : 'viewer';
+    $cur = user_role_lookup($ru);
+    if ($ru === $_me) {
+      $cred_error = 'You cannot change your own role.';
+    } elseif ($cur === 'admin' && $rr === 'viewer' && admin_count() <= 1) {
+      $cred_error = 'Cannot demote the last administrator.';
+    } else {
+      mysqli_query($con, "UPDATE " . quote_name('torque_users') . " SET role=" . quote_value($rr) . " WHERE username=" . quote_value($ru));
+      $cred_success = "User '$ru' is now $rr.";
+    }
+  }
   if (isset($_POST['delete_user']) && !empty($_POST['del_username'])) {
     $du  = trim($_POST['del_username']);
-    mysqli_query($con, "DELETE FROM " . quote_name('torque_users') . " WHERE username=" . quote_value($du));
-    $cred_success = "User '$du' removed.";
-    $db_users = [];
-    $_uq3 = mysqli_query($con, "SELECT id, username FROM torque_users ORDER BY username");
-    while ($_ur3 = mysqli_fetch_assoc($_uq3)) { $db_users[] = $_ur3; }
+    if ($du === $_me) {
+      $cred_error = 'You cannot remove your own account.';
+    } elseif (user_role_lookup($du) === 'admin' && admin_count() <= 1) {
+      $cred_error = 'Cannot remove the last administrator.';
+    } else {
+      mysqli_query($con, "DELETE FROM " . quote_name('torque_users') . " WHERE username=" . quote_value($du));
+      $cred_success = "User '$du' removed.";
+    }
   }
+  $db_users = _load_db_users($con);
 }
 
 $claude_models = [
@@ -335,7 +363,7 @@ $mapbox_styles = [
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
   </style>
-  <script>
+  <script<?php echo csp_nonce_attr(); ?>>
     (function(){
       var saved = localStorage.getItem('torque-theme') || 'light';
       document.documentElement.setAttribute('data-bs-theme', saved);
@@ -348,7 +376,7 @@ $mapbox_styles = [
       <a class="navbar-brand flex-shrink-0" href="session.php">Open Torque Viewer</a>
       <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
         <span class="navbar-text text-white-50 d-none d-sm-inline"><i class="bi bi-gear me-1"></i>Settings</span>
-        <button class="btn btn-sm btn-outline-light" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
+        <button class="btn btn-sm btn-outline-light" id="darkModeBtn" data-action="dark-mode" title="Toggle Dark Mode"><i class="bi bi-moon-stars"></i></button>
         <a href="session.php" class="btn btn-sm btn-outline-light" title="Back to sessions"><i class="bi bi-arrow-left me-1"></i>Back</a>
       </div>
     </div>
@@ -375,7 +403,7 @@ $mapbox_styles = [
         <h6 class="mb-0">Login Credentials</h6>
       </div>
       <div class="card-body">
-        <p class="text-muted small mb-3">Manage web UI login accounts. Passwords are stored as bcrypt hashes. Accounts here take priority over credentials in <code>creds.php</code>.</p>
+        <p class="text-muted small mb-3">Manage web UI login accounts. Passwords are stored as bcrypt hashes. Accounts here take priority over credentials in <code>creds.php</code> (which is always an admin). <strong>Admins</strong> have full access; <strong>viewers</strong> can browse, export, use the AI assistant, edit PIDs, merge/delete sessions and run GPS repair, but cannot open Settings or manage users. Everyone can change their own password under <a href="account.php">My account</a>.</p>
 
         <?php if ($cred_success): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -398,14 +426,31 @@ $mapbox_styles = [
             <p class="text-muted small">No database users yet. Using <code>creds.php</code> credentials.</p>
             <?php else: ?>
             <ul class="list-group list-group-flush">
-              <?php foreach ($db_users as $dbu): ?>
-              <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
-                <span><i class="bi bi-person-circle me-2 text-muted"></i><?php echo htmlspecialchars($dbu['username']); ?></span>
-                <form method="post" class="mb-0" onsubmit="return confirm(<?php echo htmlspecialchars(json_encode('Remove user ' . $dbu['username'] . '?'), ENT_QUOTES, 'UTF-8'); ?>)">
-                  <?php echo csrf_field(); ?>
-                  <input type="hidden" name="del_username" value="<?php echo htmlspecialchars($dbu['username']); ?>">
-                  <button type="submit" name="delete_user" class="btn btn-sm btn-outline-danger py-0 px-2" title="Remove"><i class="bi bi-trash3"></i></button>
-                </form>
+              <?php foreach ($db_users as $dbu):
+                $_is_me    = ($dbu['username'] === $_me);
+                $_is_admin = (($dbu['role'] ?? 'admin') !== 'viewer'); ?>
+              <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 gap-2">
+                <span class="text-truncate">
+                  <i class="bi bi-person-circle me-2 text-muted"></i><?php echo htmlspecialchars($dbu['username']); ?>
+                  <span class="badge <?php echo $_is_admin ? 'text-bg-primary' : 'text-bg-secondary'; ?> ms-1"><?php echo $_is_admin ? 'admin' : 'viewer'; ?></span>
+                  <?php if ($_is_me): ?><span class="text-muted small ms-1">(you)</span><?php endif; ?>
+                </span>
+                <?php if (!$_is_me): ?>
+                <span class="d-flex gap-1 flex-shrink-0">
+                  <form method="post" class="mb-0">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="role_username" value="<?php echo htmlspecialchars($dbu['username']); ?>">
+                    <input type="hidden" name="role" value="<?php echo $_is_admin ? 'viewer' : 'admin'; ?>">
+                    <button type="submit" name="set_role" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                      title="<?php echo $_is_admin ? 'Make viewer' : 'Make admin'; ?>"><i class="bi <?php echo $_is_admin ? 'bi-arrow-down-circle' : 'bi-arrow-up-circle'; ?>"></i></button>
+                  </form>
+                  <form method="post" class="mb-0" data-confirm="<?php echo htmlspecialchars('Remove user ' . $dbu['username'] . '?', ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="del_username" value="<?php echo htmlspecialchars($dbu['username']); ?>">
+                    <button type="submit" name="delete_user" class="btn btn-sm btn-outline-danger py-0 px-2" title="Remove"><i class="bi bi-trash3"></i></button>
+                  </form>
+                </span>
+                <?php endif; ?>
               </li>
               <?php endforeach; ?>
             </ul>
@@ -422,6 +467,12 @@ $mapbox_styles = [
               </div>
               <div class="mb-2">
                 <input type="password" class="form-control form-control-sm" name="new_password" placeholder="Password (min 10 chars)" required minlength="10" autocomplete="new-password">
+              </div>
+              <div class="mb-2">
+                <select class="form-select form-select-sm" name="new_role" title="Viewers can browse, export, edit PIDs and manage sessions, but not Settings or users">
+                  <option value="viewer" selected>Viewer — no Settings / user admin</option>
+                  <option value="admin">Admin — full access</option>
+                </select>
               </div>
               <button type="submit" name="add_user" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus-circle me-1"></i>Add User</button>
             </form>
@@ -630,7 +681,7 @@ $mapbox_styles = [
             <div class="setting-row">
               <div class="setting-label mb-1">Test Connection</div>
               <div class="setting-desc mb-2">Send a test message to verify your API key works. Save settings first.</div>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="claudeTestBtn" onclick="testClaudeConnection()">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="claudeTestBtn" data-action="test-claude">
                 <i class="bi bi-send me-1"></i>Test API Key
               </button>
               <span id="claudeTestResult" class="ms-3 small"></span>
@@ -647,10 +698,10 @@ $mapbox_styles = [
               <?php if ($key === 'map_line_color'): ?>
                 <div class="color-input-wrap">
                   <input type="color" id="color_<?php echo $key; ?>" value="<?php echo htmlspecialchars($val); ?>"
-                    oninput="document.getElementById('hex_<?php echo $key; ?>').value=this.value">
+                    data-sync-to="hex_<?php echo $key; ?>">
                   <input type="text" class="form-control form-control-sm color-hex" id="hex_<?php echo $key; ?>"
                     name="<?php echo htmlspecialchars($key); ?>" value="<?php echo htmlspecialchars($val); ?>"
-                    oninput="if(/^#[0-9A-Fa-f]{6}$/.test(this.value)) document.getElementById('color_<?php echo $key; ?>').value=this.value"
+                    data-sync-to="color_<?php echo $key; ?>" data-sync-hex
                     pattern="^#[0-9A-Fa-f]{6}$" maxlength="7">
                 </div>
               <?php elseif ($key === 'mapbox_style'): ?>
@@ -666,7 +717,7 @@ $mapbox_styles = [
                     name="mapbox_token" value="<?php echo htmlspecialchars($val); ?>"
                     placeholder="pk.eyJ1..." autocomplete="off">
                   <button class="btn btn-outline-secondary btn-sm" type="button"
-                    onclick="var i=document.getElementById('mapbox_token_input');i.type=i.type==='password'?'text':'password';">
+                    data-action="toggle-visibility" data-target="mapbox_token_input">
                     <i class="bi bi-eye"></i>
                   </button>
                 </div>
@@ -841,7 +892,7 @@ $mapbox_styles = [
             <div class="setting-row mb-3">
               <div class="setting-label mb-1">Test Connection</div>
               <div class="setting-desc mb-2">Verify the URL, token, and entity reach Home Assistant and return recent location points. Save settings first.</div>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="haTestBtn" onclick="testHaConnection()">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="haTestBtn" data-action="test-ha">
                 <i class="bi bi-geo me-1"></i>Test Home Assistant
               </button>
               <span id="haTestResult" class="ms-3 small"></span>
@@ -951,10 +1002,11 @@ $mapbox_styles = [
     </div>
   </form>
 
+  <script src="<?php echo htmlspecialchars(asset_url('static/js/actions.js')); ?>"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
     integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg=="
     crossorigin="anonymous"></script>
-  <script>
+  <script<?php echo csp_nonce_attr(); ?>>
     function toggleDarkMode() {
       var html = document.documentElement;
       var isDark = html.getAttribute('data-bs-theme') === 'dark';

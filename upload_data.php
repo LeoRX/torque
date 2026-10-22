@@ -1,6 +1,7 @@
 <?php
 require_once ('db.php');
 require_once ('auth_app.php');
+require_once ('upload_limits.php');
 
 // ── Upload debug log (14-day rolling retention) ───────────────────────────────
 // One file per session in torque_log_dir()/upload_log/SESSIONID.log — OUTSIDE the
@@ -47,8 +48,9 @@ while( $row = mysqli_fetch_assoc($newest_table_list) ) {
   $newest_table = $row["table_name"];
 }
 // Create an array of all the existing fields in the database
+$dbfields = array();
 $result = mysqli_query($con, "SHOW COLUMNS FROM " . quote_name($newest_table)) ;
-if (mysqli_num_rows($result) > 0) {
+if ($result && mysqli_num_rows($result) > 0) {
   while ($row = mysqli_fetch_assoc($result)) {
     $dbfields[]=($row['Field']);
   }
@@ -68,9 +70,14 @@ if (sizeof($_GET) > 0) {
   $sessprofileweight = "0";
   $sessprofileve = "0";
   $sessprofilefuelcost = "0";
-  // Validate session ID — must be a numeric millisecond timestamp
+  // Validate session ID — must be a numeric millisecond timestamp in a plausible range
+  // (the year/month picks the raw_logs_YYYY_MM table, which is created on demand)
   if (!isset($_GET["session"]) || !preg_match('/^\d{10,15}$/', $_GET["session"])) {
     echo "ERROR!"; exit;
+  }
+  if (!torque_session_ts_ok($_GET["session"])) {
+    http_response_code(400);
+    echo "ERROR. Invalid session timestamp."; exit;
   }
   $session_id = $_GET["session"];
   $tableYear = date( "Y", (int)$session_id/1000 );
@@ -118,6 +125,16 @@ if (sizeof($_GET) > 0) {
       $submitval = 1;
       $has_session_keys = true;
     } else if (preg_match("/^k/", $key)) {
+      // Only real Torque PIDs (k + 1–8 hex digits) may become columns
+      if (!torque_is_valid_kcode($key)) {
+        error_log('upload_data: ignored invalid k-code key ' . substr($key, 0, 40));
+        continue;
+      }
+      // Cap the number of k* columns so uploads can't grow the schema without bound
+      if (!in_array($key, $dbfields) && torque_count_kcolumns($dbfields) >= torque_max_kcolumns()) {
+        error_log('upload_data: k-column limit (' . torque_max_kcolumns() . ') reached; ignored new key ' . $key);
+        continue;
+      }
       // Keep columns starting with k
       $keys[] = $key;
       // My Torque app tries to pass "Infinity" in for some values...catch that error, set to -1
@@ -179,6 +196,7 @@ if (sizeof($_GET) > 0) {
           mysqli_query($con, $sqlalter) ;
         }
       }
+      $dbfields[] = $key; // count it toward the k-column cap for the rest of this request
     }
     $sqlkeyquery = "SELECT id FROM " . quote_name($db_keys_table) . " WHERE id=".quote_value($key);
     $result = mysqli_query($con, $sqlkeyquery);

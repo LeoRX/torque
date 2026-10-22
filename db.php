@@ -1,6 +1,15 @@
 <?php
 
 // ── Security headers (applied to all pages that include db.php) ──────────────
+// Per-request CSP nonce. Inline <script> blocks must carry it (csp_nonce_attr());
+// inline event handlers (onclick= …) are NOT allowed — use data-action attributes
+// handled by static/js/actions.js instead.
+$csp_nonce = base64_encode(random_bytes(16));
+function csp_nonce_attr(): string {
+    global $csp_nonce;
+    return ' nonce="' . htmlspecialchars($csp_nonce, ENT_QUOTES, 'UTF-8') . '"';
+}
+
 // Only send headers if not already sent (e.g. from a CLI context or unit test)
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');
@@ -8,7 +17,7 @@ if (!headers_sent()) {
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
     header("Content-Security-Policy: default-src 'self'; " .
-        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://api.mapbox.com; " .
+        "script-src 'self' 'nonce-" . $csp_nonce . "' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://api.mapbox.com; " .
         "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://api.mapbox.com; " .
         "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; " .
         "img-src 'self' data: blob: https://*.mapbox.com; " .

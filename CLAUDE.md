@@ -44,9 +44,10 @@ torque/
 ├── plot.php                   ← Fetches OBD time-series data for Chart.js
 ├── auth_user.php              ← Login page HTML + session auth logic
 ├── auth_app.php               ← Torque Pro app authentication (upload auth)
-├── auth_functions.php         ← get_user(), auth_user(), auth_id(), logout_user()
+├── auth_functions.php         ← get_user(), auth_user(), auth_id(), logout_user(), roles (user_role_lookup, is_admin, require_admin)
+├── account.php                ← "My account": any signed-in user changes their own password
 ├── claude_chat.php            ← AI assistant API proxy (Anthropic messages endpoint)
-├── settings.php               ← Settings UI + form handler
+├── settings.php               ← Settings UI + form handler (admin-only; user + role management)
 ├── pid_edit.php               ← PID description editor UI
 ├── pid_commit.php             ← AJAX handler for PID edits
 ├── merge_sessions.php         ← Session merge UI
@@ -54,6 +55,7 @@ torque/
 ├── export.php                 ← CSV / JSON export
 ├── upload_data.php            ← Torque Pro data upload receiver
 ├── upload_batch.php           ← Plugin batch CSV upload receiver (POST multipart)
+├── upload_limits.php          ← Pure schema-growth guards: torque_is_valid_kcode(), torque_session_ts_ok(), torque_max_kcolumns()
 ├── check_session.php          ← Session existence check for plugin pre-upload query
 ├── url.php                    ← URL helpers
 ├── index.php                  ← Redirect to session.php
@@ -62,7 +64,9 @@ torque/
 ├── static/
 │   ├── css/torque.css         ← All custom CSS (Bootstrap 5 overrides, dark mode, map popup, responsive breakpoints)
 │   ├── css/hud.css            ← Dark Racing HUD theme: design tokens, navbar, gauges, panels, drag handle, mobile layout
-│   └── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers, HUD gauge system, panel drag, mobile collapse
+│   ├── js/torquehelpers.js    ← Tom Select init, session AJAX, chart helpers, HUD gauge system, panel drag, mobile collapse
+│   ├── js/actions.js          ← Delegated data-action handlers (replaces inline on*= attributes; strict CSP)
+│   └── js/theme-init.js       ← Applies saved light/dark theme before first paint
 └── data/                      ← Runtime data directory (gitignored)
 ```
 
@@ -183,6 +187,7 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - **Login throttling**: `auth_user()` counts failed web logins per `REMOTE_ADDR` in `torque_login_attempts` (created lazily) — 10 failures / 15 min locks the IP out (`$login_throttled` shows a message on the login form). Unknown usernames still run a dummy `password_verify()` so timing doesn't reveal which accounts exist. Credential checks live in `_auth_user_check()`; `settings.php` reuses it to require the signed-in user's current password before any password change. Minimum password length is 10.
 - **CSRF**: form posts use `csrf_field()`/`csrf_verify()` (`csrf.php`). JSON/AJAX endpoints check the token too: `claude_chat.php` requires an `X-CSRF-Token` header (pages expose it via `<meta name="csrf-token">`), `ha_test.php` and `gps_repair_run.php` take `csrf_token` in the POST body, and `db_upgrade.php` runs from the web only on POST + token (CLI unaffected).
 - **Secrets in Settings are write-only**: `claude_api_key` and `ha_token` are never echoed into the page; a blank field keeps the saved value, a "Remove saved …" checkbox clears it.
+- **Roles** (`torque_users.role`, migration 29): `admin` = everything; `viewer` = browse, export, AI chat, delete/merge sessions, edit PIDs, GPS repair, own password (`account.php`). **Admin-only**: `settings.php` (all of it, incl. user management) and the web path of `db_upgrade.php` — both call `require_admin()`. creds.php users are always admin; a missing `role` column (pre-migration) means admin. `auth_user.php` re-checks the account on **every request** via `user_role_lookup()`: a deleted user is signed out immediately and role changes apply without re-login (`$_SESSION['torque_role']`). Settings blocks removing/demoting yourself and the last admin. New users default to viewer. Gate new admin-only features with `require_admin()` server-side — hiding a button (`is_admin()`) is not enough.
 
 ---
 
@@ -197,6 +202,12 @@ Use this everywhere a timestamp is displayed. **Never use `date()` directly for 
 - Peity.js (sparklines, keep as-is)
 
 **Dark mode**: `data-bs-theme="dark"` on `<html>`. Toggle button in navbar sets `localStorage.theme`.
+
+**Content-Security-Policy (strict scripts)**: `db.php` sends `script-src 'self' 'nonce-…'` + the CDN hosts — **no `'unsafe-inline'`**. Rules:
+- Every inline `<script>` block must be written `<script<?php echo csp_nonce_attr(); ?>>`.
+- **Never use inline event handlers** (`onclick=`, `oninput=`, `onsubmit=`, …) in PHP templates or in HTML built by JS — they are blocked. Use `data-action="…"` (and `data-panel`/`data-btn`/`data-prompt`/`data-target`), `data-submit-form`, `data-sync-to`, `data-enter-action`, or `<form data-confirm="…">`, handled by `static/js/actions.js`. Add a new action to the explicit `actions` map there (markup cannot call arbitrary globals).
+- Calendar day cells (`data-cal-day`) and its Open button are handled in torquehelpers.js's `calPanel` click delegate (needs `stopPropagation` before re-render).
+- `style-src` still allows `'unsafe-inline'` (Mapbox + many `style=` attributes).
 
 **Tom Select init** (`torquehelpers.js`):
 - `#seshidtag`: session picker, `onChange` submits form
@@ -340,7 +351,9 @@ Implement `GpsLocationProvider` (`get_history()` + `name()`), then instantiate i
 ## CI/CD
 
 - **Trigger**: push to `main` branch
-- **Steps**: PHP lint (`php -l`) → secret scan → multi-arch Docker build (amd64 + arm64) → push to Docker Hub
+- **Steps**: PHP lint (`php -l`) → unit tests (`tests/test_*.php`) → secret scan → amd64 build + **Trivy** scan (SARIF → Security tab; **fixable CRITICAL blocks the release**) → multi-arch Docker build (amd64 + arm64) → push to Docker Hub
+- **Pull requests**: `.github/workflows/ci.yml` runs lint, unit tests, secret scan, a full (non-pushed) Docker build with smoke checks, and the same Trivy gate
+- **Action pinning**: every `uses:` is pinned to a full commit SHA with the tag in a comment; `.github/dependabot.yml` (github-actions + docker, weekly) opens bump PRs. Never add an action by tag only.
 - **Tags pushed**: `:latest`, `:YYYY-MM-DD`, `:arm64` (single-platform, for ARM NAS compatibility)
 - **Registry cache**: `leorx/open-torque-viewer:buildcache`
 - **Secrets required**: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (set in GitHub repo settings)
@@ -370,6 +383,8 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **Session ordering**: Always `ORDER BY session DESC` for newest-first.
 - **`creds.php` is gitignored** — never tracked. Copy from `creds.example.php` or let `entrypoint.sh` generate it. The generated file reads every value with `getenv()` at runtime (quoted heredoc) — **never** paste env values into PHP source in the entrypoint; a `'` or `\` in a password broke the file and allowed code injection.
 - **Logs live outside the web root**: use `torque_log_dir()` (db.php; `/var/log/torque`, overridable with `TORQUE_LOG_DIR`). Never write logs, uploads or caches under `/var/www/html` — the code tree is root-owned and read-only to `www-data`, and `data/`, `tests/`, `gps/`, `docker/`, `docs/`, dotfiles, `*.md`/`*.yml`/`*.sh` are denied by Apache (`zz-torque-security.conf` in the Dockerfile). Upload logs redact `id`/`eml`.
+- **Upload schema-growth limits** (`upload_limits.php`, used by `upload_data.php` + `upload_batch.php`): session timestamps must fall between 2008-01-01 and now+2 days (else HTTP 400 — prevents creating `raw_logs_33658_xx`); only real PIDs (`k` + 1–8 hex digits) can become columns; at most `torque_max_kcolumns()` k* columns per table (300, env `TORQUE_MAX_KCOLUMNS`) — further new keys are dropped and logged while known columns still insert.
+- **Docker secrets**: the generated creds.php resolves every credential through `torque_env()`, which prefers `NAME_FILE` (e.g. `DB_PASS_FILE=/run/secrets/db_pass`) over `NAME`. Secret files must be readable by www-data (the entrypoint warns if not).
 - **Upload SQL values**: every value from `$_GET`/`$_POST` goes through `quote_value()` or an explicit `(int)` cast — including `time`, which was once interpolated raw into the sessions INSERT (blind SQLi).
 - **JSON in `<script>`**: always `json_encode(..., JSON_HEX_TAG | JSON_HEX_AMP)` so uploader-controlled strings can't break out of the script block.
 - **HTTP upload router** (`docker-compose.yml` `torque-upload`) is restricted with `Path()` rules to `upload_data.php`, `upload_batch.php`, `check_session.php` — without them the whole UI (login form included) is served over plain HTTP.

@@ -94,6 +94,7 @@ function auth_user()
 
     if (_auth_user_check($user, $pass)) {
         login_clear_failures($db, $ip);
+        $_SESSION['torque_role'] = user_role_lookup((string)$_SESSION['torque_user']) ?? 'viewer';
         return true;
     }
     login_record_failure($db, $ip);
@@ -196,6 +197,87 @@ function auth_id()
         return !empty($allow_open_upload_auth);
     }
     return false;
+}
+
+// ── Roles ────────────────────────────────────────────────────────────────────
+// 'admin'  — everything, including Settings, user management and the web DB upgrade.
+// 'viewer' — everything else: browse, export, AI chat, delete/merge sessions,
+//            edit PIDs, run GPS repair, change own password (account.php).
+// DB users carry a `role` column (migration 29; missing column → admin so an
+// un-migrated install keeps working). creds.php users are always admin.
+
+// Role of $user, or null if that account no longer exists anywhere.
+function user_role_lookup(string $user): ?string
+{
+    global $users, $con;
+    if ($user === '') {
+        return null;
+    }
+    if (isset($con) && $con) {
+        // SELECT * so this still works before migration 29 adds `role`
+        $q = mysqli_query($con, "SELECT * FROM torque_users WHERE username=" . quote_value($user) . " LIMIT 1");
+        if ($q && ($row = mysqli_fetch_assoc($q))) {
+            return (($row['role'] ?? 'admin') === 'viewer') ? 'viewer' : 'admin';
+        }
+    }
+    foreach (($users ?? []) as $u) {
+        if (hash_equals((string)($u['user'] ?? ''), $user)) {
+            return 'admin';
+        }
+    }
+    return null;
+}
+
+// Role of the signed-in user ('admin' | 'viewer'); '' when not signed in.
+function current_user_role(): string
+{
+    return (string)($_SESSION['torque_role'] ?? '');
+}
+
+function is_admin(): bool
+{
+    return current_user_role() === 'admin';
+}
+
+// Stop the request with 403 unless the signed-in user is an admin.
+function require_admin(): void
+{
+    if (is_admin()) {
+        return;
+    }
+    http_response_code(403);
+    $wants_json = stripos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false
+               || stripos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false;
+    if ($wants_json) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Administrator access required.']);
+    } else {
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><meta charset="utf-8"><title>Access denied</title>'
+           . '<div style="font-family:sans-serif;margin:3em auto;max-width:32em">'
+           . '<h2>Administrator access required</h2>'
+           . '<p>Your account can view and manage drive data but not change settings or users.</p>'
+           . '<p><a href="session.php">Back to sessions</a> · <a href="account.php">My account</a></p></div>';
+    }
+    exit;
+}
+
+// Number of admin accounts (DB admins + creds.php users).
+function admin_count(): int
+{
+    global $users, $con;
+    $n = count($users ?? []);
+    if (isset($con) && $con) {
+        $q = mysqli_query($con, "SELECT COUNT(*) AS n FROM torque_users WHERE role='admin'");
+        if ($q && ($row = mysqli_fetch_assoc($q))) {
+            $n += (int)$row['n'];
+        } else {
+            // Pre-migration: no role column → every DB user is an admin
+            $q = mysqli_query($con, "SELECT COUNT(*) AS n FROM torque_users");
+            if ($q && ($row = mysqli_fetch_assoc($q))) { $n += (int)$row['n']; }
+        }
+    }
+    return $n;
 }
 
 function logout_user()

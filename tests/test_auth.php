@@ -124,6 +124,22 @@ $_POST = []; $_GET = [];
 // ── login throttling without a DB connection ────────────────────────────────
 ok('throttle: no DB → never throttled',       login_is_throttled(null, '1.2.3.4') === false);
 
+// ── Roles (no DB connection: only creds.php users exist) ────────────────────
+$users = [['user' => 'legacyadmin', 'pass' => 'pw']];
+$con = null;
+ok('role: creds.php user is admin',          user_role_lookup('legacyadmin') === 'admin');
+ok('role: unknown user → null (signed out)', user_role_lookup('ghost') === null);
+ok('role: empty user → null',                user_role_lookup('') === null);
+ok('role: lookup is exact (no prefix match)', user_role_lookup('legacy') === null);
+ok('admin_count: creds users counted',       admin_count() === 1);
+$_SESSION = ['torque_role' => 'viewer'];
+ok('is_admin: viewer is not admin',          !is_admin());
+$_SESSION = ['torque_role' => 'admin'];
+ok('is_admin: admin is admin',               is_admin());
+$_SESSION = [];
+ok('is_admin: signed out is not admin',      !is_admin() && current_user_role() === '');
+$users = null;
+
 // ── auth_app.php flow simulation ─────────────────────────────────────────────
 // Simulates the $logged_in state machine for the four cases that matter.
 

@@ -4,6 +4,7 @@ require_once('db.php');
 // because shell access to the container is already a higher privilege than login.
 if (PHP_SAPI !== 'cli') {
   require_once('auth_user.php');
+  require_admin();
   require_once('csrf.php');
   // Schema changes must not run from a plain GET (a cross-site link or image tag
   // could trigger them): show a confirm button, run only on POST + CSRF token.
@@ -330,6 +331,37 @@ if (!migration_applied($con, 28)) {
   }
 } else {
   echo "Migration 28: already applied.\n";
+}
+
+// ── v29: role column on torque_users (2026-10-22) ────────────────────────────
+// 'admin' or 'viewer' (see auth_functions.php). Existing accounts default to
+// admin so nobody loses access; new accounts are created as viewer by default.
+if (!migration_applied($con, 29)) {
+  $ok = true;
+  mysqli_query($con, "CREATE TABLE IF NOT EXISTS torque_users (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role          VARCHAR(10)  NOT NULL DEFAULT 'admin',
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  $r = mysqli_query($con, "SHOW COLUMNS FROM torque_users LIKE 'role'");
+  if ($r && mysqli_num_rows($r) == 0) {
+    if (!mysqli_query($con, "ALTER TABLE torque_users
+        ADD COLUMN role VARCHAR(10) NOT NULL DEFAULT 'admin' AFTER password_hash")) {
+      echo "Migration 29: ERROR adding role — " . mysqli_error($con) . "\n";
+      $ok = false;
+    }
+  }
+  if ($ok) {
+    record_migration($con, 29, 'Add role to torque_users');
+    echo "Migration 29: torque_users.role — done.\n";
+  } else {
+    echo "Migration 29: failed — will retry on next run.\n";
+  }
+} else {
+  echo "Migration 29: already applied.\n";
 }
 
 mysqli_close($con);
