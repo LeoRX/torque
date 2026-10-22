@@ -19,7 +19,8 @@ if (!empty($sids)) {
 }
 // $display_timezone is set by get_settings.php (included above)
 
-// Capture the session ID if one has been chosen already
+// Capture the session ID if one has been chosen already ('' = none chosen yet)
+$session_id = '';
 if (isset($_GET["id"])) {
   $session_id = preg_replace('/\D/', '', $_GET['id']);
 }
@@ -48,7 +49,7 @@ $var1 = $plotVar[1] ?? "";
 //  the current session. Using successful existence of a session as a trigger,
 //  populate some other variables as well.
 if (isset($sids[0])) {
-  if (!isset($session_id)) {
+  if ($session_id === '') {
     $session_id = $sids[0];
   }
   //For the merge function, we need to find out, what would be the next session
@@ -237,7 +238,7 @@ if (isset($sids[0])) {
   }
 
   //Close the MySQL connection, which is why we can't query years later
-  mysqli_free_result($sessionqry);
+  if ($sessionqry) { mysqli_free_result($sessionqry); } // false when the month has no GPS columns
   mysqli_close($con);
 } else {
   //Default map in case there's no sessions to query.  Very unlikely this will get used.
@@ -337,7 +338,7 @@ if (isset($sids[0])) {
         <a class="navbar-brand flex-shrink-0 hud-brand" href="session.php">⬡&nbsp;TORQUE</a>
 
         <!-- Profile filter + calendar — always visible (most essential session control) -->
-        <form id="navfilterform" class="d-flex align-items-center gap-2 flex-shrink-0" method="post" role="form" action="url.php?id=<?php echo $session_id; ?>">
+        <form id="navfilterform" class="d-flex align-items-center gap-2 flex-shrink-0" method="post" role="form" action="url.php?id=<?php echo urlencode((string)$session_id); ?>">
           <select id="selprofile" name="selprofile" class="form-select form-select-sm navbar-filter" style="max-width:130px;" data-submit-form="navfilterform">
             <option value="ALL"<?php if ($filterprofile == '%' || $filterprofile == 'ALL' || empty($filterprofile)) echo ' selected'; ?>>All Profiles</option>
 <?php $i = 0; while(isset($profilearray[$i])) { ?>

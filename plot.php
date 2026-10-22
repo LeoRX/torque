@@ -53,12 +53,12 @@ $plotPcnt25   = [];
 $plotPcnt75   = [];
 
 // Grab the session number
-if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
+if (isset($_GET["id"]) && in_array($_GET["id"], $sids ?? [])) {
     $session_id = $_GET['id'];
     // Get the torque key->val mappings
     $keyquery = mysqli_query($con, "SELECT id,description,units FROM " . quote_name($db_name) . "." . quote_name($db_keys_table));
     $keyarr = [];
-    while ($row = mysqli_fetch_assoc($keyquery)) {
+    while ($keyquery && ($row = mysqli_fetch_assoc($keyquery))) {
         $keyarr[$row['id']] = [$row['description'], $row['units']];
     }
     // Build the SELECT column list from requested variables
@@ -84,7 +84,8 @@ if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
     $sessionqry = mysqli_query($con,
         "SELECT $selectstring FROM " . quote_name($db_table_full) .
         " WHERE session=" . quote_value($session_id) . " ORDER BY time DESC");
-    while ($row = mysqli_fetch_assoc($sessionqry)) {
+    // The query fails if a requested PID has no column in this month's table
+    while ($sessionqry && ($row = mysqli_fetch_assoc($sessionqry))) {
         $i = 1;
         while (isset($plotVar[$i])) {
             $kcode = $plotVar[$i];
@@ -109,13 +110,22 @@ if (isset($_GET["id"]) && in_array($_GET["id"], $sids)) {
     $i = 1;
     while (isset($plotVar[$i])) {
         $kcode           = $plotVar[$i];
+        // A variable can have no rows (query failed or no data this session):
+        // chart it as an empty series with blank stats instead of erroring.
+        $plotData[$i]      = $plotData[$i] ?? [];
+        $plotSpark[$i]     = $plotSpark[$i] ?? [];
+        $plotMeasurand[$i] = $plotMeasurand[$i] ?? ' (' . ($keyarr[$kcode][1] ?? '') . ')';
         $plotLabel[$i]     = json_encode($keyarr[$kcode][0] . $plotMeasurand[$i]);
         $plotSparkData[$i] = implode(",", array_reverse($plotSpark[$i]));
-        $plotMax[$i]       = round(max($plotSpark[$i]), 1);
-        $plotMin[$i]       = round(min($plotSpark[$i]), 1);
-        $plotAvg[$i]       = round(average($plotSpark[$i]), 1);
-        $plotPcnt25[$i]    = round(calc_percentile($plotSpark[$i], 25), 1);
-        $plotPcnt75[$i]    = round(calc_percentile($plotSpark[$i], 75), 1);
+        if ($plotSpark[$i]) {
+            $plotMax[$i]    = round(max($plotSpark[$i]), 1);
+            $plotMin[$i]    = round(min($plotSpark[$i]), 1);
+            $plotAvg[$i]    = round(average($plotSpark[$i]), 1);
+            $plotPcnt25[$i] = round(calc_percentile($plotSpark[$i], 25), 1);
+            $plotPcnt75[$i] = round(calc_percentile($plotSpark[$i], 75), 1);
+        } else {
+            $plotMax[$i] = $plotMin[$i] = $plotAvg[$i] = $plotPcnt25[$i] = $plotPcnt75[$i] = '';
+        }
         $i++;
     }
 }
