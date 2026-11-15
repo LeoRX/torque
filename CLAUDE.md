@@ -18,7 +18,7 @@ data export, and an AI assistant (TorqueAI powered by Claude).
 
 | Layer | Technology |
 |---|---|
-| Container | `php:8.4.27-apache` (pinned; ≥8.4.27 required for CVE-2026-109618/109619) — Apache + mod_php, single process, no FPM/supervisord |
+| Container | `php:8.4.27-apache` (pinned; ≥8.4.27 required for CVE-2026-109618/109619; apache2 upgraded at build to ≥2.4.71-1~deb13u1 for CVE-2026-119618, enforced by a build guard) — Apache + mod_php, single process, no FPM/supervisord |
 | Reverse proxy | Traefik v2 — TLS via Let's Encrypt |
 | Backend | PHP 8.4 |
 | Database | MariaDB 11.4 (external, configured via env vars) |
