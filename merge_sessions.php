@@ -147,7 +147,7 @@ if (isset($mergesession) && !empty($mergesession) && isset($mergesess1) && !empt
                 </thead>
                 <tbody>
 <?php
-    $sessqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE sessionsize >= " . quote_value((int)$min_session_size) . " ORDER BY session DESC");
+    $sessqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE sessionsize >= " . quote_value((int)$min_session_size) . (!empty($mergesession) ? " OR session = " . quote_value($mergesession) : "") . " ORDER BY session DESC");
     $i = 0;
     while ($sessqry && $x = mysqli_fetch_array($sessqry)) {
 ?>

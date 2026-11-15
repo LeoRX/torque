@@ -11,6 +11,10 @@ require_once("./del_session.php");
 require_once('./csrf.php');
 //require_once("./merge_sessions.php");
 require_once("./get_sessions.php");
+// Resolve the session to show once, before get_columns.php and plot.php use it:
+// the requested ?id= if it exists (get_sessions.php always lists it), else the
+// newest listed session, else '' (no sessions at all).
+$session_id = in_array($requested_sid, $sids, true) ? $requested_sid : ($sids[0] ?? '');
 require_once("./get_columns.php");
 require_once("./plot.php");
 
@@ -19,12 +23,6 @@ if (!empty($sids)) {
 }
 // $display_timezone is set by get_settings.php (included above)
 
-// Capture the session ID if one has been chosen already ('' = none chosen yet)
-$session_id = '';
-if (isset($_GET["id"])) {
-  $session_id = preg_replace('/\D/', '', $_GET['id']);
-}
-
 // Call exit function
 if (isset($_GET['logout'])) {
     logout_user();
@@ -32,26 +30,13 @@ if (isset($_GET['logout'])) {
 
 // $filteryearmonth is already set (and sanitised) by get_sessions.php above.
 
-// Define some variables to be used in variable management later, specifically when choosing default vars to plot
-$plotVar = [];
-$i = 1;
-while ( isset($_POST["s$i"]) || isset($_GET["s$i"]) ) {
-  if (isset($_POST["s$i"])) {
-    $plotVar[$i] = $_POST["s$i"];
-  } elseif (isset($_GET["s$i"])) {
-    $plotVar[$i] = $_GET["s$i"];
-  }
-  $i = $i + 1;
-}
+// $plotVar comes from plot.php (whitelisted, indexed in step with $plotData/$plotLabel/...).
 $var1 = $plotVar[1] ?? "";
 
 // From the output of the get_sessions.php file, populate the page with info from
 //  the current session. Using successful existence of a session as a trigger,
 //  populate some other variables as well.
 if (isset($sids[0])) {
-  if ($session_id === '') {
-    $session_id = $sids[0];
-  }
   //For the merge function, we need to find out, what would be the next session
   $idx = array_search( $session_id, $sids);
   $session_id_next = "";
@@ -96,6 +81,8 @@ if (isset($sids[0])) {
   if (!$sessionqry) {
     $sessionqry = mysqli_query($con, $_gps_sql_raw);
   }
+  // false = this month's table has no GPS columns, so a repair could never show up
+  $gpsQueryOk = (bool)$sessionqry;
   $mapdata  = array();
   $maxSpeed = 0;
   while ($sessionqry && $geo = mysqli_fetch_assoc($sessionqry)) {
@@ -176,6 +163,7 @@ if (isset($sids[0])) {
   }
 
   $gpsRepairOffer = $ha_enabled
+      && $gpsQueryOk
       && ($_sessionAgeDays <= $_lookbackDays)
       && ($gpsHasIssue || $gpsQuality === 'recorded_no_fix' || $gpsQuality === 'none');
 
@@ -635,11 +623,15 @@ if (isset($sids[0])) {
 <?php     $i=1; while ( isset($plotVar[$i]) ) { ?>
               <tr>
                 <td><strong><?php echo htmlspecialchars(substr($plotLabel[$i], 1, -1)); ?></strong></td>
+<?php       if ($plotNote[$i] !== '') { ?>
+                <td colspan="5" class="text-muted fst-italic"><?php echo htmlspecialchars($plotNote[$i]); ?></td>
+<?php       } else { ?>
                 <td><?php echo htmlspecialchars($plotMin[$i].'/'.$plotMax[$i]); ?></td>
                 <td><?php echo htmlspecialchars($plotPcnt25[$i]); ?></td>
                 <td><?php echo htmlspecialchars($plotPcnt75[$i]); ?></td>
                 <td><?php echo htmlspecialchars($plotAvg[$i]); ?></td>
                 <td><span class="line"><?php echo htmlspecialchars($plotSparkData[$i]); ?></span></td>
+<?php       } ?>
               </tr>
 <?php       $i = $i + 1; } ?>
             </tbody>

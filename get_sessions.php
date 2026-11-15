@@ -50,22 +50,26 @@ if (count($ymValues) > 1) {
 }
 
 $sqlqryprofile = "profileName LIKE " . quote_value($filterprofile) . " " ;
-$orselector = "WHERE ";
-$andselector = "";
-if ( ($filteryearmonth !== "" && $filteryearmonth !== "%") || $filterprofile <> "%") {
-	$orselector = " OR ";
-	$sessionqrystring = $sessionqrystring . "WHERE ( ";
-	if ( $filteryearmonth !== "" && $filteryearmonth !== "%" && $sqlqryyearmonth !== "" ) {
-		$sessionqrystring = $sessionqrystring . $sqlqryyearmonth;
-		$andselector = " AND ";
-	}
-	if ( $filterprofile <> "%" ) {
-		$sessionqrystring = $sessionqrystring . $andselector . $sqlqryprofile;
-	}
-	$sessionqrystring = $sessionqrystring . " ) ";
+
+// The session the user explicitly opened (?id=), normalised once for every
+// consumer (session.php, get_columns.php, plot.php): digits only, '' when absent.
+$requested_sid = (isset($_GET['id']) && is_string($_GET['id'])) ? ltrim(preg_replace('/\D/', '', $_GET['id']), '0') : '';
+
+// min_session_size is applied in SQL (not afterwards in PHP) so the "last 20"
+// fallback below still fires when every session in the filter is too small.
+$sqlqrysize = "sessionsize >= " . (int)$min_session_size;
+$filters = array();
+if ( $filteryearmonth !== "" && $filteryearmonth !== "%" && $sqlqryyearmonth !== "" ) {
+	$filters[] = $sqlqryyearmonth;
 }
-if ( isset($_GET['id']) && preg_match('/^\d+$/', $_GET['id'])) {
-	$sessionqrystring = $sessionqrystring . $orselector . "( session = " . (int)$_GET['id'] . " )";
+if ( $filterprofile <> "%" ) {
+	$filters[] = $sqlqryprofile;
+}
+$filters[] = $sqlqrysize;
+$sessionqrystring .= "WHERE ( " . implode(" AND ", $filters) . " )";
+// A session opened explicitly is always listed, whatever its size or the filters.
+if ( $requested_sid !== '' ) {
+	$sessionqrystring .= " OR ( session = " . quote_value($requested_sid) . " )";
 }
 $sessionqrystring = $sessionqrystring . " GROUP BY session, profileName, timestart, timeend, sessionsize ORDER BY session DESC";
 // Get list of unique session IDs
@@ -73,7 +77,10 @@ $sessionqry = mysqli_query($con, $sessionqrystring);
 
 // If you get no results (or query failed), just pull the last 20
 if (!$sessionqry || mysqli_num_rows( $sessionqry ) == 0 ) {
-	$sessionqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " GROUP BY session, profileName, timestart, timeend, sessionsize ORDER BY session DESC LIMIT 20");
+	$sessionqry = mysqli_query($con, "SELECT timestart, timeend, session, profileName, sessionsize FROM " . quote_name($db_sessions_table) . " WHERE " . $sqlqrysize . " GROUP BY session, profileName, timestart, timeend, sessionsize ORDER BY session DESC LIMIT 20");
+	if (!$sessionqry) {
+		error_log('get_sessions: session list query failed: ' . mysqli_error($con));
+	}
 }
 
 // Create an array mapping session IDs to date strings
@@ -82,24 +89,14 @@ $sids = array();
 $seshdates = array();
 $seshsizes = array();
 $seshprofile = array();
-// A session the user explicitly opened (?id=) is always listed, even if it is
-// smaller than $min_session_size — otherwise plot.php refuses to chart it.
-$requested_sid = (isset($_GET['id']) && preg_match('/^\d+$/', $_GET['id'])) ? $_GET['id'] : '';
-
 while ($sessionqry && ($row = mysqli_fetch_assoc($sessionqry))) {
     $session_duration_str = gmdate("H:i:s", (int)(((int)$row["timeend"] - (int)$row["timestart"])/1000));
     $session_profileName = $row["profileName"];
-    $session_size = $row["sessionsize"];
-
-    // Do not show sessions smaller than $min_session_size
-    if ($session_size >= $min_session_size || (string)$row["session"] === $requested_sid) {
-        $sid = $row["session"];
-        $sids[] = preg_replace('/\D/', '', $sid);
-        $seshdates[$sid] = tz_date("F d, Y  g:ia", (int)substr($sid, 0, -3), $display_timezone ?? 'UTC');
-        $seshsizes[$sid] = " (Length $session_duration_str)";
-        $seshprofile[$sid] = " ($session_profileName Profile)"; 
-    }
-    else {}
+    $sid = $row["session"];
+    $sids[] = preg_replace('/\D/', '', $sid);
+    $seshdates[$sid] = tz_date("F d, Y  g:ia", (int)substr($sid, 0, -3), $display_timezone ?? 'UTC');
+    $seshsizes[$sid] = " (Length $session_duration_str)";
+    $seshprofile[$sid] = " ($session_profileName Profile)";
 }
 
 if ($sessionqry) { mysqli_free_result($sessionqry); }
