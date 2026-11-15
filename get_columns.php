@@ -10,6 +10,9 @@
 // upload), so a failed query must yield an empty list, not a fatal error.
 $coldata = array();
 $colqry = mysqli_query($con, "SELECT id,description,type,favorite FROM " . quote_name($db_keys_table) . " WHERE populated = 1 ORDER BY description");
+if (!$colqry) {
+  error_log('get_columns: keys query failed: ' . mysqli_error($con));
+}
 while ($colqry && ($x = mysqli_fetch_array($colqry))) {
   if ((substr($x[0], 0, 1) == "k") && in_array($x[2], ['float', 'double'])) {
     $coldata[] = array("colname"=>$x[0], "colcomment"=>$x[1], "colfavorite"=>$x[3]);
@@ -19,14 +22,7 @@ while ($colqry && ($x = mysqli_fetch_array($colqry))) {
 $numcols = strval(count($coldata)+1);
 if ($colqry) { mysqli_free_result($colqry); }
 
-//TODO: Do this once in a dedicated file
-if (isset($_POST["id"])) {
-  $session_id = preg_replace('/\D/', '', $_POST['id']);
-}
-elseif (isset($_GET["id"])) {
-  $session_id = preg_replace('/\D/', '', $_GET['id']);
-}
-
+// $session_id is resolved by the including page (session.php) before this file runs.
 $coldataempty = array();
 
 // Check which columns have non-zero data for the selected session
@@ -39,23 +35,17 @@ if (!empty($coldata) && isset($session_id) && !empty($session_id)) {
   foreach ($coldata as $cd) {
     $max_selects[] = "MAX(" . quote_name($cd['colname']) . ") AS " . quote_name($cd['colname']);
   }
-  // Use try/catch: PHP 8.1+ throws mysqli_sql_exception if a column doesn't exist in older tables
-  try {
-    $maxqry = mysqli_query($con, "SELECT " . implode(", ", $max_selects) .
-      " FROM " . quote_name($db_table_check) . " WHERE session = " . quote_value(strval($session_id)));
-    if ($maxqry) {
-      $maxrow = mysqli_fetch_assoc($maxqry);
-      mysqli_free_result($maxqry);
-      for ($ci = 0; $ci < count($coldata); $ci++) {
-        $mv = $maxrow[$coldata[$ci]['colname']] ?? null;
-        $coldata[$ci]['has_data'] = (!is_null($mv) && floatval($mv) != 0.0) ? 1 : 0;
-      }
-    } else {
-      for ($ci = 0; $ci < count($coldata); $ci++) {
-        $coldata[$ci]['has_data'] = -1;
-      }
+  // db.php sets MYSQLI_REPORT_OFF, so a missing table/column returns false (no exception)
+  $maxqry = mysqli_query($con, "SELECT " . implode(", ", $max_selects) .
+    " FROM " . quote_name($db_table_check) . " WHERE session = " . quote_value(strval($session_id)));
+  if ($maxqry) {
+    $maxrow = mysqli_fetch_assoc($maxqry);
+    mysqli_free_result($maxqry);
+    for ($ci = 0; $ci < count($coldata); $ci++) {
+      $mv = $maxrow[$coldata[$ci]['colname']] ?? null;
+      $coldata[$ci]['has_data'] = (!is_null($mv) && floatval($mv) != 0.0) ? 1 : 0;
     }
-  } catch (Exception $e) {
+  } else {
     // Table doesn't exist or a column is missing — mark all as unknown
     for ($ci = 0; $ci < count($coldata); $ci++) {
       $coldata[$ci]['has_data'] = -1;

@@ -18,7 +18,7 @@ data export, and an AI assistant (TorqueAI powered by Claude).
 
 | Layer | Technology |
 |---|---|
-| Container | `php:8.4.27-apache` (pinned; ≥8.4.27 required for CVE-2026-109618/109619) — Apache + mod_php, single process, no FPM/supervisord |
+| Container | `php:8.4.27-apache` (pinned; ≥8.4.27 required for CVE-2026-109618/109619; apache2 upgraded at build to ≥2.4.71-1~deb13u1 for CVE-2026-119618, enforced by a build guard) — Apache + mod_php, single process, no FPM/supervisord |
 | Reverse proxy | Traefik v2 — TLS via Let's Encrypt |
 | Backend | PHP 8.4 |
 | Database | MariaDB 11.4 (external, configured via env vars) |
@@ -139,7 +139,7 @@ All settings are stored in `torque_settings` and loaded by `get_settings.php`.
 | Setting Key | PHP Variable | Default | Notes |
 |---|---|---|---|
 | `display_timezone` | `$display_timezone` | `Australia/Melbourne` | IANA timezone; validated via `DateTimeZone::listIdentifiers()` |
-| `min_session_size` | `$min_session_size` | `20` | Hide sessions with fewer data points |
+| `min_session_size` | `$min_session_size` | `20` | Hide sessions with fewer data points (applied in SQL in `get_sessions.php`; a session opened via `?id=` is always listed) |
 | `mapbox_token` | `$mapbox_token` | `''` | Required for map features |
 | `claude_enabled` | `$claude_enabled` | `0` | Enable AI assistant |
 | `claude_api_key` | `$claude_api_key` | `''` | Anthropic API key (stored in DB, not files) |
@@ -398,7 +398,7 @@ If the rebase has conflicts, resolve them before proceeding. Never start editing
 - **HUD avg query placement**: the `AVG()` SQL query for `_hudSessionAvg` must run **before** `mysqli_close($con)` (currently line ~142 in `session.php`). Don't move it below the connection close.
 - **`--navbar-height` single source**: defined only in `hud.css` as `46px`. Do NOT re-add it to `torque.css` — that caused a conflict where 58px overrode the correct 46px. `torquehelpers.js` reads it via `getComputedStyle` into `_navbarH`.
 - **Navbar is `navbar-expand-md`**: collapses below 768px. Action buttons live inside `#navbarCollapse` / `#navbar-action-btns`. If you add a new navbar button it must go inside that div or it won't appear on desktop.
-- **`plot.php` named arrays**: chart variable data is stored in 11 named indexed arrays — `$plotVar`, `$plotData`, `$plotMeasurand`, `$plotSpark`, `$plotLabel`, `$plotSparkData`, `$plotMax`, `$plotMin`, `$plotAvg`, `$plotPcnt25`, `$plotPcnt75` — all keyed from `$i = 1`. Do NOT reintroduce PHP variable variables (`${'v'.$i}` etc.). `session.php` re-initialises `$plotVar[]` after `include plot.php` (safe — same GET/POST source); `$plotData`, `$plotLabel`, etc. are untouched. `$var1 = $plotVar[1] ?? ""` is a kept alias for the many `if ($var1 != "")` guards throughout `session.php` — do not remove it.
+- **`plot.php` named arrays**: chart variable data is stored in named indexed arrays — `$plotVar`, `$plotData`, `$plotMeasurand`, `$plotSpark`, `$plotLabel`, `$plotSparkData`, `$plotMax`, `$plotMin`, `$plotAvg`, `$plotPcnt25`, `$plotPcnt75`, `$plotNote` (why a series is empty; shown in Data Summary), `$plotConv` (per-PID unit conversion) — all keyed from `$i = 1`. Do NOT reintroduce PHP variable variables (`${'v'.$i}` etc.). `session.php` uses plot.php's whitelisted `$plotVar` as-is — never rebuild it from raw `$_GET`/`$_POST` (indexes would drift from `$plotData` and emit `data:null` series that crash session.js). plot.php only selects PIDs that exist in the month's table (`SHOW COLUMNS`), so one missing column can't blank the other series. The session id is resolved once in `session.php` (from `$requested_sid`, set by `get_sessions.php`) before `get_columns.php`/`plot.php` run. `$var1 = $plotVar[1] ?? ""` is a kept alias for the many `if ($var1 != "")` guards throughout `session.php` — do not remove it.
 - **Chart height and HUD mobile bottom are coupled**: `hud.css` has `body.chart-open #hud-widget { bottom: calc(min(240px, 38vh) + 8px) }` — this must match the chart height in the `@media (max-width: 767px)` block in `torque.css`. Keep them in sync if you change chart height.
 - **`upload_batch.php` column pre-scan**: All k-code columns are verified/added to every monthly table BEFORE batch inserts begin. The ADD COLUMN loop runs once per unique k-code, not per row.
 - **Device Time parsing**: `strtotime()` on Torque's `13-Mar.-2018 17:14:41.361` format — verify it returns `!== false && > 0` before using; fall back to `(int)$session_id` otherwise.

@@ -4,9 +4,18 @@ FROM php:8.4.27-apache
 
 # ── System dependencies for PHP extensions ────────────────────────────────────
 # libonig-dev is required by mbstring
+# apache2* are upgraded from Debian security: the base image ships 2.4.69-1~deb13u1,
+# vulnerable to CVE-2026-119618 (mod_http2 RCE), fixed in 2.4.71-1~deb13u1.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libonig-dev \
+    && apt-get install -y --no-install-recommends --only-upgrade \
+        apache2 apache2-bin apache2-data apache2-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Refuse to build on an Apache release vulnerable to CVE-2026-119618
+RUN v="$(dpkg-query -W -f='${Version}' apache2-bin)" \
+ && dpkg --compare-versions "$v" ge 2.4.71-1~deb13u1 \
+ || (echo "ERROR: apache2-bin $v is vulnerable to CVE-2026-119618; need >= 2.4.71-1~deb13u1" >&2; exit 1)
 
 # ── PHP extensions ─────────────────────────────────────────────────────────────
 RUN docker-php-ext-install mysqli mbstring
